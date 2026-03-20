@@ -1,9 +1,31 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+// NOTE: Next.js only loads middleware from `middleware.ts` in the project root.
+// This file is kept as the source of truth — `middleware.ts` mirrors it.
+// Edit here and copy changes to middleware.ts.
 
-const isProtectedRoute = createRouteMatcher(["/server"]);
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
+// Routes anyone can access without being logged in
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/uploadthing(.*)",
+  "/api/webhooks(.*)",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) await auth.protect();
+  const { userId } = await auth();
+
+  // Logged-in user hitting the homepage → send to dashboard
+  if (userId && req.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
+  // Any non-public route → require auth (auto-redirects to /sign-in)
+  if (!isPublicRoute(req)) {
+    await auth.protect();
+  }
 });
 
 export const config = {

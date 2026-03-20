@@ -1,13 +1,13 @@
-**Full Architecture + Complete Guideline for Your AI Content Repurposer (Next.js 15 + Convex + Polar)**
+**Full Architecture + Complete Guideline for Your AI Content Repurposer (ShortPurify – Next.js 15 + Convex + Polar + Upload-Post)**
 
-This is production-ready 2026 architecture built specifically for Bangladesh devs (Polar handles payouts globally, no Stripe issues). You can ship MVP in 10–14 days solo.
+This is the **final production-ready 2026 architecture** built specifically for Bangladesh devs (Polar for payments + Upload-Post for cheap auto-publishing). You can ship the full MVP (manual + basic auto-publish) in **10–14 days** solo.
 
 ### 1. Tech Stack & Required Packages (All 2026 Best-in-Class)
 
 **Core**
 
 - **Next.js 15** (App Router + React Server Components) – frontend dashboard
-- **Convex** – backend (real-time DB, auth, file storage, serverless functions)
+- **Convex** – backend (real-time DB, auth, serverless functions)
 - **TypeScript** + **Tailwind CSS** + **shadcn/ui** + **TanStack Query** – UI + data fetching
 
 **Auth & Billing (Bangladesh-friendly)**
@@ -17,171 +17,203 @@ This is production-ready 2026 architecture built specifically for Bangladesh dev
 
 **File Handling & Media**
 
-- **UploadThing** – drag-drop video/audio/YouTube URL uploads (with Convex helper)
-- **Cloudinary** – video storage, auto-transforms, future clipping (official community component)
+- **UploadThing** – drag-drop video/audio/YouTube URL uploads
+- **Cloudinary** – smart video transforms & face-focused cropping (g_auto:face)
 
 **AI & Processing**
 
-- **Anthropic (Claude 3.5 Sonnet / latest)** – all content generation + viral scoring
-- **Deepgram** (or AssemblyAI) – transcription + speaker detection + viral moment timestamps
-- **Vercel AI SDK** – streaming responses in UI
+- **Anthropic (Claude 3.5 Sonnet / latest)** – content generation + viral scoring
+- **Deepgram** – transcription + speaker detection + timestamps
+- **Vercel AI SDK** – streaming responses
 
 **Background Jobs & Durability**
 
-- **Convex Workflow component** – durable long-running AI pipeline (retries, delays, survives restarts)
-- **Inngest** (optional but recommended) – extra orchestration if needed
+- **Convex Workflow component** – durable long-running pipeline
+- **Inngest** (optional)
+
+**Auto-Publish (New – Cheap & SaaS-friendly)**
+
+- **Upload-Post** – unified API for posting/scheduling to TikTok, IG Reels, YouTube Shorts, Snapchat Spotlight, LinkedIn, X, etc. (Free tier: 10 uploads/mo, Basic ~$16/mo annual unlimited)
 
 **Other**
 
-- **Resend** – transactional emails (welcome, invoice, usage alerts)
+- **Resend** – emails
 - **Zod** + **React Hook Form** – validation
 - **Lucide React** – icons
 
 **Deployment**
 
-- Vercel (frontend + edge functions)
-- Convex (hosted backend – free tier until you hit 100+ users)
+- Vercel (frontend)
+- Convex (backend)
 
-**Exact npm install command** (run once):
+**Exact npm install command**:
 
 ```bash
+npx create-next-app@latest shortpurify --typescript --tailwind --eslint --app --yes
+cd shortpurify
+npx convex init
 npm install @convex-dev/polar @convex-dev/workflow @imaxis/cloudinary-convex uploadthing @uploadthing/react clerk @clerk/nextjs @anthropic-ai/sdk deepgram-sdk resend inngest zod lucide-react @tanstack/react-query
 npm install -D @types/node
 ```
 
-### 2. Useful Convex Components (from https://www.convex.dev/components – Install These!)
+### 2. Useful Convex Components (https://www.convex.dev/components)
 
-Convex components are the #1 reason this stack is lightning-fast in 2026. They add entire features without writing boilerplate.
-
-**Must-use for your project**:
-
-- **`@convex-dev/polar`** → Official Polar billing. Handles webhooks, subscription state in your DB, customer portal, usage limits. Perfect replacement for Stripe.
-  - Install: `npm install @convex-dev/polar`
-  - Setup: `npx convex components add polar`
-- **`@convex-dev/workflow`** → Durable AI processing pipeline (your core magic). Retries failed Claude calls, handles 10-minute+ jobs, persists state.
-  - Install: `npm install @convex-dev/workflow`
-- **`@imaxis/cloudinary-convex`** → Cloudinary integration (upload, transform, serve videos).
-  - Install: `npm install @imaxis/cloudinary-convex`
-- **Rate Limiter** (built-in or @convex-dev/rate-limiter) – prevent API abuse on free tier.
-- **Resend** component – for emails.
-- **Crons** & **Workpool** (official) – for scheduled reports or batch processing later.
-
-These components auto-add their own tables/functions – zero schema conflicts.
+- `@convex-dev/polar` → Billing (install with `npx convex components add polar`)
+- `@convex-dev/workflow` → Durable AI pipeline
+- `@imaxis/cloudinary-convex` → Video transforms
+- Rate Limiter + Crons (optional)
 
 ### 3. Project Structure (Clean & Scalable)
 
 ```
-my-repurposer/
-├── app/                          # Next.js App Router
-│   ├── (auth)/                   # Clerk protected routes
+shortpurify/
+├── app/
+│   ├── (auth)/
 │   ├── dashboard/
-│   │   ├── page.tsx              # Main projects list
-│   │   ├── upload/page.tsx       # Upload form
-│   │   └── [projectId]/page.tsx  # Preview dashboard
-│   ├── api/                      # UploadThing webhooks
+│   │   ├── page.tsx
+│   │   ├── upload/page.tsx
+│   │   └── [projectId]/page.tsx
+│   ├── api/ (UploadThing webhooks)
 │   └── layout.tsx
 ├── components/
-│   ├── ui/                       # shadcn components
+│   ├── ui/
 │   ├── upload-dropzone.tsx
 │   ├── project-card.tsx
 │   └── output-preview.tsx
-├── convex/                       # ← All backend lives here
-│   ├── schema.ts                 # Your tables
-│   ├── projects.ts               # queries + mutations
+├── convex/
+│   ├── schema.ts
+│   ├── projects.ts
 │   ├── outputs.ts
-│   ├── workflow.ts               # AI pipeline using @convex-dev/workflow
-│   ├── polar/                    # Auto-generated by Polar component
-│   ├── cloudinary.ts             # Media helpers
-│   ├── http.ts                   # UploadThing + Deepgram actions
-│   └── auth.ts                   # Clerk + Convex sync
+│   ├── workflow.ts          # AI + clipping pipeline
+│   ├── uploadpost.ts        # ← New: Upload-Post publish logic
+│   ├── polar/
+│   ├── cloudinary.ts
+│   ├── http.ts
+│   └── auth.ts
 ├── lib/
 │   ├── utils.ts
-│   ├── polar.ts                  # Polar config
-│   └── ai-prompts.ts             # Your secret Claude prompts
+│   ├── polar.ts
+│   └── ai-prompts.ts
 ├── hooks/
-│   └── use-projects.ts           # TanStack queries
+│   └── use-projects.ts
 ├── public/
-└── convex.json                   # Convex config
+└── convex.json
 ```
 
 ### 4. Core Features + Full Roadmap (2026 Money-Making Plan)
 
-**Phase 1 – MVP (Week 1–2, launch-ready, $9/mo tier)**
+**Phase 1 – MVP (Week 1–2, launch-ready)**
 
-- Clerk auth + Polar subscription gating
-- Upload: YouTube URL or audio/video (UploadThing)
-- Real-time status dashboard
-- Durable Workflow: transcription → Claude multi-output (TikTok, Reels, LinkedIn carousel, X thread, IG, email, blog)
-- Editable previews + one-click copy + ZIP export
+- Clerk + Polar gating
+- Upload (YouTube/audio/video via UploadThing)
+- Real-time dashboard
+- Workflow: AssemblyAI → Claude → Smart clips (Cloudinary face tracking)
+- Editable previews + ZIP export + copy
 - Free tier (3 projects/month)
 
 **Phase 2 – Viral Features (Week 3–4, $1k MRR target)**
 
-- Full video upload + Cloudinary storage
+- Full Cloudinary smart cropping
 - Viral scoring + auto-timestamp clips
-- Auto-scheduling (Ayrshare API later)
-- Basic analytics (paste post link → track views)
+- **Basic auto-scheduling via Upload-Post** (free tier for testing)
+- Basic analytics
 
 **Phase 3 – Team & Scale (Month 2)**
 
 - Team workspaces
-- Usage-based billing (extra credits via Polar)
+- Full auto-publish (one-click to multiple platforms)
+- Usage-based billing via Polar
 - Performance dashboard
-- Mobile PWA (add later)
 
 **Phase 4 – Pro (Month 3+)**
 
-- Auto-posting to all platforms
-- Custom AI models
+- Bulk publish + advanced scheduling
 - Agency plans ($49/mo)
 
 ### 5. Architecture Flow (How It All Works)
 
-1. User uploads → UploadThing → Convex mutation saves metadata
-2. Mutation triggers `@convex-dev/workflow` step-by-step:
-   - Step 1: Deepgram transcription (action)
-   - Step 2: Claude structured output (parallel calls)
-   - Step 3: Save to `outputs` table + Cloudinary if video
-3. Real-time query updates dashboard instantly
-4. Polar component checks subscription before allowing processing
+1. User uploads → **UploadThing** → Convex saves `originalUrl`
+2. Workflow triggers (durable):
+   - Step 1: Deepgram transcription + speaker detection
+   - Step 2: Claude generates captions/scripts/threads + viral scores
+   - Step 3: Cloudinary smart clip generation (face-focused 9:16)
+3. Outputs saved with `clipUrl` (Cloudinary transformed URL)
+4. **Publish Flow** (Phase 2+):
+   - User connects accounts via Upload-Post OAuth
+   - "Publish" button → Convex calls Upload-Post API (video URL + caption + platforms)
+   - Status updated in real-time
+5. Polar checks subscription before processing/publishing
 
-Everything is **durable** — if Claude API flakes, workflow retries automatically.
+**Video Processing (No Re-Upload Needed)**
 
-### 6. Convex Schema (Copy-Paste Ready)
+- Upload once to UploadThing
+- Cloudinary uses the public URL in **fetch mode** + `g_auto:face` to prevent face cutoffs
+- Lazy transformations (only pay when preview/download happens)
 
-In `convex/schema.ts`:
+### 6. Convex Schema (Copy-Paste Ready – Updated)
 
 ```ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
-  users: defineTable({ ... }), // Clerk sync
+  users: defineTable({
+    /* Clerk sync */
+  }),
+
   projects: defineTable({
     userId: v.id("users"),
     title: v.string(),
-    inputUrl: v.string(),
-    status: v.union(v.literal("uploading"), v.literal("processing"), v.literal("complete"), v.literal("failed")),
-    workflowId: v.optional(v.string()), // from @convex-dev/workflow
+    originalUrl: v.string(), // UploadThing URL
+    originalSize: v.optional(v.number()),
+    status: v.union(
+      v.literal("uploading"),
+      v.literal("processing"),
+      v.literal("complete"),
+      v.literal("failed"),
+    ),
+    workflowId: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
+
   outputs: defineTable({
     projectId: v.id("projects"),
     platform: v.string(),
     content: v.string(),
     viralScore: v.optional(v.number()),
+    clipUrl: v.string(), // Cloudinary transformed URL
+    thumbnailUrl: v.optional(v.string()),
+    publishedUrls: v.optional(v.record(v.string(), v.string())), // e.g. { tiktok: "...", instagram: "..." }
+    publishedAt: v.optional(v.number()),
+    publishStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("success"), v.literal("failed")),
+    ),
   }).index("by_project", ["projectId"]),
-  // Polar component auto-adds: subscriptions, usage, etc.
+
+  socialConnections: defineTable({
+    userId: v.id("users"),
+    provider: v.string(), // "uploadpost"
+    accessToken: v.string(),
+    profiles: v.array(
+      v.object({ platform: v.string(), profileId: v.string() }),
+    ),
+  }).index("by_user", ["userId"]),
+
+  // Polar auto-adds subscription tables
 });
 ```
 
 ### 7. Quick Start Steps (Do This Today)
 
-1. Run the create command above
-2. Add Clerk + Polar (follow Polar component docs — 5 mins)
-3. Install the 3 key components (`polar`, `workflow`, `cloudinary-convex`)
-4. Copy my schema + workflow.ts example (I can send full code files next if you want)
-5. Build upload page + dashboard
-6. Launch landing page on Vercel → post on TikTok/Reddit/X
+1. Run the create command + `npx convex init`
+2. Add Clerk + Polar (`npx convex components add polar`)
+3. Install the 3 key components (`workflow`, `cloudinary-convex`)
+4. Add Upload-Post:
+   - Sign up at app.upload-post.com (free tier)
+   - Get API key
+   - Create `convex/uploadpost.ts` (use the publish example I gave earlier)
+5. Build upload page (UploadThing dropzone → Convex mutation)
+6. Copy schema + workflow.ts (I can send exact files if needed)
+7. Launch on Vercel + post demos on TikTok/Reddit/X
 
-**Cost in 2026**: <$15/month until 500 users (Convex + Polar free tiers + cheap Claude/Deepgram).
+**Total Cost Until 500 Users**: <$15/month (Convex + Polar + Cloudinary + Upload-Post free tier). When you add auto-publish, Upload-Post Basic is only ~$16/mo annual.

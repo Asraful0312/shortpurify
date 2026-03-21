@@ -115,7 +115,7 @@ export const generateClipIdeas = internalAction({
         ]),
       ),
       startTime: Math.max(0, c.startTime),
-      endTime: Math.min(videoDuration, Math.max(c.startTime + 5, c.endTime)),
+      endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 5, c.endTime))),
     }));
   },
 });

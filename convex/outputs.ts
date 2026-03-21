@@ -14,7 +14,7 @@ export const listProjectOutputs = query({
   },
 });
 
-/** Save a single generated clip. Called by cloudinaryActions inside the workflow. */
+/** Save a single generated clip. Called by videoProcessingActions inside the workflow. */
 export const saveOutput = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -25,6 +25,8 @@ export const saveOutput = internalMutation({
     viralScore: v.optional(v.number()),
     clipUrl: v.string(),
     thumbnailUrl: v.optional(v.string()),
+    clipKey: v.optional(v.string()),
+    thumbnailKey: v.optional(v.string()),
     startTime: v.optional(v.number()),
     endTime: v.optional(v.number()),
   },
@@ -38,6 +40,8 @@ export const saveOutput = internalMutation({
       viralScore: args.viralScore,
       clipUrl: args.clipUrl,
       thumbnailUrl: args.thumbnailUrl,
+      clipKey: args.clipKey,
+      thumbnailKey: args.thumbnailKey,
       startTime: args.startTime,
       endTime: args.endTime,
     });

@@ -149,7 +149,7 @@ export default function TeamPage() {
                 {/* Role */}
                 <div className="shrink-0">
                   {member.role === "owner" ? (
-                    <Badge variant={roleConfig.badge} className="flex items-center gap-1 text-[10px] font-extrabold">
+                    <Badge variant={roleConfig.badge as any} className="flex items-center gap-1 text-[10px] font-extrabold">
                       <RoleIcon size={10} /> {roleConfig.label}
                     </Badge>
                   ) : (

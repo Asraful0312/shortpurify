@@ -55,9 +55,12 @@ export default defineSchema({
     // Per-platform captions: { tiktok, instagram, youtube, x, threads, linkedin, snapchat, blog }
     captions: v.optional(v.record(v.string(), v.string())),
     viralScore: v.optional(v.number()),
-    // Cloudinary fetch-mode transformed URL (9:16, face-tracking)
+    // Processed clip URL — R2 signed URL regenerated on read, or legacy Cloudinary URL
     clipUrl: v.string(),
     thumbnailUrl: v.optional(v.string()),
+    // R2 object keys — stored so URLs can be refreshed when they expire
+    clipKey: v.optional(v.string()),
+    thumbnailKey: v.optional(v.string()),
     // Clip window inside the source video (seconds)
     startTime: v.optional(v.number()),
     endTime: v.optional(v.number()),

@@ -10,10 +10,15 @@
 
 import type * as ai from "../ai.js";
 import type * as cloudinaryActions from "../cloudinaryActions.js";
+import type * as exportActions from "../exportActions.js";
 import type * as outputs from "../outputs.js";
 import type * as projects from "../projects.js";
+import type * as r2 from "../r2.js";
+import type * as r2Actions from "../r2Actions.js";
+import type * as r2storage from "../r2storage.js";
 import type * as transcription from "../transcription.js";
 import type * as users from "../users.js";
+import type * as videoProcessingActions from "../videoProcessingActions.js";
 import type * as workflow from "../workflow.js";
 
 import type {
@@ -25,10 +30,15 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   cloudinaryActions: typeof cloudinaryActions;
+  exportActions: typeof exportActions;
   outputs: typeof outputs;
   projects: typeof projects;
+  r2: typeof r2;
+  r2Actions: typeof r2Actions;
+  r2storage: typeof r2storage;
   transcription: typeof transcription;
   users: typeof users;
+  videoProcessingActions: typeof videoProcessingActions;
   workflow: typeof workflow;
 }>;
 
@@ -1768,6 +1778,130 @@ export declare const components: {
           };
         },
         any
+      >;
+    };
+  };
+  r2: {
+    lib: {
+      deleteMetadata: FunctionReference<
+        "mutation",
+        "internal",
+        { bucket: string; key: string },
+        null
+      >;
+      deleteObject: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          endpoint: string;
+          key: string;
+          secretAccessKey: string;
+        },
+        null
+      >;
+      deleteR2Object: FunctionReference<
+        "action",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          endpoint: string;
+          key: string;
+          secretAccessKey: string;
+        },
+        null
+      >;
+      getMetadata: FunctionReference<
+        "query",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          endpoint: string;
+          key: string;
+          secretAccessKey: string;
+        },
+        {
+          bucket: string;
+          bucketLink: string;
+          contentType?: string;
+          key: string;
+          lastModified: string;
+          link: string;
+          sha256?: string;
+          size?: number;
+          url: string;
+        } | null
+      >;
+      listMetadata: FunctionReference<
+        "query",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          cursor?: string;
+          endpoint: string;
+          limit?: number;
+          secretAccessKey: string;
+        },
+        {
+          continueCursor: string;
+          isDone: boolean;
+          page: Array<{
+            bucket: string;
+            bucketLink: string;
+            contentType?: string;
+            key: string;
+            lastModified: string;
+            link: string;
+            sha256?: string;
+            size?: number;
+            url: string;
+          }>;
+          pageStatus?: null | "SplitRecommended" | "SplitRequired";
+          splitCursor?: null | string;
+        }
+      >;
+      store: FunctionReference<
+        "action",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          endpoint: string;
+          secretAccessKey: string;
+          url: string;
+        },
+        any
+      >;
+      syncMetadata: FunctionReference<
+        "action",
+        "internal",
+        {
+          accessKeyId: string;
+          bucket: string;
+          endpoint: string;
+          key: string;
+          onComplete?: string;
+          secretAccessKey: string;
+        },
+        null
+      >;
+      upsertMetadata: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          bucket: string;
+          contentType?: string;
+          key: string;
+          lastModified: string;
+          link: string;
+          sha256?: string;
+          size?: number;
+        },
+        { isNew: boolean }
       >;
     };
   };

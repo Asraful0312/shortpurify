@@ -38,9 +38,9 @@ const PIPELINE_STEPS = [
     description: "Claude extracts viral moments & captions",
   },
   {
-    key: "Building smart Cloudinary clips…",
+    key: "Processing clips (AI crop + FFmpeg)…",
     label: "Smart Clips",
-    description: "Cloudinary 9:16 face-tracking crop",
+    description: "AI face-tracking crop & FFmpeg encoding",
   },
 ];
 
@@ -273,7 +273,17 @@ export default function ProjectDetailsPage() {
           <TabsContent value="clips">
             {outputs && outputs.length > 0 ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {outputs.map((clip) => (
+                {outputs.map((clip) => {
+                  const clipStartMs = (clip.startTime ?? 0) * 1000;
+                  const clipEndMs = (clip.endTime ?? Infinity) * 1000;
+                  const subtitleWords = (project.transcriptWords ?? [])
+                    .filter((w) => w.start >= clipStartMs && w.end <= clipEndMs)
+                    .map((w) => ({
+                      text: w.text,
+                      startMs: w.start - clipStartMs,
+                      endMs: w.end - clipStartMs,
+                    }));
+                  return (
                   <OutputPreview
                     key={clip._id}
                     clip={{
@@ -286,9 +296,12 @@ export default function ProjectDetailsPage() {
                       platform: clip.platform,
                       startTime: clip.startTime,
                       endTime: clip.endTime,
+                      clipKey: clip.clipKey,
+                      subtitleWords: subtitleWords.length > 0 ? subtitleWords : undefined,
                     }}
                   />
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-muted-foreground text-sm">No clips generated yet.</p>

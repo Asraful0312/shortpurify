@@ -80,14 +80,14 @@ export const processVideo = workflowManager.define({
       enabledPlatforms,
     });
 
-    // ── Step 3: Build Cloudinary URLs & save clips ─────────────────────
+    // ── Step 3: Smart crop + encode via Python worker ─────────────────
     await step.runMutation(internal.projects.updateProjectStatus, {
       projectId,
       status: "processing",
-      processingStep: "Building smart Cloudinary clips…",
+      processingStep: "Processing clips (AI crop + FFmpeg)…",
     });
 
-    await step.runAction(internal.cloudinaryActions.saveClipsToDb, {
+    await step.runAction(internal.videoProcessingActions.saveClipsToDb, {
       projectId,
       videoUrl,
       clips,

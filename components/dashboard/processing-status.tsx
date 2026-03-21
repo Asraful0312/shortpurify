@@ -30,23 +30,18 @@ interface ProcessingStatusProps {
 
 const DEFAULT_STEPS: Step[] = [
   {
-    label: "Upload",
-    description: "Video uploaded to UploadThing",
-    status: "complete",
-  },
-  {
     label: "Transcription",
-    description: "Deepgram speech-to-text with timestamps",
+    description: "AssemblyAI speech-to-text with timestamps",
     status: "in_progress",
   },
   {
     label: "AI Analysis",
-    description: "Claude extracts viral hooks & captions",
+    description: "Claude extracts viral moments & captions",
     status: "pending",
   },
   {
     label: "Smart Clips",
-    description: "Cloudinary face-tracked 9:16 clips",
+    description: "AI face-tracking crop & FFmpeg encoding",
     status: "pending",
   },
 ];

@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Clapperboard, Copy, Download, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Check, Clapperboard, Copy, Download, Eye, EyeOff, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import ActionButton from "../shared/action-button";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
@@ -8,7 +8,10 @@ import { useEffect, useRef, useState } from "react";
 import { OutputClipProps } from "@/lib/types";
 import { PublishModal } from "./publish-modal";
 import { downloadVideo } from "@/lib/download";
-
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
+import { SubtitleEditor } from "../subtitle-editor";
 
 function FullscreenPlayer({
   clip,
@@ -18,6 +21,7 @@ function FullscreenPlayer({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
@@ -26,8 +30,17 @@ function FullscreenPlayer({
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [currentTimeMs, setCurrentTimeMs] = useState(0);
+  const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(DEFAULT_SUBTITLE_SETTINGS);
+  const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
+  const [showInfo, setShowInfo] = useState(true);
+
+  const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
 
   const isCloudinary = clip.videoUrl.includes("res.cloudinary.com");
+  const hasSubtitles = (clip.subtitleWords?.length ?? 0) > 0;
+  // Auto-hide title/caption when edit panel is open so subtitles aren't covered
+  const infoVisible = showInfo && !showSubtitleEditor;
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -45,12 +58,18 @@ function FullscreenPlayer({
 
   const handleLoadedMetadata = () => {
     setProcessing(false);
-    if (ref.current && clip.startTime) ref.current.currentTime = clip.startTime;
+    if (ref.current && isCloudinary && clip.startTime) {
+      ref.current.currentTime = clip.startTime;
+    }
   };
 
   const handleTimeUpdate = () => {
-    if (!ref.current || clip.endTime === undefined) return;
-    if (ref.current.currentTime >= clip.endTime) {
+    if (!ref.current) return;
+    const rawTime = ref.current.currentTime;
+    const timeOffset = isCloudinary ? (clip.startTime ?? 0) : 0;
+    setCurrentTimeMs((rawTime - timeOffset) * 1000);
+    if (!isCloudinary || clip.endTime === undefined) return;
+    if (rawTime >= clip.endTime) {
       ref.current.pause();
       if (clip.startTime !== undefined) ref.current.currentTime = clip.startTime;
       setPlaying(false);
@@ -67,7 +86,7 @@ function FullscreenPlayer({
     e.stopPropagation();
     if (!ref.current) return;
     if (ref.current.paused) {
-      if (clip.endTime !== undefined && ref.current.currentTime >= clip.endTime) {
+      if (isCloudinary && clip.endTime !== undefined && ref.current.currentTime >= clip.endTime) {
         ref.current.currentTime = clip.startTime ?? 0;
       }
       ref.current.play();
@@ -90,6 +109,23 @@ function FullscreenPlayer({
     if (downloading) return;
     setDownloading(true);
     try {
+      if (subtitleSettings.enabled && (clip.subtitleWords?.length ?? 0) > 0 && clip.clipKey) {
+        try {
+          const { downloadUrl } = await exportWithSubtitles({
+            clipKey: clip.clipKey,
+            clipTitle: clip.title,
+            subtitleWords: clip.subtitleWords!,
+            settings: subtitleSettings,
+          });
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = `${clip.title}.mp4`;
+          a.click();
+          return;
+        } catch {
+          // BURN_SUBTITLES_URL not configured — fall back to plain download
+        }
+      }
       await downloadVideo(clip.videoUrl, clip.title);
     } finally {
       setDownloading(false);
@@ -103,10 +139,20 @@ function FullscreenPlayer({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const toggleSubtitleEditor = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowSubtitleEditor((v) => !v);
+  };
+
+  const toggleInfo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowInfo((v) => !v);
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-9999 bg-black sm:bg-[#0f0f0f] flex items-center justify-center sm:p-8 animate-in fade-in duration-200"
-      onClick={onClose}
+     
     >
       <div className="flex flex-row items-end justify-center w-full h-full max-w-7xl relative gap-8">
         {/* Close */}
@@ -122,7 +168,7 @@ function FullscreenPlayer({
           className="relative h-full sm:h-100vh sm:aspect-9/16 sm:max-h-[85vh] w-full sm:w-auto bg-black sm:rounded-3xl overflow-hidden border border-white/5"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative w-full h-full group/player">
+          <div ref={containerRef} className="relative w-full h-full group/player">
             <video
               key={retryKey}
               ref={ref}
@@ -138,6 +184,18 @@ function FullscreenPlayer({
               onError={handleError}
               muted={muted}
             />
+
+            {/* Subtitle overlay */}
+            {hasSubtitles && (
+              <SubtitleOverlay
+                words={clip.subtitleWords!}
+                currentTimeMs={currentTimeMs}
+                settings={subtitleSettings}
+                containerRef={containerRef as React.RefObject<HTMLDivElement>}
+                onSettingsChange={setSubtitleSettings}
+                editable={showSubtitleEditor}
+              />
+            )}
 
             {/* Processing */}
             {processing && (
@@ -161,7 +219,7 @@ function FullscreenPlayer({
               {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
             </button>
 
-            {/* Play/Pause */}
+            {/* Play/Pause overlay */}
             {!processing && (
               <button
                 onClick={togglePlay}
@@ -187,9 +245,17 @@ function FullscreenPlayer({
             </div>
           </div>
 
-          {/* Bottom Gradient + Info */}
-          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/80 via-black/20 to-transparent pointer-events-none z-10" />
-          <div className="absolute bottom-10 left-6 right-20 z-20 pointer-events-none">
+          {/* Bottom gradient — fades with info panel */}
+          <div className={cn(
+            "absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-black/80 via-black/20 to-transparent pointer-events-none z-10 transition-opacity duration-300",
+            infoVisible ? "opacity-100" : "opacity-0"
+          )} />
+
+          {/* Title + caption */}
+          <div className={cn(
+            "absolute bottom-10 left-6 right-20 z-20 pointer-events-none transition-all duration-300",
+            infoVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          )}>
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 mb-4">
               <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[11px] font-black text-white uppercase tracking-widest">{clip.duration || "0:00"}</span>
@@ -206,21 +272,69 @@ function FullscreenPlayer({
 
           {/* Mobile action bar */}
           <div className="sm:hidden absolute right-4 bottom-12 flex flex-col gap-5 items-center z-20">
-            <ActionButton icon={<Wand2 size={22} />} onClick={(e) => e.stopPropagation()} />
+            {hasSubtitles && (
+              <ActionButton icon={<Wand2 size={22} />} onClick={toggleSubtitleEditor} />
+            )}
+            <ActionButton
+              icon={infoVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+              small
+              onClick={toggleInfo}
+            />
             <ActionButton icon={<Send size={22} className="ml-0.5" />} primary onClick={(e) => { e.stopPropagation(); setPublishOpen(true); }} />
             <ActionButton icon={copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />} small onClick={copyCaption} />
-            <ActionButton icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />} small onClick={handleDownload} />
+            <ActionButton
+              icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              small
+              onClick={handleDownload}
+            />
           </div>
         </div>
 
         {/* Desktop sidebar */}
         <div className="hidden sm:flex flex-col gap-6 items-center" onClick={(e) => e.stopPropagation()}>
-          <ActionButton icon={<Wand2 size={22} />} label="Edit" onClick={(e) => e.stopPropagation()} />
+          {hasSubtitles && (
+            <ActionButton icon={<Wand2 size={22} />} label="Edit" onClick={toggleSubtitleEditor} />
+          )}
+          <ActionButton
+            icon={infoVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+            label={infoVisible ? "Hide" : "Info"}
+            small
+            onClick={toggleInfo}
+          />
           <ActionButton icon={<Send size={22} className="ml-0.5" />} label="Post" primary onClick={(e) => { e.stopPropagation(); setPublishOpen(true); }} />
           <ActionButton icon={copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />} small onClick={copyCaption} />
-          <ActionButton icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />} small onClick={(e) => {e.stopPropagation(); handleDownload(e)}} />
+          <ActionButton
+            icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            small
+            onClick={(e) => { e.stopPropagation(); handleDownload(e); }}
+          />
+
+          {/* Subtitle editor panel */}
+          {showSubtitleEditor && hasSubtitles && (
+            <div className="mt-2">
+              <SubtitleEditor
+                settings={subtitleSettings}
+                onChange={setSubtitleSettings}
+                onClose={() => setShowSubtitleEditor(false)}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Mobile subtitle editor — bottom sheet */}
+      {showSubtitleEditor && hasSubtitles && (
+        <div
+          className="sm:hidden absolute bottom-0 left-0 right-0 z-50 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <SubtitleEditor
+            settings={subtitleSettings}
+            onChange={setSubtitleSettings}
+            onClose={() => setShowSubtitleEditor(false)}
+          />
+        </div>
+      )}
 
       <PublishModal
         open={publishOpen}

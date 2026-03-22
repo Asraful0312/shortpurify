@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -109,6 +109,7 @@ export default function ProjectDetailsPage() {
 
   const project = useQuery(api.projects.getProject, { projectId });
   const outputs = useQuery(api.outputs.listProjectOutputs, { projectId });
+  const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
 
   // ── Loading ──
   if (project === undefined) {
@@ -186,7 +187,6 @@ export default function ProjectDetailsPage() {
             {project._id}
           </p>
         </div>
-
         {isComplete && outputs && outputs.length > 0 && (
           <button
             disabled={zipDownloading}
@@ -194,8 +194,50 @@ export default function ProjectDetailsPage() {
               setZipDownloading(true);
               setZipProgress({ done: 0, total: outputs.length });
               try {
+                // Generate subtitle exported URLs concurrently for all clips
+                const exportedClips = await Promise.all(
+                  outputs.map(async (o) => {
+                    const clipStartMs = (o.startTime ?? 0) * 1000;
+                    const clipEndMs = (o.endTime ?? Infinity) * 1000;
+                    const subtitleWords = (project.transcriptWords ?? [])
+                      .filter((w) => w.start >= clipStartMs && w.end <= clipEndMs)
+                      .map((w) => ({
+                        text: w.text,
+                        startMs: w.start - clipStartMs,
+                        endMs: w.end - clipStartMs,
+                      }));
+
+                    if (subtitleWords.length > 0 && o.clipKey) {
+                      try {
+                        // Use the default subtitle settings
+                        const { downloadUrl } = await exportWithSubtitles({
+                          clipKey: o.clipKey,
+                          clipTitle: o.title,
+                          subtitleWords,
+                          settings: {
+                            enabled: true,
+                            x: 50,
+                            y: 78,
+                            fontSize: 26,
+                            fontFamily: "Inter, sans-serif",
+                            textColor: "#ffffff",
+                            highlightColor: "#000000",
+                            highlightBg: "#facc15",
+                            wordsPerLine: 3,
+                          },
+                        });
+                        return { url: downloadUrl, title: o.title };
+                      } catch (err) {
+                        console.error(`Failed to burn subtitles for ${o.title}:`, err);
+                      }
+                    }
+                    // Fallback to original clip
+                    return { url: o.clipUrl, title: o.title };
+                  })
+                );
+
                 await downloadAllAsZip(
-                  outputs.map((o) => ({ url: o.clipUrl, title: o.title })),
+                  exportedClips,
                   project.title,
                   (done, total) => setZipProgress({ done, total }),
                 );

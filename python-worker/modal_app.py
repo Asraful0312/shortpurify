@@ -32,9 +32,16 @@ MODEL_DIR = "/models"
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install(
-        "ffmpeg", "git", "curl",
+        "ffmpeg", "git", "curl", "wget",
         "libglib2.0-0", "libsm6", "libxext6", "libxrender-dev", "libgl1-mesa-glx",
-        "libass-dev", "fonts-liberation",
+        "fonts-liberation", "fontconfig",
+    )
+    .run_commands(
+        "apt-get update",
+        "mkdir -p /usr/share/fonts/truetype/custom",
+        "wget -qO /usr/share/fonts/truetype/custom/Inter-Bold.ttf https://github.com/google/fonts/raw/main/ofl/inter/static/Inter-Bold.ttf || true",
+        "wget -qO /usr/share/fonts/truetype/custom/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
+        "fc-cache -f -v"
     )
     .pip_install(
         "opencv-python-headless>=4.9",
@@ -196,162 +203,228 @@ def process_video(body: dict) -> dict:
 
 # ── Subtitle burn endpoint ────────────────────────────────────────────────────
 
-def _generate_ass(subtitle_words: list, settings: dict, vid_w: int, vid_h: int) -> str:
-    """Build an ASS subtitle file matching the frontend's word-by-word karaoke style.
+_FONT_PATHS = [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
+]
 
-    Each word gets its own positioned event so Base and HL layers are pixel-perfect.
-    Words appear one-by-one (append style), hide during long speech pauses, and show
-    only the last 2 rows — identical to the SubtitleOverlay React component.
+
+def _find_font(font_family: str) -> str:
+    family = font_family.lower()
+    paths = {
+        "impact": "/usr/share/fonts/truetype/custom/Anton-Regular.ttf",
+        "arial": "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "georgia": "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "courier": "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+    }
+    for k, p in paths.items():
+        if k in family and Path(p).exists():
+            return p
+    inter_p = "/usr/share/fonts/truetype/custom/Inter-Bold.ttf"
+    if Path(inter_p).exists(): return inter_p
+
+    for p in _FONT_PATHS:
+        if Path(p).exists():
+            return p
+    return ""
+
+
+def _render_subtitle_frames(
+    subtitle_words: list,
+    settings: dict,
+    vid_w: int,
+    vid_h: int,
+    tmpdir: str,
+) -> list:
     """
-    font_size_px = max(20, int(int(settings.get("fontSize", 26)) * vid_w / 390))
+    Render one transparent RGBA PNG per word-event using Pillow.
+    Each PNG shows the karaoke state at the moment word[wi] is active:
+      - all words spoken so far (last 2 rows), white text + black outline
+      - the active word: yellow background box + black text
+    Returns [(ev_start_s, ev_end_s, png_path), ...]
+    Gaps (long-pause windows) are NOT included; caller inserts blank frames.
+    """
+    from PIL import Image, ImageDraw, ImageFont
 
-    try:
-        from PIL import ImageFont
-        font_paths = [
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-        ]
-        font_obj = None
-        for p in font_paths:
+    LONG_PAUSE_MS  = 800
+    font_size_px   = max(20, int(int(settings.get("fontSize", 26)) * vid_w / 390))
+    words_per_line = int(settings.get("wordsPerLine", 3))
+    center_x       = float(settings.get("x",  50)) / 100.0 * vid_w
+    center_y       = float(settings.get("y",  78)) / 100.0 * vid_h
+
+    def parse_rgba(css: str, alpha: int = 255):
+        h = css.lstrip("#")
+        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), alpha)
+
+    text_rgba    = parse_rgba(settings.get("textColor",      "#ffffff"))
+    hl_text_rgba = parse_rgba(settings.get("highlightColor", "#000000"))
+    hl_bg_rgba   = parse_rgba(settings.get("highlightBg",    "#facc15"))
+    outline_rgba = (0, 0, 0, 220)
+
+    font_family = settings.get("fontFamily", "Inter")
+    font_path = _find_font(font_family)
+    
+    font_obj = None
+    if font_path:
+        try:
+            font_obj = ImageFont.truetype(font_path, font_size_px)
+        except Exception:
+            pass
+            
+    if not font_obj:
+        for p in _FONT_PATHS:
             try:
                 font_obj = ImageFont.truetype(p, font_size_px)
                 break
             except Exception:
                 pass
 
-        def word_width(text: str) -> float:
-            return font_obj.getlength(text) if font_obj else len(text) * font_size_px * 0.55
-    except ImportError:
-        def word_width(text: str) -> float:
-            return len(text) * font_size_px * 0.55
-
-    # Map frontend fontFamily to installed system fonts
-    main_font = settings.get("fontFamily", "Inter, sans-serif").split(",")[0].strip()
-    ASS_FONT_MAP = {
-        "Inter": "Liberation Sans",
-        "Arial": "Liberation Sans",
-        "Impact": "Liberation Sans",
-        "Georgia": "Liberation Serif",
-        "Courier New": "Liberation Mono",
-    }
-    ass_font = ASS_FONT_MAP.get(main_font, "Liberation Sans")
-
-    words_per_line = int(settings.get("wordsPerLine", 3))
-    center_x = int(float(settings.get("x", 50)) / 100.0 * vid_w)
-    center_y = int(float(settings.get("y", 78)) / 100.0 * vid_h)
-
-    def hex_to_ass(color: str) -> str:
-        h = color.lstrip("#")
-        r, g, b = h[0:2], h[2:4], h[4:6]
-        return f"&H00{b}{g}{r}".upper()
-
-    text_col = hex_to_ass(settings.get("textColor", "#ffffff"))
-    hl_text  = hex_to_ass(settings.get("highlightColor", "#000000"))
-    hl_bg    = hex_to_ass(settings.get("highlightBg", "#facc15"))
-
-    def ms_to_ass(ms: float) -> str:
-        ms = int(ms)
-        cs = (ms % 1000) // 10
-        s  = (ms // 1000) % 60
-        m  = (ms // 60000) % 60
-        h  = ms // 3600000
-        return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
-
-    LONG_PAUSE_MS = 800
-    WORD_GAP  = max(4, int(font_size_px * 0.25))
     LINE_HEIGHT = int(font_size_px * 1.4)
+    if font_obj:
+        try:
+            l, t, r, b = font_obj.getbbox("A")
+            GLYPH_H = b - t
+        except:
+            GLYPH_H = int(font_size_px * 0.9)
+    else:
+        GLYPH_H = int(font_size_px * 0.9)
+        
+    BORDER_W    = max(2, font_size_px // 10)
+    
+    scale_factor = vid_w / 390.0
+    pad_x = int(font_size_px * 0.2)
+    pad_y = int(font_size_px * 0.12)
+    gap_x = int(font_size_px * 0.2)
+    c_radius = int(font_size_px * 0.15)
 
-    header = (
-        "[Script Info]\n"
-        "ScriptType: v4.00+\n"
-        f"PlayResX: {vid_w}\n"
-        f"PlayResY: {vid_h}\n"
-        "WrapStyle: 0\n\n"
-        "[V4+ Styles]\n"
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
-        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
-        "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        # Base: bold white text + drop shadow
-        f"Style: Base,{ass_font},{font_size_px},{text_col},{text_col},&H00000000,&H00000000,"
-        "-1,0,0,0,100,100,0,0,1,3,2,5,10,10,0,1\n"
-        # HL: opaque solid box.  Both OutlineColour AND BackColour are set to hl_bg
-        # because different libass builds use one or the other for the BorderStyle=3 box.
-        f"Style: HL,{ass_font},{font_size_px},{hl_text},{hl_text},{hl_bg},{hl_bg},"
-        "-1,0,0,0,100,100,0,0,3,0,0,5,10,10,0,1\n\n"
-        "[Events]\n"
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-    )
+    def measure(text: str, fnt) -> float:
+        if fnt:
+            try:
+                return float(fnt.getlength(text))
+            except Exception:
+                pass
+        return len(text) * font_size_px * 0.55
+
+    def draw_outlined(draw, xy, text, font, fill, outline):
+        ox, oy = xy
+        for dx in range(-BORDER_W, BORDER_W + 1):
+            for dy in range(-BORDER_W, BORDER_W + 1):
+                if dx == 0 and dy == 0:
+                    continue
+                draw.text((ox + dx, oy + dy), text, font=font, fill=outline)
+        draw.text(xy, text, font=font, fill=fill)
 
     n = len(subtitle_words)
-    dialogue_lines: list[str] = []
+    frames = []
 
-    for wi, word in enumerate(subtitle_words):
-        event_start = word["startMs"]
+    for wi in range(n):
+        word = subtitle_words[wi]
+        ev_start_ms = word["startMs"]
 
-        # Determine how long to keep this word-state visible
         if wi + 1 < n:
-            next_start = subtitle_words[wi + 1]["startMs"]
-            gap = next_start - word["endMs"]
-            # Short gap: stay visible until next word; long gap: hide shortly after end
-            event_end = next_start if gap <= LONG_PAUSE_MS else word["endMs"] + 200
+            gap = subtitle_words[wi + 1]["startMs"] - word["endMs"]
+            ev_end_ms = (
+                subtitle_words[wi + 1]["startMs"]
+                if gap <= LONG_PAUSE_MS
+                else word["endMs"] + 200
+            )
         else:
-            event_end = word["endMs"] + 200
+            ev_end_ms = word["endMs"] + 200
 
-        if event_end <= event_start:
+        if ev_end_ms <= ev_start_ms:
             continue
 
-        # Build display state — mirrors the React component exactly
-        spoken = subtitle_words[:wi + 1]
-        all_chunks = [spoken[i:i + words_per_line] for i in range(0, len(spoken), words_per_line)]
-        display_chunks = all_chunks[-2:]  # last 2 rows only
+        spoken         = subtitle_words[:wi + 1]
+        all_chunks     = [spoken[j:j + words_per_line] for j in range(0, len(spoken), words_per_line)]
+        display_chunks = all_chunks[-2:]
+        num_rows       = len(display_chunks)
 
-        num_rows = len(display_chunks)
-        t_start = ms_to_ass(event_start)
-        t_end   = ms_to_ass(event_end)
+        img  = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
 
         for row_idx, chunk in enumerate(display_chunks):
-            # Vertical position: centre both rows around center_y
-            if num_rows == 1:
-                row_y = center_y
-            else:
-                row_y = center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            row_cy   = (
+                center_y
+                if num_rows == 1
+                else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            )
+            
+            w_sum = sum(measure(cw["text"], font_obj) + 2 * pad_x for cw in chunk)
+            tw = w_sum + gap_x * max(0, len(chunk) - 1)
+            
+            scaled_font = font_obj
+            scale = 1.0
+            max_w = vid_w * 0.85
+            if tw > max_w:
+                scale = max_w / tw
+                new_size = max(10, int(font_size_px * scale))
+                if font_path:
+                    try:
+                        scaled_font = ImageFont.truetype(font_path, new_size)
+                    except:
+                        try:
+                            scaled_font = ImageFont.truetype(_FONT_PATHS[0], new_size)
+                        except:
+                            scaled_font = font_obj
 
-            # Measure words and lay them out horizontally, centred on center_x
-            widths = [word_width(w["text"]) for w in chunk]
-            total_w = sum(widths) + WORD_GAP * max(0, len(chunk) - 1)
+            c_pad_x = int(pad_x * scale)
+            c_pad_y = int(pad_y * scale)
+            c_gap_x = int(gap_x * scale)
+            rad = int(c_radius * scale)
+            
+            span_widths = [measure(cw["text"], scaled_font) + 2 * c_pad_x for cw in chunk]
+            total_w = sum(span_widths) + c_gap_x * max(0, len(chunk) - 1)
             x_cursor = center_x - total_w / 2
+            
+            if scaled_font:
+                try:
+                    bb = draw.textbbox((0, 0), "Ay|", font=scaled_font, anchor="la")
+                    std_top, std_bottom = bb[1], bb[3]
+                except:
+                    std_top, std_bottom = int(-font_size_px * 0.8 * scale), int(font_size_px * 0.2 * scale)
+            else:
+                std_top, std_bottom = int(-font_size_px * 0.8 * scale), int(font_size_px * 0.2 * scale)
+                
+            text_y = int(row_cy - (std_bottom + std_top) / 2)
 
             for col_idx, cw in enumerate(chunk):
-                # Each word gets its own \pos — Base and HL share the exact same coordinate
-                wx = int(x_cursor + widths[col_idx] / 2)
+                span_w  = span_widths[col_idx]
+                x_int = int(x_cursor)
+                is_active = (cw is word)
+                
+                word_text = cw["text"]
 
-                # Base layer: white word visible for the entire event duration
-                dialogue_lines.append(
-                    f"Dialogue: 0,{t_start},{t_end},Base,,0,0,0,,"
-                    f"{{\\pos({wx},{row_y})\\an5}}{cw['text']}"
-                )
-
-                # HL layer: solid colour box around the active (being spoken) word.
-                # Uses the HL style (BorderStyle=3 opaque box) with both OutlineColour
-                # and BackColour set to hl_bg so it works across all libass versions.
-                if cw is word and word["endMs"] > word["startMs"]:
-                    hl_s = ms_to_ass(word["startMs"])
-                    hl_e = ms_to_ass(word["endMs"])
-                    dialogue_lines.append(
-                        f"Dialogue: 1,{hl_s},{hl_e},HL,,0,0,0,,"
-                        f"{{\\pos({wx},{row_y})\\an5}}{word['text']}"
+                if is_active:
+                    draw.rounded_rectangle(
+                        [x_int, text_y + std_top - c_pad_y,
+                         x_int + int(span_w), text_y + std_bottom + c_pad_y],
+                        radius=rad,
+                        fill=hl_bg_rgba,
                     )
+                    if scaled_font:
+                        draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=hl_text_rgba, anchor="la")
+                else:
+                    if scaled_font:
+                        # Soft drop shadow to match frontend
+                        draw.text((x_int + c_pad_x + max(1, int(2*scale)), text_y + max(1, int(2*scale))), word_text, font=scaled_font, fill=(0,0,0,180), anchor="la")
+                        draw.text((x_int + c_pad_x + max(2, int(4*scale)), text_y + max(2, int(4*scale))), word_text, font=scaled_font, fill=(0,0,0,90), anchor="la")
+                        # Actual text
+                        draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=text_rgba, anchor="la")
 
-                x_cursor += widths[col_idx] + WORD_GAP
+                x_cursor += span_w + c_gap_x
 
-    return header + "\n".join(dialogue_lines) + "\n"
+        png_path = f"{tmpdir}/frame_{wi:05d}.png"
+        img.save(png_path, "PNG")
+        frames.append((ev_start_ms / 1000.0, ev_end_ms / 1000.0, png_path))
+
+    return frames
 
 
 @app.function(
     secrets=[modal.Secret.from_name("shortpurify-secrets")],
     cpu=2.0,
-    memory=2048,
+    memory=4096,
     timeout=300,
 )
 @modal.fastapi_endpoint(method="POST")
@@ -366,6 +439,7 @@ def burn_subtitles(body: dict) -> dict:
     Returns: { ok: bool, error?: str }
     """
     import json
+    import shutil
     import subprocess
 
     if not _verify_secret(body.get("workerSecret", "")):
@@ -379,54 +453,105 @@ def burn_subtitles(body: dict) -> dict:
     if not clip_url or not upload_url:
         return {"ok": False, "error": "clipUrl and uploadUrl are required"}
 
-    with tempfile.TemporaryDirectory(prefix="sp_sub_") as tmpdir:
-        input_path  = f"{tmpdir}/input.mp4"
-        ass_path    = f"{tmpdir}/subs.ass"
-        output_path = f"{tmpdir}/output.mp4"
+    try:
+        with tempfile.TemporaryDirectory(prefix="sp_sub_") as tmpdir:
+            input_path  = f"{tmpdir}/input.mp4"
+            output_path = f"{tmpdir}/output.mp4"
 
-        try:
-            _download_url(clip_url, input_path)
-        except Exception as exc:
-            return {"ok": False, "error": f"Download failed: {exc}"}
+            try:
+                _download_url(clip_url, input_path)
+            except Exception as exc:
+                return {"ok": False, "error": f"Download failed: {exc}"}
 
-        # Get video dimensions via ffprobe
-        probe = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json",
-             "-show_streams", input_path],
-            capture_output=True, text=True,
-        )
-        info = json.loads(probe.stdout)
-        vid_stream = next(
-            (s for s in info.get("streams", []) if s.get("codec_type") == "video"),
-            None,
-        )
-        vid_w = int(vid_stream["width"])  if vid_stream else 1080
-        vid_h = int(vid_stream["height"]) if vid_stream else 1920
+            # Get video dimensions + duration via ffprobe
+            probe = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-print_format", "json",
+                 "-show_streams", "-show_format", input_path],
+                capture_output=True, text=True,
+            )
+            try:
+                info = json.loads(probe.stdout)
+            except Exception:
+                info = {}
+            vid_stream = next(
+                (s for s in info.get("streams", []) if s.get("codec_type") == "video"),
+                None,
+            )
+            vid_w   = int(vid_stream["width"])  if vid_stream else 1080
+            vid_h   = int(vid_stream["height"]) if vid_stream else 1920
+            vid_dur = float(info.get("format", {}).get("duration", 60.0))
 
-        # Write ASS file
-        ass_content = _generate_ass(words, settings, vid_w, vid_h)
-        with open(ass_path, "w", encoding="utf-8") as f:
-            f.write(ass_content)
+            if not words:
+                shutil.copy(input_path, output_path)
+            else:
+                from PIL import Image
 
-        # Burn subtitles — escape the path for the vf string
-        safe_ass = ass_path.replace("\\", "/").replace(":", "\\:")
-        result = subprocess.run(
-            ["ffmpeg", "-y", "-i", input_path,
-             "-vf", f"ass={safe_ass}",
-             "-c:v", "libx264", "-preset", "fast", "-crf", "22",
-             "-c:a", "copy",
-             "-movflags", "+faststart",
-             "-loglevel", "error",
-             output_path],
-            capture_output=True, text=True,
-        )
-        if result.returncode != 0:
-            return {"ok": False, "error": f"FFmpeg failed: {result.stderr[-500:]}"}
+                # Render one transparent RGBA PNG per word-event.
+                # This avoids FFmpeg drawtext filter complexity entirely — no
+                # enable= expressions, no filter-graph reinit errors.
+                frames = _render_subtitle_frames(words, settings, vid_w, vid_h, tmpdir)
 
-        try:
-            _upload_to_r2(upload_url, output_path)
-        except Exception as exc:
-            return {"ok": False, "error": f"Upload failed: {exc}"}
+                if not frames:
+                    shutil.copy(input_path, output_path)
+                else:
+                    # Transparent blank frame for silent gaps / pauses
+                    blank_png = f"{tmpdir}/blank.png"
+                    Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0)).save(blank_png, "PNG")
+
+                    # Build a continuous timeline covering [0, vid_dur]
+                    frames.sort(key=lambda f: f[0])
+                    timeline = []   # [(duration_s, png_path), ...]
+                    cursor = 0.0
+                    for (s, e, png) in frames:
+                        if s > cursor + 0.001:
+                            timeline.append((s - cursor, blank_png))
+                        timeline.append((e - s, png))
+                        cursor = e
+                    if vid_dur > cursor + 0.001:
+                        timeline.append((vid_dur - cursor, blank_png))
+
+                    # Write ffconcat index
+                    concat_file = f"{tmpdir}/subs.txt"
+                    with open(concat_file, "w") as f:
+                        f.write("ffconcat version 1.0\n")
+                        for (dur, png) in timeline:
+                            f.write(f"file '{png}'\n")
+                            f.write(f"duration {max(0.001, dur):.6f}\n")
+                        # ffconcat requires a final entry with no duration
+                        if timeline:
+                            f.write(f"file '{timeline[-1][1]}'\n")
+
+                    logging.info(
+                        "PIL subtitle render: %d word frames, %d timeline entries, vid_dur=%.2fs",
+                        len(frames), len(timeline), vid_dur,
+                    )
+
+                    # Composite subtitle PNGs directly over the clip via concat demuxer.
+                    # No drawtext filters, no enable= expressions, no filter-graph reinit.
+                    result = subprocess.run(
+                        ["ffmpeg", "-y",
+                         "-i", input_path,
+                         "-f", "concat", "-safe", "0", "-i", concat_file,
+                         "-filter_complex", "[0:v][1:v]overlay=format=yuv420",
+                         "-c:v", "libx264", "-preset", "fast", "-crf", "22",
+                         "-pix_fmt", "yuv420p",
+                         "-c:a", "copy",
+                         "-movflags", "+faststart",
+                         "-loglevel", "error",
+                         output_path],
+                        capture_output=True, text=True,
+                    )
+                    if result.returncode != 0:
+                        return {"ok": False, "error": f"FFmpeg failed: {result.stderr[-800:]}"}
+
+            try:
+                _upload_to_r2(upload_url, output_path)
+            except Exception as exc:
+                return {"ok": False, "error": f"Upload failed: {exc}"}
+
+    except Exception as exc:
+        logging.exception("burn_subtitles unexpected error")
+        return {"ok": False, "error": f"Server error: {exc}"}
 
     return {"ok": True}
 

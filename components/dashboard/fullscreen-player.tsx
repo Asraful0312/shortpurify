@@ -117,10 +117,7 @@ function FullscreenPlayer({
             subtitleWords: clip.subtitleWords!,
             settings: subtitleSettings,
           });
-          const a = document.createElement("a");
-          a.href = downloadUrl;
-          a.download = `${clip.title}.mp4`;
-          a.click();
+          await downloadVideo(downloadUrl, clip.title);
           return;
         } catch {
           // BURN_SUBTITLES_URL not configured — fall back to plain download

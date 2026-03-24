@@ -50,7 +50,7 @@ from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
-# ─── Optional imports (degrade gracefully) ────────────────────────────────────
+# Optional imports (degrade gracefully)
 
 try:
     from ultralytics import YOLO as _YOLO_CLASS
@@ -81,16 +81,14 @@ except ImportError:
 _LR_ASD_DIR = Path(__file__).parent / "LR-ASD"
 _LR_ASD_AVAIL = (_LR_ASD_DIR / "model.py").exists()
 
-# ─── Output target ────────────────────────────────────────────────────────────
+# Output target
 TARGET_W = 1080
 TARGET_H = 1920
 
 LOG = logging.getLogger("smart_crop")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Data model
-# ══════════════════════════════════════════════════════════════════════════════
 
 @dataclass
 class BBox:
@@ -140,9 +138,7 @@ class FaceTrack:
     speaking_score: float = 0.0
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Step 1 — Face detection
-# ══════════════════════════════════════════════════════════════════════════════
 
 class FaceDetector:
     """
@@ -233,9 +229,7 @@ class FaceDetector:
             ]
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Step 2 — Face tracking (greedy IoU)
-# ══════════════════════════════════════════════════════════════════════════════
 
 _IOU_THRESHOLD = 0.30
 _MAX_MISS = 10  # frames before a track is retired
@@ -293,9 +287,7 @@ class FaceTracker:
         return list(self._active.items())
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Step 3 — Active Speaker Detection (LR-ASD or heuristic)
-# ══════════════════════════════════════════════════════════════════════════════
 
 class ActiveSpeakerDetector:
     """
@@ -342,7 +334,7 @@ class ActiveSpeakerDetector:
                 why.append("torch not installed")
             LOG.info("ASD fallback mode (%s)", "; ".join(why))
 
-    # ── Public API ─────────────────────────────────────────────────────────
+    # Public API
 
     def score_tracks(
         self,
@@ -359,7 +351,7 @@ class ActiveSpeakerDetector:
         else:
             self._score_largest_face(tracks, n_frames)
 
-    # ── LR-ASD path ────────────────────────────────────────────────────────
+    # LR-ASD path
 
     def _score_lrasd(
         self,
@@ -392,7 +384,7 @@ class ActiveSpeakerDetector:
             self._score_largest_face(tracks, n_frames)
             return
 
-        # ── Extract audio ──────────────────────────────────────────────────
+        #Extract audio
         tmp_wav = Path(video_path).with_suffix(".tmp_asd.wav")
         _ffmpeg_run([
             "ffmpeg", "-y", "-i", video_path,
@@ -416,7 +408,7 @@ class ActiveSpeakerDetector:
         mfcc_fps = 100.0  # approx: 1 / 0.010
         mfcc_per_vid_frame = max(1, round(mfcc_fps / fps))
 
-        # ── Score each track ───────────────────────────────────────────────
+        #Score each track
         cap = cv2.VideoCapture(video_path)
 
         for track in tracks:
@@ -430,7 +422,7 @@ class ActiveSpeakerDetector:
                 if not ret:
                     break
 
-                # ── Face crop ──────────────────────────────────────────────
+                #Face crop
                 box = track.boxes[fi] if fi < len(track.boxes) else None
                 if box is None:
                     face_crops.append(np.zeros((112, 112), dtype=np.uint8))
@@ -446,7 +438,7 @@ class ActiveSpeakerDetector:
                         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
                         face_crops.append(cv2.resize(gray, (112, 112)))
 
-                # ── MFCC window (4 frames) ─────────────────────────────────
+                # MFCC window (4 frames)
                 mfc_start = fi * mfcc_per_vid_frame
                 mfc_end = mfc_start + 4
                 if mfc_end <= len(mfcc_all):
@@ -476,7 +468,7 @@ class ActiveSpeakerDetector:
 
         cap.release()
 
-    # ── Heuristic fallback ─────────────────────────────────────────────────
+    #Heuristic fallback
 
     def _score_largest_face(
         self, tracks: List[FaceTrack], n_frames: int
@@ -500,9 +492,7 @@ class ActiveSpeakerDetector:
         )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Step 4 — Crop trajectory
-# ══════════════════════════════════════════════════════════════════════════════
 
 def compute_crop_params(
     tracks: List[FaceTrack],
@@ -594,9 +584,7 @@ def _backward_fill(arr: np.ndarray, default: float) -> None:
             arr[i] = last
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Step 5 — FFmpeg helpers
-# ══════════════════════════════════════════════════════════════════════════════
 
 def _ffmpeg_run(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
     """Run an FFmpeg command, raising RuntimeError on failure."""
@@ -747,9 +735,7 @@ def _get_video_info(path: str) -> Tuple[int, int, float, int]:
     return w, h, fps, n
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Video analysis pass — detect, track, score
-# ══════════════════════════════════════════════════════════════════════════════
 
 def analyse_video(
     video_path: str,
@@ -800,9 +786,7 @@ def analyse_video(
     return tracks, fps, vid_w, vid_h, total_frames
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Main pipeline
-# ══════════════════════════════════════════════════════════════════════════════
 
 def process_video(
     input_path: str,
@@ -823,7 +807,7 @@ def process_video(
     asd = ActiveSpeakerDetector()
 
     with tempfile.TemporaryDirectory(prefix="sp_pipe_") as tmpdir:
-        # ── Segment extraction ────────────────────────────────────────────
+        #Segment extraction
         needs_cut = start_s > 0.001 or duration_s is not None
         if needs_cut:
             seg_path = str(Path(tmpdir) / "segment.mp4")
@@ -832,18 +816,18 @@ def process_video(
         else:
             seg_path = input_path
 
-        # ── Face detection + ASD ──────────────────────────────────────────
+        #Face detection + ASD
         tracks, fps, vid_w, vid_h, n_frames = analyse_video(
             seg_path, detector, tracker, asd,
             sample_every_n=1,
         )
 
-        # ── Crop trajectory ───────────────────────────────────────────────
+        #Crop trajectory
         cx_per_frame, crop_w, crop_h = compute_crop_params(
-            tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=2.5,
+            tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=0.35,
         )
 
-        # ── Encode ────────────────────────────────────────────────────────
+        #Encode
         # Use dynamic crop when speaker movement is detected (cx variance > 5px)
         cx_std = float(np.std(cx_per_frame))
         use_dynamic = dynamic_crop and _SCIPY_AVAIL and cx_std > 5.0
@@ -864,9 +848,7 @@ def process_video(
     LOG.info("Output: %s", output_path)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # CLI entry point — prints JSON so callers can parse it
-# ══════════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
     parser = argparse.ArgumentParser(

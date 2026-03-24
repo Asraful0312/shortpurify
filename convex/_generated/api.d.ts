@@ -20,6 +20,7 @@ import type * as transcription from "../transcription.js";
 import type * as users from "../users.js";
 import type * as videoProcessingActions from "../videoProcessingActions.js";
 import type * as workflow from "../workflow.js";
+import type * as youtubeActions from "../youtubeActions.js";
 
 import type {
   ApiFromModules,
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   videoProcessingActions: typeof videoProcessingActions;
   workflow: typeof workflow;
+  youtubeActions: typeof youtubeActions;
 }>;
 
 /**

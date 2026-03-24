@@ -34,31 +34,53 @@ function buildPrompt(
   videoDuration: number,
   platforms: string[],
 ): string {
-  const platformList = platforms.map((p) => `  - "${p}": ${PLATFORM_INSTRUCTIONS[p] ?? "short caption"}`).join("\n");
+  const platformList = platforms.map((p) => ` - "${p}": ${PLATFORM_INSTRUCTIONS[p] ?? "short caption"}`).join("\n");
 
-  return `You are a viral short-form content strategist. Analyze this transcript and identify 3-5 of the most compelling moments for short-form clips.
+  return `
+You are ViralShortGPT, an expert in turning long-form podcasts/videos into viral TikTok/Reels/Shorts clips (15–60 seconds). Your only job is to find the 4–6 MOST shareable, high-engagement moments that will perform best on social media.
 
-Video duration: ${videoDuration.toFixed(0)}s
-
-Transcript:
+Video duration: ${videoDuration.toFixed(0)} seconds
+Full transcript:
 ${transcriptText}
 
-For each clip return a JSON object with EXACTLY these keys:
-- title: viral hook title, max 60 chars, NO em-dashes (use hyphen instead), no clickbait
-- startTime: float seconds where the moment begins
-- endTime: float seconds, max 60s after startTime, must be <= ${videoDuration.toFixed(0)}
-- viralScore: integer 0-100 (hook strength + emotional impact + info value)
-- platform: best single platform for this clip (one of: ${platforms.join(", ")})
-- captions: object with a key for each platform below:
-${platformList}
+Rules you MUST follow strictly:
+1. Only select moments from the MAIN content (after intro, before outro/CTA/sponsors/ads). Avoid:
+   - Any sponsor mentions, promotions, affiliate links, "this video is sponsored by", discount codes
+   - Intros ("welcome to...", "today we're talking about...")
+   - Outros ("thanks for watching", "subscribe", "like & comment")
+   - Filler, chit-chat, or low-energy sections
+2. Prioritize moments with:
+   - Strong hooks: questions, bold statements, "mind blown", "I can't believe", "secret", "mistake you're making"
+   - Emotional peaks: surprise, anger, laughter, inspiration, controversy, relatable stories
+   - Clear value: actionable tips, hot takes, data reveals, personal failures → lessons
+   - High shareability: quotable lines, "this is so true", "tag a friend who..."
+3. Each clip MUST:
+   - Start at a natural sentence beginning or strong transition
+   - End at a natural pause/sentence end (NEVER cut mid-sentence or mid-thought)
+   - Be 15–60 seconds max
+   - Have high viral potential (score 70+)
+4. Return ONLY a valid JSON array of objects. No explanations, no markdown, no extra text.
+   Shape:
+   [
+     {
+       "title": "Short, punchy viral hook title (max 60 chars, use hyphen - only, no em/en dash)",
+       "startTime": number (float seconds, exact start),
+       "endTime": number (float seconds, natural end <= videoDuration),
+       "duration": number (endTime - startTime, must be 15-60),
+       "viralScore": integer 0-100 (be harsh — only 80+ for truly viral potential),
+       "platform": one best platform from: ${platforms.join(", ")},
+       "reason": short internal note why this moment is viral (1 sentence, will not be output),
+       "captions": {
+         ${platformList}
+       }
+     }
+   ]
 
-Rules:
-- NEVER use em dashes (—) or en dashes (–) anywhere — use a hyphen (-) instead
-- NEVER use markdown, bullet points, or special formatting inside caption strings
-- Return ONLY a valid JSON array, no markdown fence, no explanation
+Example output (do NOT copy — generate your own):
+[{"title":"The biggest mistake most beginners make","startTime":125.4,"endTime":168.9,"duration":43.5,"viralScore":92,"platform":"tiktok","reason":"Strong hook + relatable pain point + quick solution","captions":{"tiktok":"...","instagram":"..."}}]
 
-Example shape:
-[{"title":"...","startTime":0.0,"endTime":45.0,"viralScore":88,"platform":"tiktok","captions":{"tiktok":"...","instagram":"...","youtube":"...","x":"...","threads":"...","linkedin":"...","snapchat":"...","blog":"..."}}]`.trim();
+Analyze carefully and be selective — only return moments that would actually go viral in 2026.
+`.trim();
 }
 
 /**
@@ -83,7 +105,7 @@ export const generateClipIdeas = internalAction({
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [
         {
           role: "user",
@@ -92,10 +114,23 @@ export const generateClipIdeas = internalAction({
       ],
     });
 
+    if (response.stop_reason === "max_tokens") {
+      throw new Error(
+        "Claude response was truncated (exceeded token limit). " +
+        "Try reducing the number of enabled platforms or the transcript length.",
+      );
+    }
+
     const block = response.content[0];
     if (block.type !== "text") throw new Error("Unexpected Claude response type");
 
-    const match = block.text.match(/\[[\s\S]*\]/);
+    // Strip markdown code fences Claude sometimes adds (e.g. ```json ... ```)
+    const cleaned = block.text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+
+    const match = cleaned.match(/\[[\s\S]*\]/);
     if (!match) {
       throw new Error(
         `Claude did not return a JSON array. Preview: ${block.text.slice(0, 300)}`,

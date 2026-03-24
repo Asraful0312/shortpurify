@@ -20,7 +20,7 @@ function CTASection() {
           Stop leaving views on the table. Join ShortPurify today and let our AI do the heavy lifting for you.
         </p>
         <SignUpButton mode="modal">
-          <button className="bg-primary text-primary-foreground px-10 py-5 rounded-full text-xl font-bold transition-all hover:bg-primary/95 hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 group flex items-center justify-center gap-2 mx-auto">
+          <button className="bg-primary text-primary-foreground px-10 py-5 rounded-full text-xl font-bold transition-all hover:bg-primary/95 hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 group flex items-center justify-center gap-2 mx-auto cursor-pointer">
             Create Your First Clip Free
             <Zap className="text-accent ml-2 group-hover:scale-110 transition-transform" fill="currentColor" size={20} />
           </button>

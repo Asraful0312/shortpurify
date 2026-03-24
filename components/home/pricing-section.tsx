@@ -60,7 +60,7 @@ function PricingSection() {
             <span className={cn("text-lg font-bold transition-colors", !isYearly ? "text-foreground" : "text-muted-foreground")}>Monthly</span>
             <button 
               onClick={() => setIsYearly(!isYearly)}
-              className="relative w-16 h-8 rounded-full bg-secondary border border-border/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="relative w-16 h-8 rounded-full bg-secondary border border-border/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
             >
               <div 
                 className={cn(
@@ -111,7 +111,7 @@ function PricingSection() {
               </ul>
 
               <SignUpButton mode="modal">
-                <button className={`w-full py-4 rounded-full font-bold transition-all flex items-center justify-center gap-2 group ${plan.highlighted ? 'bg-white text-primary hover:bg-white/90 shadow-lg hover:shadow-xl' : 'bg-secondary text-foreground hover:bg-secondary/80'}`}>
+                <button className={`w-full py-4 cursor-pointer rounded-full font-bold transition-all flex items-center justify-center gap-2 group ${plan.highlighted ? 'bg-white text-primary hover:bg-white/90 shadow-lg hover:shadow-xl' : 'bg-secondary text-foreground hover:bg-secondary/80 '}`}>
                   {plan.cta}
                   <ArrowRight size={18} className={`transition-transform group-hover:translate-x-1 ${plan.highlighted ? 'text-primary' : 'text-foreground'}`} />
                 </button>

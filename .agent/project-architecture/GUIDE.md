@@ -105,9 +105,9 @@ shortpurify/
 **Phase 1 – MVP (Week 1–2, launch-ready)**
 
 - Clerk + Polar gating
-- Upload (YouTube/audio/video via UploadThing)
+- Upload (YouTube/audio/video via Cloudflare r2)
 - Real-time dashboard
-- Workflow: AssemblyAI → Claude → Smart clips (Cloudinary face tracking)
+- Workflow: AssemblyAI → Claude → Smart clips (custom python code with modal.com)
 - Editable previews + ZIP export + copy
 - Free tier (3 projects/month)
 

@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { FileVideo, Sparkles, AlertCircle, Upload } from "lucide-react";
 
 interface SingleVideoUploaderProps {
-  onUploadComplete: (url: string, size: number, fileName: string) => Promise<void>;
+  onUploadComplete: (url: string, size: number, fileName: string, key: string) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -47,7 +47,7 @@ export default function SingleVideoUploader({
       setIsProcessing(true);
 
       const serveUrl = await getServingUrl({ key });
-      await onUploadComplete(serveUrl, file.size, file.name);
+      await onUploadComplete(serveUrl, file.size, file.name, key);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
       setIsUploading(false);

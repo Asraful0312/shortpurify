@@ -64,7 +64,7 @@ export default function HeroSection() {
 
         <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-200">
           <SignUpButton mode="modal">
-            <button className="flex items-center justify-center bg-primary text-white border border-black/20 px-8 py-3.5 rounded-full text-base font-semibold transition-all hover:bg-black/5 hover:border-black/30">
+            <button className="flex items-center justify-center bg-primary text-white border border-black/20 px-8 py-3.5 rounded-full text-base font-semibold transition-all cursor-pointer">
               Get Started Free
             </button>
           </SignUpButton>

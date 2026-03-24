@@ -100,5 +100,9 @@ export const processVideo = workflowManager.define({
       processingStep: "Complete",
       clipsCount: clips.length,
     });
+
+    // Delete original video — clips are generated and stored in R2, source is dead weight.
+    // No-op for YouTube imports (they have no originalKey).
+    await step.runAction(internal.r2Actions.deleteOriginalVideo, { projectId });
   },
 });

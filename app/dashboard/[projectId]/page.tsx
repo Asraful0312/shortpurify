@@ -18,6 +18,7 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
+import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
 import { downloadAllAsZip } from "@/lib/download";
 import { OutputPreview } from "@/components/output-preview";
 import { ProcessingStatus } from "@/components/dashboard/processing-status";
@@ -209,22 +210,12 @@ export default function ProjectDetailsPage() {
 
                     if (subtitleWords.length > 0 && o.clipKey) {
                       try {
-                        // Use the default subtitle settings
                         const { downloadUrl } = await exportWithSubtitles({
+                          outputId: o._id,
                           clipKey: o.clipKey,
                           clipTitle: o.title,
                           subtitleWords,
-                          settings: {
-                            enabled: true,
-                            x: 50,
-                            y: 78,
-                            fontSize: 26,
-                            fontFamily: "Inter, sans-serif",
-                            textColor: "#ffffff",
-                            highlightColor: "#000000",
-                            highlightBg: "#facc15",
-                            wordsPerLine: 3,
-                          },
+                          settings: project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS,
                         });
                         return { url: downloadUrl, title: o.title };
                       } catch (err) {
@@ -328,6 +319,8 @@ export default function ProjectDetailsPage() {
                   return (
                   <OutputPreview
                     key={clip._id}
+                    projectId={projectId}
+                    initialSubtitleSettings={project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS}
                     clip={{
                       id: clip._id,
                       title: clip.title,

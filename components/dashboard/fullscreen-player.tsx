@@ -8,17 +8,22 @@ import { useEffect, useRef, useState } from "react";
 import { OutputClipProps } from "@/lib/types";
 import { PublishModal } from "./publish-modal";
 import { downloadVideo } from "@/lib/download";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
 import { SubtitleEditor } from "../subtitle-editor";
 
 function FullscreenPlayer({
   clip,
   onClose,
+  projectId,
+  initialSubtitleSettings,
 }: {
   clip: OutputClipProps;
   onClose: () => void;
+  projectId?: Id<"projects">;
+  initialSubtitleSettings?: SubtitleSettings;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,11 +36,24 @@ function FullscreenPlayer({
   const [downloading, setDownloading] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
-  const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(DEFAULT_SUBTITLE_SETTINGS);
+  const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(
+    initialSubtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
+  );
   const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
 
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
+  const saveSubtitleSettingsMutation = useMutation(api.projects.saveSubtitleSettings);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleSubtitleSettingsChange = (next: SubtitleSettings) => {
+    setSubtitleSettings(next);
+    if (!projectId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveSubtitleSettingsMutation({ projectId, settings: next }).catch(() => {});
+    }, 800);
+  };
 
   const isCloudinary = clip.videoUrl.includes("res.cloudinary.com");
   const hasSubtitles = (clip.subtitleWords?.length ?? 0) > 0;
@@ -112,6 +130,7 @@ function FullscreenPlayer({
       if (subtitleSettings.enabled && (clip.subtitleWords?.length ?? 0) > 0 && clip.clipKey) {
         try {
           const { downloadUrl } = await exportWithSubtitles({
+            outputId: clip.id as import("@/convex/_generated/dataModel").Id<"outputs">,
             clipKey: clip.clipKey,
             clipTitle: clip.title,
             subtitleWords: clip.subtitleWords!,
@@ -151,7 +170,7 @@ function FullscreenPlayer({
       className="fixed inset-0 z-9999 bg-black sm:bg-[#0f0f0f] flex items-center justify-center sm:p-8 animate-in fade-in duration-200"
      
     >
-      <div className="flex flex-row items-end justify-center w-full h-full max-w-7xl relative gap-8">
+      <div className="flex flex-row items-end justify-center w-full h-full max-w-8xl relative gap-8">
         {/* Close */}
         <button
           onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -189,7 +208,7 @@ function FullscreenPlayer({
                 currentTimeMs={currentTimeMs}
                 settings={subtitleSettings}
                 containerRef={containerRef as React.RefObject<HTMLDivElement>}
-                onSettingsChange={setSubtitleSettings}
+                onSettingsChange={handleSubtitleSettingsChange}
                 editable={showSubtitleEditor}
               />
             )}
@@ -311,7 +330,7 @@ function FullscreenPlayer({
             <div className="mt-2">
               <SubtitleEditor
                 settings={subtitleSettings}
-                onChange={setSubtitleSettings}
+                onChange={handleSubtitleSettingsChange}
                 onClose={() => setShowSubtitleEditor(false)}
               />
             </div>
@@ -327,7 +346,7 @@ function FullscreenPlayer({
         >
           <SubtitleEditor
             settings={subtitleSettings}
-            onChange={setSubtitleSettings}
+            onChange={handleSubtitleSettingsChange}
             onClose={() => setShowSubtitleEditor(false)}
           />
         </div>

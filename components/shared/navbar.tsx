@@ -45,12 +45,12 @@ function Navbar() {
           </Authenticated>
           <Unauthenticated>
             <SignInButton mode="modal">
-              <button className="text-sm font-medium text-black bg-secondary hover:bg-secondary/80 px-4 py-2 rounded-full transition-colors border border-border/50">
+              <button className="text-sm cursor-pointer font-medium text-black bg-secondary hover:bg-secondary/80 px-4 py-2 rounded-full transition-colors border border-border/50">
                 Sign in
               </button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <button className="bg-black text-white hover:bg-black/90 px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-md">
+              <button className="cursor-pointer bg-black text-white hover:bg-black/90 px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-md">
                 Contact
               </button>
             </SignUpButton>

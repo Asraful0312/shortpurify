@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import SingleVideoUploader from "@/components/upload-dropzone";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ALL_PLATFORMS = [
   { id: "tiktok",    label: "TikTok" },
@@ -18,15 +19,24 @@ const ALL_PLATFORMS = [
   { id: "blog",      label: "Blog Excerpt" },
 ];
 
+type Tab = "file" | "youtube";
+
 export default function UploadPage() {
   const router = useRouter();
   const createProject = useMutation(api.projects.createProjectAndStart);
+  const importFromYouTube = useAction(api.youtubeActions.createProjectFromYouTube);
 
+  const [tab, setTab] = useState<Tab>("file");
   const [title, setTitle] = useState("");
   const [showPlatforms, setShowPlatforms] = useState(false);
   const [enabledPlatforms, setEnabledPlatforms] = useState<string[]>(
     ALL_PLATFORMS.map((p) => p.id),
   );
+
+  // YouTube-specific state
+  const [youtubeUrl, setLucideYoutubeUrl] = useState("");
+  const [ytLoading, setYtLoading] = useState(false);
+  const [ytError, setYtError] = useState("");
 
   const togglePlatform = (id: string) => {
     setEnabledPlatforms((prev) =>
@@ -34,17 +44,37 @@ export default function UploadPage() {
     );
   };
 
-  const handleUploadComplete = async (url: string, size: number, fileName: string) => {
-    // Use typed title, fall back to cleaned filename (strip extension + underscores)
+  const handleUploadComplete = async (url: string, size: number, fileName: string, key: string) => {
     const fromFile = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
     const finalTitle = title.trim() || fromFile || "Untitled Project";
     const projectId = await createProject({
       title: finalTitle,
       originalUrl: url,
       originalSize: size,
+      originalKey: key,
       enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
     });
     router.push(`/dashboard/${projectId}`);
+  };
+
+  const handleYouTubeImport = async () => {
+    setYtError("");
+    const url = youtubeUrl.trim();
+    if (!url) { setYtError("Paste a YouTube URL first."); return; }
+
+    setYtLoading(true);
+    try {
+      const { projectId } = await importFromYouTube({
+        youtubeUrl: url,
+        title: title.trim() || undefined,
+        enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
+      });
+      router.push(`/dashboard/${projectId}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setYtError(msg);
+      setYtLoading(false);
+    }
   };
 
   return (
@@ -58,8 +88,40 @@ export default function UploadPage() {
           Create New Project
         </h1>
         <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed">
-          Drop your raw video and let AI extract the most viral moments automatically.
+          Drop your raw video or import directly from YouTube.
         </p>
+      </div>
+
+      {/* Source tabs */}
+      <div className="relative z-10 w-full max-w-2xl mb-6">
+        <div className="flex rounded-xl border border-border bg-secondary/30 p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setTab("file")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
+              tab === "file"
+                ? "bg-white shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Upload size={15} />
+            Upload File
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("youtube")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
+              tab === "youtube"
+                ? "bg-white shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LucideYoutube size={15} className="text-red-500" />
+            YouTube URL
+          </button>
+        </div>
       </div>
 
       {/* Title input */}
@@ -71,13 +133,10 @@ export default function UploadPage() {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Podcast Ep #45 – React 19 Deep Dive"
+          placeholder={tab === "youtube" ? "Leave blank to use the video title" : "e.g. Podcast Ep #45 – React 19 Deep Dive"}
           maxLength={120}
           className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white placeholder:text-muted-foreground"
         />
-        <p className="text-xs text-muted-foreground mt-1">
-          Leave blank to use the filename automatically.
-        </p>
       </div>
 
       {/* Platform toggles */}
@@ -118,9 +177,63 @@ export default function UploadPage() {
         )}
       </div>
 
-      {/* Dropzone */}
+      {/* Tab content */}
       <div className="relative z-10 w-full max-w-2xl">
-        <SingleVideoUploader onUploadComplete={handleUploadComplete} />
+        {tab === "file" ? (
+          <SingleVideoUploader onUploadComplete={handleUploadComplete} />
+        ) : (
+          <div className="bg-white border border-border rounded-2xl p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                <LucideYoutube size={18} className="text-red-500" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">Import from YouTube</p>
+                <p className="text-xs text-muted-foreground">Paste any YouTube video or Shorts URL</p>
+              </div>
+            </div>
+
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => { setLucideYoutubeUrl(e.target.value); setYtError(""); }}
+              onKeyDown={(e) => e.key === "Enter" && !ytLoading && handleYouTubeImport()}
+              placeholder="https://www.youtube.com/watch?v=..."
+              disabled={ytLoading}
+              className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white placeholder:text-muted-foreground disabled:opacity-50"
+            />
+
+            {ytError && (
+              <div className="flex items-start gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+                <p className="text-xs font-medium">{ytError}</p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleYouTubeImport}
+              disabled={ytLoading || !youtubeUrl.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-bold py-3 rounded-xl text-sm transition-colors"
+            >
+              {ytLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Fetching video info…
+                </>
+              ) : (
+                <>
+                  <LucideYoutube size={16} />
+                  Import & Create Clips
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Works with videos, Shorts, and unlisted videos. The video is processed directly — nothing is stored on our servers.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Decorative blurs */}

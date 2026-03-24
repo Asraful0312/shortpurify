@@ -43,6 +43,20 @@ export default defineSchema({
     ),
     // Which platforms to generate captions for (defaults to all)
     enabledPlatforms: v.optional(v.array(v.string())),
+    // R2 key of the original uploaded video — deleted once clips are generated
+    originalKey: v.optional(v.string()),
+    // Persisted subtitle style — shared across all clips in this project
+    subtitleSettings: v.optional(v.object({
+      enabled: v.boolean(),
+      x: v.number(),
+      y: v.number(),
+      fontSize: v.number(),
+      fontFamily: v.string(),
+      textColor: v.string(),
+      highlightColor: v.string(),
+      highlightBg: v.string(),
+      wordsPerLine: v.number(),
+    })),
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
 
@@ -61,6 +75,9 @@ export default defineSchema({
     // R2 object keys — stored so URLs can be refreshed when they expire
     clipKey: v.optional(v.string()),
     thumbnailKey: v.optional(v.string()),
+    // Cached subtitle export — R2 key + settings hash to skip Modal on re-download
+    exportKey: v.optional(v.string()),
+    exportSettingsHash: v.optional(v.string()),
     // Clip window inside the source video (seconds)
     startTime: v.optional(v.number()),
     endTime: v.optional(v.number()),

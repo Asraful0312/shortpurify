@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 
 /** Get all clips for a project, ordered by viral score descending. */
 export const listProjectOutputs = query({
@@ -11,6 +11,24 @@ export const listProjectOutputs = query({
       .collect();
 
     return outputs.sort((a, b) => (b.viralScore ?? 0) - (a.viralScore ?? 0));
+  },
+});
+
+/** Look up a single output record (used by exportActions for cache checks). */
+export const getOutput = internalQuery({
+  args: { outputId: v.id("outputs") },
+  handler: async (ctx, { outputId }) => ctx.db.get(outputId),
+});
+
+/** Persist the export cache key + settings hash after a successful Modal export. */
+export const saveExportCache = internalMutation({
+  args: {
+    outputId: v.id("outputs"),
+    exportKey: v.string(),
+    exportSettingsHash: v.string(),
+  },
+  handler: async (ctx, { outputId, exportKey, exportSettingsHash }) => {
+    await ctx.db.patch(outputId, { exportKey, exportSettingsHash });
   },
 });
 

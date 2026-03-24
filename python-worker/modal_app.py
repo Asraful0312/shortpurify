@@ -32,9 +32,14 @@ MODEL_DIR = "/models"
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install(
-        "ffmpeg", "git", "curl", "wget",
+        "ffmpeg", "git", "curl", "wget", "unzip",
         "libglib2.0-0", "libsm6", "libxext6", "libxrender-dev", "libgl1-mesa-glx",
         "fonts-liberation", "fontconfig",
+    )
+    .run_commands(
+        # Install Deno (recommended JS runtime for yt-dlp EJS challenge solving)
+        "curl -fsSL https://deno.land/install.sh | sh",
+        "ln -sf /root/.deno/bin/deno /usr/local/bin/deno",
     )
     .run_commands(
         "apt-get update",
@@ -55,6 +60,7 @@ image = (
         "python-multipart",
         "mediapipe==0.10.9",
         "pillow>=10.0",
+        "yt-dlp[default]"
     )
     .run_commands("git clone https://github.com/Junhua-Liao/LR-ASD /opt/LR-ASD")
     # Include the local pipeline module in the image (Modal 1.x API)
@@ -201,6 +207,99 @@ def process_video(body: dict) -> dict:
     return {"ok": True, "thumbnailUploaded": thumbnail_uploaded}
 
 
+# ── YouTube Extraction endpoint ───────────────────────────────────────────────
+
+@app.function(
+    secrets=[modal.Secret.from_name("shortpurify-secrets")],
+    volumes={MODEL_DIR: volume},
+    cpu=2.0,
+    memory=2048,
+    timeout=300,
+)
+@modal.fastapi_endpoint(method="POST")
+def extract_youtube_info(body: dict) -> dict:
+    """
+    POST body (JSON):
+      youtubeUrl     str
+      workerSecret   str
+
+    Returns: { ok, title, playbackUrl, error? }
+    """
+    if not _verify_secret(body.get("workerSecret", "")):
+        return {"ok": False, "error": "Unauthorized"}
+
+    video_url = body.get("youtubeUrl", "")
+    if not video_url:
+        return {"ok": False, "error": "youtubeUrl is required"}
+
+    import yt_dlp
+
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'skip_download': True,
+        'cookiefile': '/models/cookies.txt',
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            v_info = ydl.extract_info(video_url, download=False)
+            if not v_info:
+                return {"ok": False, "error": "yt-dlp returned no info"}
+
+            res_title = v_info.get("title", "YouTube Video")
+            all_fmts = v_info.get("formats", []) or []
+
+            # 1. Direct HTTPS streams ONLY (avoid .m3u8 manifests for AssemblyAI)
+            playable = [
+                fmt for fmt in all_fmts
+                if fmt.get("url")
+                and not fmt.get("protocol", "").startswith("m3u8")
+                and "manifest/hls_playlist" not in fmt.get("url", "")
+            ]
+
+            # 2. Prefer muxed (video + audio) mp4/webm with reasonable resolution
+            muxed = [
+                f for f in playable
+                if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("height", 0) <= 1080
+            ]
+
+            if muxed:
+                # Pick the best resolution muxed stream
+                best = sorted(muxed, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
+                return {"ok": True, "title": res_title, "playbackUrl": best["url"]}
+
+            # 3. Fallback to best video-only direct stream (transcription still works on these)
+            video_only = [
+                f for f in playable
+                if f.get("vcodec") != "none" and f.get("height", 0) <= 1080
+            ]
+            if video_only:
+                best = sorted(video_only, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
+                return {"ok": True, "title": res_title, "playbackUrl": best["url"]}
+
+            # 4. Fallback to ANY direct playable stream
+            if playable:
+                return {"ok": True, "title": res_title, "playbackUrl": playable[-1]["url"]}
+
+            # 5. Last resort: If we filtered everything, take anything with a URL (even HLS)
+            raw_fmts = [f for f in all_fmts if f.get("url")]
+            if raw_fmts:
+                 return {"ok": True, "title": res_title, "playbackUrl": raw_fmts[-1]["url"]}
+
+            if v_info.get("url"):
+                 return {"ok": True, "title": res_title, "playbackUrl": v_info["url"]}
+
+            return {"ok": False, "error": "No direct playback URLs found for this video"}
+
+    except Exception as e:
+        import traceback
+        err_msg = str(e)
+        logging.error(f"yt-dlp extract error: {err_msg}\n{traceback.format_exc()}")
+        return {"ok": False, "error": f"YouTube Error: {err_msg}"}
+
+
+
 # ── Subtitle burn endpoint ────────────────────────────────────────────────────
 
 _FONT_PATHS = [
@@ -245,7 +344,7 @@ def _render_subtitle_frames(
     Returns [(ev_start_s, ev_end_s, png_path), ...]
     Gaps (long-pause windows) are NOT included; caller inserts blank frames.
     """
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
     LONG_PAUSE_MS  = 800
     font_size_px   = max(20, int(int(settings.get("fontSize", 26)) * vid_w / 390))
@@ -342,6 +441,8 @@ def _render_subtitle_frames(
 
         img  = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
+        shadow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+        shadow_draw = ImageDraw.Draw(shadow_layer)
 
         for row_idx, chunk in enumerate(display_chunks):
             row_cy   = (
@@ -406,16 +507,23 @@ def _render_subtitle_frames(
                         draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=hl_text_rgba, anchor="la")
                 else:
                     if scaled_font:
-                        # Soft drop shadow to match frontend
-                        draw.text((x_int + c_pad_x + max(1, int(2*scale)), text_y + max(1, int(2*scale))), word_text, font=scaled_font, fill=(0,0,0,180), anchor="la")
-                        draw.text((x_int + c_pad_x + max(2, int(4*scale)), text_y + max(2, int(4*scale))), word_text, font=scaled_font, fill=(0,0,0,90), anchor="la")
+                        # Draw shadow layer
+                        shadow_draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=(0,0,0,255), anchor="la")
                         # Actual text
                         draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=text_rgba, anchor="la")
 
                 x_cursor += span_w + c_gap_x
 
+        blur1 = shadow_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+        blur2 = shadow_layer.filter(ImageFilter.GaussianBlur(int(8 * scale_factor)))
+        
+        final_img = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+        final_img.alpha_composite(blur2)
+        final_img.alpha_composite(blur1)
+        final_img.alpha_composite(img)
+
         png_path = f"{tmpdir}/frame_{wi:05d}.png"
-        img.save(png_path, "PNG")
+        final_img.save(png_path, "PNG")
         frames.append((ev_start_ms / 1000.0, ev_end_ms / 1000.0, png_path))
 
     return frames
@@ -526,13 +634,19 @@ def burn_subtitles(body: dict) -> dict:
                         len(frames), len(timeline), vid_dur,
                     )
 
+                    fc_string = "[0:v][1:v]overlay=format=yuv420"
+                    watermark = body.get("watermark", "")
+                    if watermark:
+                        wf = _FONT_PATHS[0]
+                        fc_string += f",drawtext=text='{watermark}':fontfile='{wf}':x=w*0.03:y=h*0.02:fontsize=h*0.02:fontcolor=white@0.6:shadowcolor=black@0.4:shadowx=2:shadowy=2"
+
                     # Composite subtitle PNGs directly over the clip via concat demuxer.
                     # No drawtext filters, no enable= expressions, no filter-graph reinit.
                     result = subprocess.run(
                         ["ffmpeg", "-y",
                          "-i", input_path,
                          "-f", "concat", "-safe", "0", "-i", concat_file,
-                         "-filter_complex", "[0:v][1:v]overlay=format=yuv420",
+                         "-filter_complex", fc_string,
                          "-c:v", "libx264", "-preset", "fast", "-crf", "22",
                          "-pix_fmt", "yuv420p",
                          "-c:a", "copy",
@@ -591,3 +705,21 @@ def upload_weights(weight_bytes: bytes, filename: str = "finetuning_AVA.model"):
     dest.write_bytes(weight_bytes)
     volume.commit()
     print(f"Uploaded {filename} ({len(weight_bytes) / 1e6:.1f} MB) to Volume")
+
+
+@app.function(volumes={MODEL_DIR: volume})
+def upload_cookies(cookie_bytes: bytes):
+    dest = Path(MODEL_DIR) / "cookies.txt"
+    dest.write_bytes(cookie_bytes)
+    volume.commit()
+    print("Uploaded cookies.txt to Volume")
+
+@app.local_entrypoint()
+def mount_cookies(local_path: str):
+    with open(local_path, "rb") as f:
+        cookie_bytes = f.read()
+    upload_cookies.remote(cookie_bytes)
+
+
+
+

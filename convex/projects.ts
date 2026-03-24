@@ -11,6 +11,7 @@ export const createProjectAndStart = mutation({
     title: v.string(),
     originalUrl: v.string(),
     originalSize: v.optional(v.number()),
+    originalKey: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
@@ -28,6 +29,7 @@ export const createProjectAndStart = mutation({
       title: args.title,
       originalUrl: args.originalUrl,
       originalSize: args.originalSize,
+      originalKey: args.originalKey,
       enabledPlatforms: args.enabledPlatforms,
       status: "processing",
       processingStep: "Queued…",
@@ -89,6 +91,37 @@ export const saveTranscript = internalMutation({
   },
   handler: async (ctx, { projectId, transcriptText, transcriptWords }) => {
     await ctx.db.patch(projectId, { transcriptText, transcriptWords });
+  },
+});
+
+/** Persist subtitle style settings for a project (shared across all its clips). */
+export const saveSubtitleSettings = mutation({
+  args: {
+    projectId: v.id("projects"),
+    settings: v.object({
+      enabled: v.boolean(),
+      x: v.number(),
+      y: v.number(),
+      fontSize: v.number(),
+      fontFamily: v.string(),
+      textColor: v.string(),
+      highlightColor: v.string(),
+      highlightBg: v.string(),
+      wordsPerLine: v.number(),
+    }),
+  },
+  handler: async (ctx, { projectId, settings }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    await ctx.db.patch(projectId, { subtitleSettings: settings });
+  },
+});
+
+/** Clear originalKey after the original video has been deleted from R2. */
+export const clearOriginalKey = internalMutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    await ctx.db.patch(projectId, { originalKey: undefined });
   },
 });
 

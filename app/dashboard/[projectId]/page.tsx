@@ -329,6 +329,7 @@ export default function ProjectDetailsPage() {
                       duration: formatDuration(clip.startTime, clip.endTime),
                       caption: clip.content,
                       platform: clip.platform,
+                      captions: clip.captions ?? { [clip.platform]: clip.content },
                       startTime: clip.startTime,
                       endTime: clip.endTime,
                       clipKey: clip.clipKey,

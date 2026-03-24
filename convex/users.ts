@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 
 /**
  * Called from the client (SyncUser component) right after Clerk login.
@@ -34,6 +34,17 @@ export const upsertUser = mutation({
       imageUrl: args.imageUrl,
       createdAt: Date.now(),
     });
+  },
+});
+
+/** Internal: look up a user by their Clerk ID. Used by server-side actions. */
+export const getUserByClerkId = internalQuery({
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkId))
+      .unique();
   },
 });
 

@@ -20,6 +20,24 @@ export const getOutput = internalQuery({
   handler: async (ctx, { outputId }) => ctx.db.get(outputId),
 });
 
+/** Save publish status + request/job IDs after kicking off a social publish. */
+export const savePublishInfo = internalMutation({
+  args: {
+    outputId: v.id("outputs"),
+    publishStatus: v.union(v.literal("pending"), v.literal("success"), v.literal("failed")),
+    publishRequestId: v.optional(v.string()),
+    publishJobId: v.optional(v.string()),
+  },
+  handler: async (ctx, { outputId, publishStatus, publishRequestId, publishJobId }) => {
+    await ctx.db.patch(outputId, {
+      publishStatus,
+      publishedAt: Date.now(),
+      ...(publishRequestId !== undefined && { publishRequestId }),
+      ...(publishJobId !== undefined && { publishJobId }),
+    });
+  },
+});
+
 /** Persist the export cache key + settings hash after a successful Modal export. */
 export const saveExportCache = internalMutation({
   args: {

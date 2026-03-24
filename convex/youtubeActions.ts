@@ -1,23 +1,206 @@
 "use node";
+/**
+ * youtubeActions.ts — YouTube Shorts publishing integration.
+ *
+ * OAuth flow:
+ *   1. getAuthUrl()     → redirect user to Google OAuth
+ *   2. /oauth/youtube/callback (Convex HTTP route) → exchanges code, saves channel token
+ *   3. publishClip()    → uploads video to YouTube as a Short
+ *   4. disconnectChannel() → removes channel from user's account
+ *
+ * Token lifecycle:
+ *   - Access tokens expire in ~1 hour → automatically refreshed using refresh_token
+ *   - Refresh tokens are long-lived (revoked only if user disconnects the app)
+ *
+ * Required env vars (set in Convex dashboard):
+ *   GOOGLE_CLIENT_ID
+ *   GOOGLE_CLIENT_SECRET
+ *   CONVEX_SITE_URL   (auto-set by Convex)
+ *   APP_URL           (your frontend URL)
+ */
 
-import { action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
+import { r2 } from "./r2storage";
+import crypto from "crypto";
 
-/** Matches every common YouTube URL form */
-const YT_REGEX =
-  /(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+const GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const YOUTUBE_API      = "https://www.googleapis.com/youtube/v3";
+const YOUTUBE_UPLOAD   = "https://www.googleapis.com/upload/youtube/v3/videos";
+
+const SCOPES = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.readonly",
+].join(" ");
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function requireUser(ctx: any): Promise<{ _id: Id<"users"> }> {
+  const identity = await ctx.auth.getUserIdentity() as { subject: string } | null;
+  if (!identity) throw new Error("Unauthorized");
+  const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject }) as { _id: Id<"users"> } | null;
+  if (!user) throw new Error("User not found");
+  return user;
+}
+
+function callbackUrl() {
+  const siteUrl = process.env.CONVEX_SITE_URL;
+  if (!siteUrl) throw new Error("CONVEX_SITE_URL env var not set");
+  return `${siteUrl}/oauth/youtube/callback`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: string): Promise<string> {
+  const token = await ctx.runQuery(internal.socialTokens.getToken, {
+    userId, platform: "youtube", accountId,
+  }) as { accessToken: string; refreshToken?: string; tokenExpiry?: number } | null;
+
+  if (!token) throw new Error("YouTube account not connected. Please reconnect.");
+
+  // Refresh if within 5 minutes of expiry
+  if (token.tokenExpiry && token.tokenExpiry < Date.now() + 5 * 60 * 1000) {
+    if (!token.refreshToken) throw new Error("No refresh token. Please reconnect your YouTube account.");
+
+    const res = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: token.refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+    const data = await res.json() as { access_token?: string; expires_in?: number; error?: string };
+    if (!data.access_token) throw new Error(`Failed to refresh token: ${data.error}`);
+
+    await ctx.runMutation(internal.socialTokens.updateToken, {
+      userId, platform: "youtube", accountId,
+      accessToken: data.access_token,
+      tokenExpiry: Date.now() + (data.expires_in ?? 3600) * 1000,
+    });
+    return data.access_token;
+  }
+
+  return token.accessToken;
+}
+
+// ─── Connect ──────────────────────────────────────────────────────────────────
+
+export const getAuthUrl = action({
+  args: {},
+  handler: async (ctx): Promise<{ authUrl: string }> => {
+    const user = await requireUser(ctx);
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) throw new Error("GOOGLE_CLIENT_ID not configured");
+
+    const stateToken = crypto.randomBytes(32).toString("hex");
+    await ctx.runMutation(internal.socialTokens.saveOAuthState, {
+      token: stateToken, userId: user._id, platform: "youtube",
+    });
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callbackUrl(),
+      response_type: "code",
+      scope: SCOPES,
+      state: stateToken,
+      access_type: "offline",
+      prompt: "consent", // always get refresh_token
+    });
+
+    return { authUrl: `${GOOGLE_AUTH_URL}?${params}` };
+  },
+});
+
+export const handleCallback = internalAction({
+  args: { code: v.string(), state: v.string() },
+  handler: async (ctx, { code, state }) => {
+    const clientId     = process.env.GOOGLE_CLIENT_ID!;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+
+    // Verify state (CSRF)
+    const oauthState = await ctx.runMutation(internal.socialTokens.consumeOAuthState, { token: state });
+    if (!oauthState) throw new Error("Invalid or expired OAuth state");
+    const userId = oauthState.userId;
+
+    // Exchange code → tokens
+    const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl(),
+        grant_type: "authorization_code",
+      }),
+    });
+    const tokenData = await tokenRes.json() as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+      error?: string;
+    };
+    if (!tokenData.access_token) throw new Error(`Failed to get access token: ${tokenData.error}`);
+
+    // Fetch channel info
+    const channelRes = await fetch(`${YOUTUBE_API}/channels?part=snippet&mine=true`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const channelData = await channelRes.json() as {
+      items?: Array<{
+        id: string;
+        snippet: { title: string; thumbnails?: { default?: { url?: string } } };
+      }>;
+      error?: { message: string };
+    };
+
+    if (channelData.error) throw new Error(channelData.error.message);
+    if (!channelData.items?.length) throw new Error("No YouTube channel found for this Google account.");
+
+    const channel = channelData.items[0];
+
+    await ctx.runMutation(internal.socialTokens.saveSocialToken, {
+      userId,
+      platform: "youtube",
+      accountId: channel.id,
+      accountName: channel.snippet.title,
+      accountPicture: channel.snippet.thumbnails?.default?.url,
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      tokenExpiry: Date.now() + (tokenData.expires_in ?? 3600) * 1000,
+      scope: SCOPES,
+    });
+
+    console.log(`[youtube] Connected channel "${channel.snippet.title}" for user ${userId}`);
+  },
+});
+
+// ─── Manage ───────────────────────────────────────────────────────────────────
+
+export const disconnectChannel = action({
+  args: { accountId: v.string() },
+  handler: async (ctx, { accountId }): Promise<{ ok: boolean }> => {
+    const user = await requireUser(ctx);
+    await ctx.runMutation(internal.socialTokens.deleteToken, {
+      userId: user._id, platform: "youtube", accountId,
+    });
+    return { ok: true };
+  },
+});
+
+// ─── YouTube Import (for upload page) ─────────────────────────────────────────
+
+const YT_REGEX = /(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
 
 export function extractVideoId(url: string): string | null {
   const m = url.match(YT_REGEX);
   return m ? m[1] : null;
 }
 
-/**
- * Resolves a YouTube URL to a direct CDN stream URL using YouTube's internal
- * Innertube API, then creates a project and kicks off the full AI pipeline.
- * No video data passes through our servers.
- */
 export const createProjectFromYouTube = action({
   args: {
     youtubeUrl: v.string(),
@@ -34,40 +217,119 @@ export const createProjectFromYouTube = action({
     const workerUrl = process.env.VIDEO_WORKER_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET;
     if (!workerUrl || !workerSecret) {
-      throw new Error("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables. Ensure Modal worker is deployed.");
+      throw new Error("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables.");
     }
 
-    // Modal exposes each @modal.fastapi_endpoint as a separate subdomain URL.
-    // It translates the Python function `process_video` into `process-video` in the URL.
-    // Similarly, `extract_youtube_info` becomes `extract-youtube-info`.
     const extractUrl = workerUrl.replace("process-video", "extract-youtube-info");
-
     const res = await fetch(extractUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        youtubeUrl,
-        workerSecret,
-      }),
+      body: JSON.stringify({ youtubeUrl, workerSecret }),
     });
 
-    if (!res.ok) {
-      throw new Error(`Worker returned HTTP ${res.status}`);
-    }
-    
-    const data = await res.json();
+    if (!res.ok) throw new Error(`Worker returned HTTP ${res.status}`);
+
+    const data = await res.json() as { ok?: boolean; playbackUrl?: string; title?: string; error?: string };
     if (!data.ok || !data.playbackUrl) {
-      throw new Error(data.error || "Failed to extract video playback URL. Ensure the YouTube video is available.");
+      throw new Error(data.error ?? "Failed to extract video playback URL.");
     }
 
     const videoTitle = title?.trim() || data.title || "YouTube Import";
 
-    const projectId = await ctx.runMutation(api.projects.createProjectAndStart, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const projectId = await ctx.runMutation((internal as any).projects.createProjectAndStart, {
       title: videoTitle,
       originalUrl: data.playbackUrl,
       enabledPlatforms: enabledPlatforms ?? [],
     });
 
     return { projectId };
+  },
+});
+
+// ─── Publish ──────────────────────────────────────────────────────────────────
+
+export const publishClip = action({
+  args: {
+    outputId: v.id("outputs"),
+    accountId: v.string(),
+    clipUrl: v.string(),
+    clipKey: v.optional(v.string()),
+    caption: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { outputId, accountId, clipUrl, clipKey, caption, title }) => {
+    const user = await requireUser(ctx);
+    const accessToken = await getValidAccessToken(ctx, user._id, accountId);
+
+    // Get fresh R2 URL if we have a key
+    let videoUrl = clipUrl;
+    if (clipKey) {
+      videoUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 * 2 });
+    }
+
+    // Fetch the video bytes
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    const videoBuffer = await videoRes.arrayBuffer();
+    const contentType = "video/mp4";
+
+    // Build metadata — add #Shorts so YouTube categorises it correctly
+    const videoTitle = title.length > 100 ? title.slice(0, 97) + "..." : title;
+    const description = caption ? `${caption}\n\n#Shorts` : "#Shorts";
+
+    const metadata = {
+      snippet: { title: videoTitle, description, categoryId: "22" },
+      status:  { privacyStatus: "public", selfDeclaredMadeForKids: false },
+    };
+
+    // Step 1: initiate resumable upload
+    const initRes = await fetch(
+      `${YOUTUBE_UPLOAD}?uploadType=resumable&part=snippet,status`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Upload-Content-Type": contentType,
+          "X-Upload-Content-Length": String(videoBuffer.byteLength),
+        },
+        body: JSON.stringify(metadata),
+      },
+    );
+
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({})) as { error?: { message: string } };
+      throw new Error(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
+    }
+
+    const uploadUrl = initRes.headers.get("location");
+    if (!uploadUrl) throw new Error("YouTube did not return an upload URL");
+
+    // Step 2: upload video bytes
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(videoBuffer.byteLength),
+      },
+      body: videoBuffer,
+    });
+
+    const uploadData = await uploadRes.json() as {
+      id?: string;
+      error?: { message: string };
+    };
+
+    if (uploadData.error) throw new Error(`YouTube upload failed: ${uploadData.error.message}`);
+    if (!uploadData.id)   throw new Error("YouTube did not return a video ID");
+
+    await ctx.runMutation(internal.outputs.savePublishInfo, {
+      outputId,
+      publishStatus: "success",
+      publishRequestId: uploadData.id,
+    });
+
+    return { videoId: uploadData.id };
   },
 });

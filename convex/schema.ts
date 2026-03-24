@@ -87,14 +87,31 @@ export default defineSchema({
     publishStatus: v.optional(
       v.union(v.literal("pending"), v.literal("success"), v.literal("failed")),
     ),
+    publishRequestId: v.optional(v.string()), // async upload request ID
+    publishJobId: v.optional(v.string()),      // scheduled post job ID
   }).index("by_project", ["projectId"]),
 
-  socialConnections: defineTable({
+  // Temporary state tokens for OAuth CSRF protection (TTL ~10 min)
+  oauthStates: defineTable({
+    token: v.string(),
     userId: v.id("users"),
-    provider: v.string(), // "uploadpost"
+    platform: v.string(),
+    createdAt: v.number(),
+  }).index("by_token", ["token"]),
+
+  // Connected social accounts — one row per page/account per user
+  socialTokens: defineTable({
+    userId: v.id("users"),
+    platform: v.string(),           // "facebook" | "instagram" | ...
+    accountId: v.string(),          // platform-specific page/account ID
+    accountName: v.string(),
+    accountPicture: v.optional(v.string()),
     accessToken: v.string(),
-    profiles: v.array(
-      v.object({ platform: v.string(), profileId: v.string() }),
-    ),
-  }).index("by_user", ["userId"]),
+    refreshToken: v.optional(v.string()), // for platforms that issue refresh tokens (Google/YouTube)
+    tokenExpiry: v.optional(v.number()), // ms timestamp; undefined = never expires
+    scope: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_platform", ["userId", "platform"])
+    .index("by_user_platform_account", ["userId", "platform", "accountId"]),
 });

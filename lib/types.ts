@@ -12,6 +12,8 @@ export interface OutputClipProps {
   duration: string;
   caption?: string;
   platform?: string;
+  /** Per-platform AI-generated captions keyed by platform id */
+  captions?: Record<string, string>;
   startTime?: number;
   endTime?: number;
   clipKey?: string;

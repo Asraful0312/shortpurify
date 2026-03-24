@@ -1,210 +1,258 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Plus, CheckCircle2, Clock, AlertCircle, ExternalLink, Unlink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { Send, CheckCircle2, AlertCircle, RefreshCw, Loader2, Link2, X } from "lucide-react";
 import { PublishModal } from "@/components/dashboard/publish-modal";
+import { useAction, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 
-const CONNECTED_ACCOUNTS = [
-  { id: "tiktok", name: "TikTok", emoji: "🎵", handle: "@shortpurify_demo", connected: true, posts: 14 },
-  { id: "instagram", name: "Instagram Reels", emoji: "📸", handle: "@shortpurify", connected: true, posts: 11 },
-  { id: "youtube", name: "YouTube Shorts", emoji: "▶️", handle: "ShortPurify Channel", connected: false, posts: 0 },
-  { id: "linkedin", name: "LinkedIn", emoji: "💼", handle: "Not connected", connected: false, posts: 0 },
-  { id: "twitter", name: "X / Twitter", emoji: "🐦", handle: "@shortpurify", connected: true, posts: 8 },
-  { id: "snapchat", name: "Snapchat Spotlight", emoji: "👻", handle: "Not connected", connected: false, posts: 0 },
+// Platforms that are live vs coming soon
+const PLATFORMS = [
+  { id: "facebook",  name: "Facebook Pages",  emoji: "👍", live: false },
+  { id: "instagram", name: "Instagram Reels", emoji: "📸", live: false },
+  { id: "youtube",   name: "YouTube Shorts",  emoji: "▶️",  live: true },
+  { id: "tiktok",    name: "TikTok",          emoji: "🎵", live: true },
+  { id: "x",         name: "X / Twitter",     emoji: "🐦", live: false },
+  { id: "linkedin",  name: "LinkedIn",        emoji: "💼", live: false },
+  { id: "threads",   name: "Threads",         emoji: "🔗", live: false },
+  { id: "bluesky",   name: "Bluesky",         emoji: "🦋", live: false },
 ];
-
-const PUBLISH_QUEUE = [
-  {
-    id: "q1",
-    title: "The Ultimate Framework Hook",
-    platforms: ["TikTok", "Instagram"],
-    scheduledFor: "Today, 6:00 PM",
-    status: "scheduled",
-  },
-  {
-    id: "q2",
-    title: "Why Most Startups Fail Early",
-    platforms: ["TikTok"],
-    scheduledFor: "Tomorrow, 9:00 AM",
-    status: "scheduled",
-  },
-  {
-    id: "q3",
-    title: "The #1 Secret to Scaling APIs",
-    platforms: ["YouTube", "LinkedIn"],
-    scheduledFor: "Published 2h ago",
-    status: "published",
-  },
-  {
-    id: "q4",
-    title: "Podcast Ep Highlight",
-    platforms: ["Instagram"],
-    scheduledFor: "Failed · 1d ago",
-    status: "failed",
-  },
-];
-
-const STATUS_ICON: Record<string, React.ReactNode> = {
-  scheduled: <Clock size={14} className="text-amber-500" />,
-  published: <CheckCircle2 size={14} className="text-green-600" />,
-  failed: <AlertCircle size={14} className="text-red-500" />,
-};
-
-const STATUS_BADGE: Record<string, "secondary" | "default" | "destructive"> = {
-  scheduled: "secondary",
-  published: "default",
-  failed: "destructive",
-};
 
 export default function PublishPage() {
   const [publishOpen, setPublishOpen] = useState(false);
-  const [accounts, setAccounts] = useState(CONNECTED_ACCOUNTS);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
-  const toggleConnect = (id: string) => {
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, connected: !a.connected } : a))
-    );
+  // Real-time list of connected accounts from Convex
+  const accounts = useQuery(api.socialTokens.getAllTokens);
+  const isLoading = accounts === undefined;
+
+  const getFacebookAuthUrl = useAction(api.facebookActions.getAuthUrl);
+  const disconnectFacebookPage = useAction(api.facebookActions.disconnectPage);
+  const getYouTubeAuthUrl = useAction(api.youtubeActions.getAuthUrl);
+  const disconnectYouTubeChannel = useAction(api.youtubeActions.disconnectChannel);
+  const getTikTokAuthUrl = useAction(api.tiktokActions.getAuthUrl);
+  const disconnectTikTokAccount = useAction(api.tiktokActions.disconnectAccount);
+
+  // Handle ?connected=... and ?error=... redirects from OAuth callbacks
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("connected");
+    const error = params.get("error");
+    const detail = params.get("detail");
+
+    if (connected) {
+      const name = PLATFORMS.find((p) => p.id === connected)?.name ?? connected;
+      setToast({ type: "success", msg: `${name} connected successfully!` });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (error) {
+      const denied = error?.endsWith("_denied") ?? false;
+      const msg = denied
+        ? `${error!.split("_")[0].charAt(0).toUpperCase() + error!.split("_")[0].slice(1)} connection was cancelled.`
+        : detail ?? "Failed to connect. Please try again.";
+      setToast({ type: "error", msg });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const handleConnect = async (platformId: string) => {
+    setConnecting(platformId);
+    try {
+      if (platformId === "facebook") {
+        const { authUrl } = await getFacebookAuthUrl({});
+        window.location.href = authUrl;
+      } else if (platformId === "youtube") {
+        const { authUrl } = await getYouTubeAuthUrl({});
+        window.location.href = authUrl;
+      } else if (platformId === "tiktok") {
+        const { authUrl } = await getTikTokAuthUrl({});
+        window.location.href = authUrl;
+      }
+    } catch (err) {
+      setToast({ type: "error", msg: err instanceof Error ? err.message : "Failed to get connect URL" });
+      setConnecting(null);
+    }
   };
 
-  const connectedCount = accounts.filter((a) => a.connected).length;
+  const handleDisconnect = async (platform: string, accountId: string, name: string) => {
+    if (!confirm(`Disconnect "${name}"?`)) return;
+    setDisconnecting(accountId);
+    try {
+      if (platform === "facebook") {
+        await disconnectFacebookPage({ accountId });
+      } else if (platform === "youtube") {
+        await disconnectYouTubeChannel({ accountId });
+      } else if (platform === "tiktok") {
+        await disconnectTikTokAccount({ accountId });
+      }
+    } catch (err) {
+      setToast({ type: "error", msg: err instanceof Error ? err.message : "Disconnect failed" });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  const hasAnyConnected = (accounts?.length ?? 0) > 0;
+
+  // Group by platform
+  const byPlatform: Record<string, typeof accounts> = {};
+  for (const acc of accounts ?? []) {
+    if (!byPlatform[acc.platform]) byPlatform[acc.platform] = [];
+    byPlatform[acc.platform]!.push(acc);
+  }
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto w-full min-h-full flex flex-col gap-8">
+
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          "fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-lg text-sm font-semibold border animate-in slide-in-from-top-2",
+          toast.type === "success"
+            ? "bg-green-50 border-green-200 text-green-800"
+            : "bg-red-50 border-red-200 text-red-800",
+        )}>
+          {toast.type === "success"
+            ? <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+            : <AlertCircle size={16} className="text-red-500 shrink-0" />}
+          {toast.msg}
+          <button onClick={() => setToast(null)} className="ml-1 opacity-60 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-extrabold tracking-tight">Publish Hub</h1>
-            <Badge variant="secondary" className="text-[10px] font-extrabold uppercase tracking-widest">Phase 2</Badge>
-          </div>
-          <p className="text-muted-foreground">
-            Connect accounts & schedule clips to go live across all platforms.
-          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Publish Hub</h1>
+          <p className="text-muted-foreground mt-1">Connect your social accounts and publish clips directly.</p>
         </div>
-        <button
-          onClick={() => setPublishOpen(true)}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-2"
-        >
-          <Send size={16} /> Publish Clip
-        </button>
+        {hasAnyConnected && (
+          <button
+            onClick={() => setPublishOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-2"
+          >
+            <Send size={16} /> Publish Clip
+          </button>
+        )}
       </div>
 
-      {/* Connected Accounts */}
+      {/* Platform grid */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-extrabold text-lg">Connected Accounts</h2>
-          <span className="text-sm text-muted-foreground font-medium">
-            {connectedCount}/{accounts.length} connected
-          </span>
+          <h2 className="font-extrabold text-lg">Social Accounts</h2>
+          {isLoading && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 size={12} className="animate-spin" /> Loading…
+            </div>
+          )}
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {accounts.map((account) => (
-            <div
-              key={account.id}
-              className="bg-white border border-border rounded-2xl p-5 shadow-sm flex flex-col gap-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-2xl">{account.emoji}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm">{account.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{account.handle}</p>
-                </div>
-                {account.connected && (
-                  <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200 shrink-0">Live</span>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {PLATFORMS.map((p) => {
+            const connected = byPlatform[p.id] ?? [];
+            const isConnecting = connecting === p.id;
+
+            return (
+              <div
+                key={p.id}
+                className={cn(
+                  "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
+                  !p.live && "opacity-60",
+                  connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
                 )}
-              </div>
+              >
+                {/* Platform header */}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">{p.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{p.name}</p>
+                    {isLoading ? (
+                      <div className="h-3 w-16 bg-secondary animate-pulse rounded mt-0.5" />
+                    ) : !p.live ? (
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coming soon</p>
+                    ) : connected.length > 0 ? (
+                      <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 size={10} /> {connected.length} page{connected.length !== 1 ? "s" : ""} connected
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Not connected</p>
+                    )}
+                  </div>
+                </div>
 
-              {account.connected && (
-                <p className="text-xs text-muted-foreground font-medium">
-                  {account.posts} clips published
-                </p>
-              )}
+                {/* Connected account chips */}
+                {connected.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {connected.map((acc) => (
+                      <div key={acc.accountId} className="flex items-center gap-2 bg-white border border-green-200 rounded-lg px-2 py-1">
+                        {acc.accountPicture && (
+                          // eslint-disable-next-line @next/next-image
+                          <img src={acc.accountPicture} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold truncate flex-1">{acc.accountName}</span>
+                        <button
+                          onClick={() => handleDisconnect(acc.platform, acc.accountId, acc.accountName)}
+                          disabled={disconnecting === acc.accountId}
+                          className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Disconnect"
+                        >
+                          {disconnecting === acc.accountId
+                            ? <Loader2 size={12} className="animate-spin" />
+                            : <X size={12} />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              <div className="flex gap-2 mt-auto">
-                {account.connected ? (
-                  <>
-                    <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border text-xs font-bold hover:bg-secondary transition-colors text-muted-foreground">
-                      <ExternalLink size={12} /> View
-                    </button>
-                    <button
-                      onClick={() => toggleConnect(account.id)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-red-200 text-xs font-bold hover:bg-red-50 transition-colors text-red-600"
-                    >
-                      <Unlink size={12} /> Disconnect
-                    </button>
-                  </>
-                ) : (
+                {/* Connect button — only for live platforms */}
+                {p.live && (
                   <button
-                    onClick={() => toggleConnect(account.id)}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-xs font-extrabold text-primary transition-colors"
+                    onClick={() => handleConnect(p.id)}
+                    disabled={isConnecting || isLoading}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-50",
+                      connected.length > 0
+                        ? "border-green-200 text-green-700 hover:bg-green-100"
+                        : "border-primary/30 text-primary hover:bg-primary/5",
+                    )}
                   >
-                    <Plus size={12} /> Connect Account
+                    {isConnecting
+                      ? <><Loader2 size={12} className="animate-spin" /> Connecting…</>
+                      : <><Link2 size={12} /> {connected.length > 0 ? "Add another page" : "Connect"}</>}
                   </button>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Publish Queue */}
-      <div>
-        <h2 className="font-extrabold text-lg mb-4">Publish Queue</h2>
-        <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
-          {PUBLISH_QUEUE.length === 0 ? (
-            <div className="p-10 text-center text-muted-foreground text-sm">
-              No scheduled posts yet.
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-secondary/40">
-                  <th className="text-left px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Clip</th>
-                  <th className="text-left px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Platforms</th>
-                  <th className="text-left px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Scheduled</th>
-                  <th className="text-left px-5 py-3 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Status</th>
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {PUBLISH_QUEUE.map((item) => (
-                  <tr key={item.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="px-5 py-4 font-semibold truncate max-w-[200px]">{item.title}</td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {item.platforms.map((p) => (
-                          <span key={p} className="text-[10px] font-bold bg-secondary text-foreground px-2 py-0.5 rounded-full border border-border">
-                            {p}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground text-xs font-medium">{item.scheduledFor}</td>
-                    <td className="px-5 py-4">
-                      <Badge variant={STATUS_BADGE[item.status]} className="flex items-center gap-1 w-fit text-[10px] capitalize font-bold">
-                        {STATUS_ICON[item.status]}
-                        {item.status}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      {item.status === "scheduled" && (
-                        <button className="text-xs text-red-500 font-bold hover:underline">Cancel</button>
-                      )}
-                      {item.status === "failed" && (
-                        <button className="text-xs text-primary font-bold hover:underline">Retry</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+      {/* Empty state */}
+      {!isLoading && !hasAnyConnected && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-3">
+          <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-extrabold text-amber-800">No accounts connected yet</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Click <strong>Connect</strong> on Facebook above to link your Pages and start publishing clips.
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
-      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} />
+      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} accounts={accounts ?? []} />
     </div>
   );
 }

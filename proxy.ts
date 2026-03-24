@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 // Routes anyone can access without being logged in
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/privacy",
+  "/terms",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/uploadthing(.*)",

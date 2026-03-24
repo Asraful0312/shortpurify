@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { OutputClipProps } from "@/lib/types";
 import { PublishModal } from "./publish-modal";
 import { downloadVideo } from "@/lib/download";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
@@ -42,6 +42,7 @@ function FullscreenPlayer({
   const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
 
+  const accounts = useQuery(api.socialTokens.getAllTokens) ?? [];
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const saveSubtitleSettingsMutation = useMutation(api.projects.saveSubtitleSettings);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -355,7 +356,13 @@ function FullscreenPlayer({
       <PublishModal
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
+        accounts={accounts}
         clipTitle={clip.title}
+        clipUrl={clip.videoUrl}
+        clipKey={clip.clipKey}
+        outputId={clip.id}
+        defaultCaption={clip.caption}
+        captions={clip.captions}
       />
     </div>,
     document.body,

@@ -140,8 +140,11 @@ export const generateClipIdeas = internalAction({
     const clips: GeneratedClip[] = JSON.parse(match[0]);
 
     return clips.map((c) => ({
-      ...c,
       title: sanitize(c.title),
+      startTime: Math.max(0, c.startTime),
+      endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 5, c.endTime))),
+      viralScore: c.viralScore,
+      platform: c.platform,
       // Sanitize + ensure every requested platform has a caption
       captions: Object.fromEntries(
         platforms.map((p) => [
@@ -149,8 +152,6 @@ export const generateClipIdeas = internalAction({
           sanitize(c.captions?.[p] ?? c.captions?.tiktok ?? ""),
         ]),
       ),
-      startTime: Math.max(0, c.startTime),
-      endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 5, c.endTime))),
     }));
   },
 });

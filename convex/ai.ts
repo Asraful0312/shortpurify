@@ -29,6 +29,8 @@ function sanitize(text: string): string {
   return text.replace(/[—–]/g, "-").trim();
 }
 
+
+
 function buildPrompt(
   transcriptText: string,
   videoDuration: number,
@@ -50,6 +52,11 @@ Rules you MUST follow strictly:
    - Outros ("thanks for watching", "subscribe", "like & comment")
    - Filler, chit-chat, or low-energy sections
 2. Prioritize moments with:
+   - Interesting statements or stories
+   - Emotional moments
+   - Surprising revelations or insights
+   - Quotable or memorable segments
+   - Self-contained moments that work well in isolation
    - Strong hooks: questions, bold statements, "mind blown", "I can't believe", "secret", "mistake you're making"
    - Emotional peaks: surprise, anger, laughter, inspiration, controversy, relatable stories
    - Clear value: actionable tips, hot takes, data reveals, personal failures → lessons

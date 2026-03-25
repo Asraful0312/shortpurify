@@ -1,28 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Send, CheckCircle2, AlertCircle, RefreshCw, Loader2, Link2, X } from "lucide-react";
+import { Send, CheckCircle2, AlertCircle, Loader2, Link2, X } from "lucide-react";
 import { PublishModal } from "@/components/dashboard/publish-modal";
+import { BlueskyConnectModal } from "@/components/dashboard/bluesky-connect-modal";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 // Platforms that are live vs coming soon
 const PLATFORMS = [
-  { id: "facebook",  name: "Facebook Pages",  emoji: "👍", live: false },
-  { id: "instagram", name: "Instagram Reels", emoji: "📸", live: false },
-  { id: "youtube",   name: "YouTube Shorts",  emoji: "▶️",  live: true },
-  { id: "tiktok",    name: "TikTok",          emoji: "🎵", live: true },
-  { id: "x",         name: "X / Twitter",     emoji: "🐦", live: false },
-  { id: "linkedin",  name: "LinkedIn",        emoji: "💼", live: false },
-  { id: "threads",   name: "Threads",         emoji: "🔗", live: false },
-  { id: "bluesky",   name: "Bluesky",         emoji: "🦋", live: false },
+  { id: "facebook",  name: "Facebook Pages",  image: "/icons/facebook.png", live: false },
+  { id: "instagram", name: "Instagram Reels", image: "/icons/instagram.png", live: false },
+  { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
+  { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png", live: true },
+  { id: "x",         name: "X / Twitter",     image: "/icons/twitter.png", live: true },
+  { id: "linkedin",  name: "LinkedIn",        image: "/icons/linkedin.png", live: false },
+  { id: "threads",   name: "Threads",         image: "/icons/threads.png", live: false },
+  { id: "bluesky",   name: "Bluesky",         image: "/icons/bluesky-icon.png", live: true },
 ];
 
 export default function PublishPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [blueskyConnectOpen, setBlueskyConnectOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
   // Real-time list of connected accounts from Convex
@@ -35,6 +38,11 @@ export default function PublishPage() {
   const disconnectYouTubeChannel = useAction(api.youtubeActions.disconnectChannel);
   const getTikTokAuthUrl = useAction(api.tiktokActions.getAuthUrl);
   const disconnectTikTokAccount = useAction(api.tiktokActions.disconnectAccount);
+  const getXAuthUrl = useAction(api.xActions.getAuthUrl);
+  const disconnectXAccount = useAction(api.xActions.disconnectAccount);
+  const getThreadsAuthUrl = useAction(api.threadsActions.getAuthUrl);
+  const disconnectThreadsAccount = useAction(api.threadsActions.disconnectAccount);
+  const disconnectBlueskyAccount = useAction(api.blueskyActions.disconnectAccount);
 
   // Handle ?connected=... and ?error=... redirects from OAuth callbacks
   useEffect(() => {
@@ -76,6 +84,16 @@ export default function PublishPage() {
       } else if (platformId === "tiktok") {
         const { authUrl } = await getTikTokAuthUrl({});
         window.location.href = authUrl;
+      } else if (platformId === "x") {
+        const { authUrl } = await getXAuthUrl({});
+        window.location.href = authUrl;
+      } else if (platformId === "threads") {
+        const { authUrl } = await getThreadsAuthUrl({});
+        window.location.href = authUrl;
+      } else if (platformId === "bluesky") {
+        setBlueskyConnectOpen(true);
+        setConnecting(null);
+        return;
       }
     } catch (err) {
       setToast({ type: "error", msg: err instanceof Error ? err.message : "Failed to get connect URL" });
@@ -93,6 +111,12 @@ export default function PublishPage() {
         await disconnectYouTubeChannel({ accountId });
       } else if (platform === "tiktok") {
         await disconnectTikTokAccount({ accountId });
+      } else if (platform === "x") {
+        await disconnectXAccount({ accountId });
+      } else if (platform === "threads") {
+        await disconnectThreadsAccount({ accountId });
+      } else if (platform === "bluesky") {
+        await disconnectBlueskyAccount({ accountId });
       }
     } catch (err) {
       setToast({ type: "error", msg: err instanceof Error ? err.message : "Disconnect failed" });
@@ -174,7 +198,7 @@ export default function PublishPage() {
               >
                 {/* Platform header */}
                 <div className="flex items-center gap-2.5">
-                  <span className="text-2xl">{p.emoji}</span>
+                 <Image className={p.id === "x" ? "size-4" :"size-5"} alt={p.name} src={p.image} width={20} height={20}/>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate">{p.name}</p>
                     {isLoading ? (
@@ -253,6 +277,14 @@ export default function PublishPage() {
       )}
 
       <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} accounts={accounts ?? []} />
+      <BlueskyConnectModal
+        open={blueskyConnectOpen}
+        onClose={() => setBlueskyConnectOpen(false)}
+        onConnected={(handle) => {
+          setBlueskyConnectOpen(false);
+          setToast({ type: "success", msg: `@${handle} connected successfully!` });
+        }}
+      />
     </div>
   );
 }

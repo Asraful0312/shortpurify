@@ -119,6 +119,7 @@ export const getAuthUrl = action({
       response_type: "code",
       scope: SCOPES,
       state: stateToken,
+      force_reload: "true", // always show consent screen, prevents cached auth
     });
 
     return { authUrl: `${TIKTOK_AUTH_URL}?${params}` };
@@ -221,10 +222,13 @@ export const publishClip = action({
     const user = await requireUser(ctx);
     const accessToken = await getValidAccessToken(ctx, user._id, accountId);
 
-    // Get fresh R2 URL if we have a key
+    // Auto-export with subtitles if not already exported
+    const autoExportKey = await ctx.runAction(internal.exportActions.ensureExported, { outputId });
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    const bestKey = autoExportKey ?? output?.exportKey ?? clipKey;
     let videoUrl = clipUrl;
-    if (clipKey) {
-      videoUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 * 2 });
+    if (bestKey) {
+      videoUrl = await r2.getUrl(bestKey, { expiresIn: 60 * 60 * 2 });
     }
 
     // Fetch video bytes
@@ -240,118 +244,58 @@ export const publishClip = action({
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json; charset=UTF-8",
       },
-      body: JSON.stringify({}), // Essential: TikTok requires an empty JSON object body
     });
-    
     const creatorData = await creatorRes.json() as {
       data?: { privacy_level_options?: string[] };
-      error?: { code: string; message: string; log_id?: string };
+      error?: { code: string; message: string };
     };
-
-    if (creatorData.error?.code && creatorData.error.code !== "ok") {
-      console.warn(`[tiktok] Creator info query failed: ${creatorData.error.message} (log_id: ${creatorData.error.log_id})`);
-    }
-
-    const allowedOptions = creatorData.data?.privacy_level_options ?? [];
-    console.log(`[tiktok] Allowed privacy options: ${allowedOptions.join(", ")}`);
-
-    // Priority: PUBLIC_TO_EVERYONE -> first allowed -> SELF_ONLY fallback
-    const privacyLevel = allowedOptions.includes("PUBLIC_TO_EVERYONE")
+    const allowedPrivacy = creatorData.data?.privacy_level_options ?? ["PUBLIC_TO_EVERYONE"];
+    const privacyLevel = allowedPrivacy.includes("PUBLIC_TO_EVERYONE")
       ? "PUBLIC_TO_EVERYONE"
-      : allowedOptions.length > 0 
-        ? allowedOptions[0] 
-        : "SELF_ONLY";
+      : allowedPrivacy[0];
 
-    // TikTok blocks captions containing URLs and enforces a limit (usually 150 for Direct Post)
+    // TikTok blocks captions with URLs; Direct Post title max 2200 chars
     const sanitizeCaption = (text: string) =>
       text
-        .replace(/https?:\/\/\S+/gi, "") // strip URLs
-        .replace(/\s{2,}/g, " ")          // collapse extra spaces
+        .replace(/https?:\/\/\S+/gi, "")
+        .replace(/\s{2,}/g, " ")
         .trim()
-        .slice(0, 150); // Direct Post often limits title to 150 chars
+        .slice(0, 2200);
 
     const postCaption = sanitizeCaption(caption || title);
 
-    // Step 1: Initialize upload
-    const initUpload = async (opts: { pLevel?: string, minimal?: boolean, omitPrivacy?: boolean, simpleTitle?: boolean }) => {
-      const { pLevel, minimal = false, omitPrivacy = false, simpleTitle = false } = opts;
-      
-      const postInfo: any = {
-        title: simpleTitle ? "ShortPurify AI Video" : postCaption,
-      };
-
-      if (!omitPrivacy && pLevel) {
-        postInfo.privacy_level = pLevel;
-      }
-
-      if (!minimal) {
-        postInfo.disable_duet = false;
-        postInfo.disable_comment = false;
-        postInfo.disable_stitch = false;
-        postInfo.video_cover_timestamp_ms = 1000;
-      }
-
-      console.log(`[tiktok] Initializing upload: ${JSON.stringify(postInfo)}`);
-      
-      const res = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json; charset=UTF-8",
+    // Step 1: Initialize upload (DIRECT_POST — app is approved)
+    const initRes = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({
+        post_info: {
+          title: postCaption,
+          post_mode: "DIRECT_POST",
+          privacy_level: privacyLevel,
+          disable_duet: false,
+          disable_comment: false,
+          disable_stitch: false,
+          video_cover_timestamp_ms: 1000,
         },
-        body: JSON.stringify({
-          post_info: postInfo,
-          source_info: {
-            source: "FILE_UPLOAD",
-            video_size: videoSize,
-            chunk_size: videoSize,
-            total_chunk_count: 1,
-          },
-        }),
-      });
-      return await res.json() as {
-        data?: { publish_id?: string; upload_url?: string };
-        error?: { code: string; message: string };
-      };
+        source_info: {
+          source: "FILE_UPLOAD",
+          video_size: videoSize,
+          chunk_size: videoSize,
+          total_chunk_count: 1,
+        },
+      }),
+    });
+    const initData = await initRes.json() as {
+      data?: { publish_id?: string; upload_url?: string };
+      error?: { code: string; message: string };
     };
 
-    let initData = await initUpload({ pLevel: privacyLevel });
-
-    // Fallback chain for unaudited/staging apps
-    if (initData.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
-      console.warn("[tiktok] Initial attempt failed. Starting unaudited fallback chain...");
-      
-      // Retry 1: SELF_ONLY (Standard)
-      if (privacyLevel !== "SELF_ONLY") {
-        initData = await initUpload({ pLevel: "SELF_ONLY" });
-      }
-
-      // Retry 2: self_only (Lowercase fallback)
-      if (initData.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
-        initData = await initUpload({ pLevel: "self_only" });
-      }
-
-      // Retry 3: Minimal + SELF_ONLY
-      if (initData.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
-        initData = await initUpload({ pLevel: "SELF_ONLY", minimal: true });
-      }
-
-      // Retry 4: Minimal + No Privacy (Zero-config)
-      if (initData.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
-        initData = await initUpload({ minimal: true, omitPrivacy: true });
-      }
-
-      // Retry 5: Minimal + No Privacy + Simple Title (Cleanest possible)
-      if (initData.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
-        initData = await initUpload({ minimal: true, omitPrivacy: true, simpleTitle: true });
-      }
-    }
-
     if (initData.error?.code && initData.error.code !== "ok") {
-      console.error("[tiktok] Init failed details:", JSON.stringify(initData.error, null, 2));
-      const isUnaudited = initData.error.code === "unaudited_client_can_only_post_to_private_accounts";
-      const extraMsg = isUnaudited ? ". Note: Unaudited apps can only post to private accounts (SELF_ONLY) and the account must be added as a Tester in the TikTok Developer Portal." : "";
-      throw new Error(`TikTok init failed (${initData.error.code}): ${initData.error.message}${extraMsg}`);
+      throw new Error(`TikTok init failed (${initData.error.code}): ${initData.error.message}`);
     }
 
     const publishId = initData.data?.publish_id;

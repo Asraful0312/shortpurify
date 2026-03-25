@@ -97,6 +97,7 @@ export default defineSchema({
     userId: v.id("users"),
     platform: v.string(),
     createdAt: v.number(),
+    codeVerifier: v.optional(v.string()), // PKCE — used by X/Twitter OAuth
   }).index("by_token", ["token"]),
 
   // Connected social accounts — one row per page/account per user

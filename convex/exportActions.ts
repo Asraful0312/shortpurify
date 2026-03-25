@@ -14,8 +14,8 @@
 
 import { createHash } from "crypto";
 import { v } from "convex/values";
-import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { action, internalAction } from "./_generated/server";
+import { internal, api } from "./_generated/api";
 import { r2 } from "./r2storage";
 
 const SETTINGS_VALIDATOR = v.object({
@@ -108,5 +108,66 @@ export const exportWithSubtitles = action({
 
     const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
     return { downloadUrl };
+  },
+});
+
+/**
+ * Internal action called by publishClip handlers to auto-export a clip with
+ * subtitles before uploading to social platforms.
+ *
+ * Returns the exportKey if subtitles were burned (or already cached),
+ * or null if subtitles are disabled / no transcript words available.
+ */
+export const ensureExported = internalAction({
+  args: { outputId: v.id("outputs") },
+  handler: async (ctx, { outputId }): Promise<string | null> => {
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    if (!output?.clipKey) return null;
+
+    const project = await ctx.runQuery(api.projects.getProject, { projectId: output.projectId });
+    if (!project) return null;
+
+    const settings = project.subtitleSettings;
+    if (!settings?.enabled) return null;
+
+    // Derive subtitle words from transcript, offset-adjusted to clip start
+    const clipStartMs = (output.startTime ?? 0) * 1000;
+    const clipEndMs   = (output.endTime   ?? Infinity) * 1000;
+    const subtitleWords = (project.transcriptWords ?? [])
+      .filter((w) => w.start >= clipStartMs && w.end <= clipEndMs)
+      .map((w) => ({ text: w.text, startMs: w.start - clipStartMs, endMs: w.end - clipStartMs }));
+
+    if (subtitleWords.length === 0) return null;
+
+    const exportKey     = `exports/${output.clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
+    const settingsHash  = createHash("sha256").update(JSON.stringify(settings)).digest("hex").slice(0, 16);
+
+    // Cache hit — already exported with the same settings
+    if (output.exportKey === exportKey && output.exportSettingsHash === settingsHash) {
+      return exportKey;
+    }
+
+    // Cache miss — run burn worker
+    const workerUrl    = process.env.BURN_SUBTITLES_URL;
+    const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
+    if (!workerUrl) return null; // skip silently if worker not configured
+
+    const clipUrl              = await r2.getUrl(output.clipKey, { expiresIn: 60 * 60 });
+    const { url: uploadUrl }   = await r2.generateUploadUrl(exportKey);
+
+    const resp = await fetch(workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark: "shortpurify.com" }),
+    });
+
+    if (!resp.ok) return null; // skip silently — publish will use raw clip
+
+    const result = (await resp.json()) as { ok: boolean };
+    if (!result.ok) return null;
+
+    await ctx.runMutation(internal.outputs.saveExportCache, { outputId, exportKey, exportSettingsHash: settingsHash });
+
+    return exportKey;
   },
 });

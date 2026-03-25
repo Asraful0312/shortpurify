@@ -262,10 +262,13 @@ export const publishClip = action({
     const user = await requireUser(ctx);
     const accessToken = await getValidAccessToken(ctx, user._id, accountId);
 
-    // Get fresh R2 URL if we have a key
+    // Auto-export with subtitles if not already exported
+    const autoExportKey = await ctx.runAction(internal.exportActions.ensureExported, { outputId });
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    const bestKey = autoExportKey ?? output?.exportKey ?? clipKey;
     let videoUrl = clipUrl;
-    if (clipKey) {
-      videoUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 * 2 });
+    if (bestKey) {
+      videoUrl = await r2.getUrl(bestKey, { expiresIn: 60 * 60 * 2 });
     }
 
     // Fetch the video bytes

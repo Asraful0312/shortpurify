@@ -109,4 +109,70 @@ http.route({
   }),
 });
 
+/**
+ * X (Twitter) OAuth callback.
+ * Add to X Developer Portal → your app → User authentication settings → Callback URI:
+ *   https://{your-deployment}.convex.site/oauth/x/callback
+ */
+http.route({
+  path: "/oauth/x/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url   = new URL(request.url);
+    const code  = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+
+    const appUrl = process.env.APP_URL ?? "https://shortpurify.com";
+
+    if (error || !code || !state) {
+      console.warn("[x callback] denied or missing params:", error);
+      return Response.redirect(`${appUrl}/dashboard/publish?error=x_denied`, 302);
+    }
+
+    try {
+      await ctx.runAction(internal.xActions.handleCallback, { code, state });
+      return Response.redirect(`${appUrl}/dashboard/publish?connected=x`, 302);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "unknown error";
+      console.error("[x callback] failed:", msg);
+      const params = new URLSearchParams({ error: "x_failed", detail: msg });
+      return Response.redirect(`${appUrl}/dashboard/publish?${params}`, 302);
+    }
+  }),
+});
+
+/**
+ * Threads OAuth callback.
+ * Add to Meta Developer → your Threads app → Use cases → Customize → Settings → Redirect URI:
+ *   https://{your-deployment}.convex.site/oauth/threads/callback
+ */
+http.route({
+  path: "/oauth/threads/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const url   = new URL(request.url);
+    const code  = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+
+    const appUrl = process.env.APP_URL ?? "https://shortpurify.com";
+
+    if (error || !code || !state) {
+      console.warn("[threads callback] denied or missing params:", error);
+      return Response.redirect(`${appUrl}/dashboard/publish?error=threads_denied`, 302);
+    }
+
+    try {
+      await ctx.runAction(internal.threadsActions.handleCallback, { code, state });
+      return Response.redirect(`${appUrl}/dashboard/publish?connected=threads`, 302);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "unknown error";
+      console.error("[threads callback] failed:", msg);
+      const params = new URLSearchParams({ error: "threads_failed", detail: msg });
+      return Response.redirect(`${appUrl}/dashboard/publish?${params}`, 302);
+    }
+  }),
+});
+
 export default http;

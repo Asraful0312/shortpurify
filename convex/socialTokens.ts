@@ -11,8 +11,9 @@ export const saveOAuthState = internalMutation({
     token: v.string(),
     userId: v.id("users"),
     platform: v.string(),
+    codeVerifier: v.optional(v.string()),
   },
-  handler: async (ctx, { token, userId, platform }) => {
+  handler: async (ctx, { token, userId, platform, codeVerifier }) => {
     // Clean up expired states while we're here
     const expired = await ctx.db
       .query("oauthStates")
@@ -20,7 +21,7 @@ export const saveOAuthState = internalMutation({
       .collect();
     await Promise.all(expired.map((s) => ctx.db.delete(s._id)));
 
-    await ctx.db.insert("oauthStates", { token, userId, platform, createdAt: Date.now() });
+    await ctx.db.insert("oauthStates", { token, userId, platform, createdAt: Date.now(), codeVerifier });
   },
 });
 
@@ -43,7 +44,7 @@ export const consumeOAuthState = internalMutation({
     // Reject if expired
     if (Date.now() - state.createdAt > OAUTH_STATE_TTL_MS) return null;
 
-    return { userId: state.userId, platform: state.platform };
+    return { userId: state.userId, platform: state.platform, codeVerifier: state.codeVerifier };
   },
 });
 

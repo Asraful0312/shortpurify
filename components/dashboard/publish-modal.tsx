@@ -7,16 +7,17 @@ import { cn } from "@/lib/utils";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import Image from "next/image";
 
-const PLATFORM_META: Record<string, { name: string; emoji: string }> = {
-  facebook:  { name: "Facebook Page",    emoji: "👍" },
-  instagram: { name: "Instagram Reels",  emoji: "📸" },
-  youtube:   { name: "YouTube Shorts",   emoji: "▶️" },
-  x:         { name: "X / Twitter",      emoji: "🐦" },
-  tiktok:    { name: "TikTok",           emoji: "🎵" },
-  linkedin:  { name: "LinkedIn",         emoji: "💼" },
-  threads:   { name: "Threads",          emoji: "🔗" },
-  bluesky:   { name: "Bluesky",          emoji: "🦋" },
+const PLATFORM_META: Record<string, { name: string; image: string }> = {
+  facebook:  { name: "Facebook Page",    image: "/icons/facebook.png" },
+  instagram: { name: "Instagram Reels",  image: "/icons/instagram.png" },
+  youtube:   { name: "YouTube Shorts",   image: "/icons/youtube.png" },
+  x:         { name: "X / Twitter",      image: "/icons/x.png" },
+  tiktok:    { name: "TikTok",           image: "/icons/tik-tok.png" },
+  linkedin:  { name: "LinkedIn",         image: "/icons/linkedin.png" },
+  threads:   { name: "Threads",          image: "/icons/threads.png" },
+  bluesky:   { name: "Bluesky",          image: "/icons/bluesky-icon.png" },
 };
 
 type SafeToken = {
@@ -83,6 +84,9 @@ export function PublishModal({
   const publishFacebook = useAction(api.facebookActions.publishClip);
   const publishYouTube  = useAction(api.youtubeActions.publishClip);
   const publishTikTok   = useAction(api.tiktokActions.publishClip);
+  const publishX        = useAction(api.xActions.publishClip);
+  const publishThreads  = useAction(api.threadsActions.publishClip);
+  const publishBluesky  = useAction(api.blueskyActions.publishClip);
 
   // Auto-select all non-expired accounts when modal opens
   useEffect(() => {
@@ -157,6 +161,36 @@ export function PublishModal({
             title: clipTitle ?? "Short Clip",
           });
           publishResults.push({ accountName: acc.accountName, postId: res.publishId });
+        } else if (acc.platform === "x") {
+          const res = await publishX({
+            outputId: outputId as Id<"outputs">,
+            accountId,
+            clipUrl,
+            clipKey,
+            caption,
+            title: clipTitle ?? "Short Clip",
+          });
+          publishResults.push({ accountName: acc.accountName, postId: res.tweetId });
+        } else if (acc.platform === "bluesky") {
+          const res = await publishBluesky({
+            outputId: outputId as Id<"outputs">,
+            accountId,
+            clipUrl,
+            clipKey,
+            caption,
+            title: clipTitle ?? "Short Clip",
+          });
+          publishResults.push({ accountName: acc.accountName, postId: res.postId });
+        } else if (acc.platform === "threads") {
+          const res = await publishThreads({
+            outputId: outputId as Id<"outputs">,
+            accountId,
+            clipUrl,
+            clipKey,
+            caption,
+            title: clipTitle ?? "Short Clip",
+          });
+          publishResults.push({ accountName: acc.accountName, postId: res.postId });
         } else {
           publishResults.push({ accountName: acc.accountName, error: `${acc.platform} publishing coming soon` });
         }
@@ -292,7 +326,7 @@ export function PublishModal({
                       )}
                     >
                       <div className="relative shrink-0 w-7 h-7">
-                        <span className="text-xl leading-none">{meta.emoji}</span>
+                        <Image src={meta.image} alt={meta.name} width={24} height={24} className="rounded-full" />
                         {acc.accountPicture && (
                           // eslint-disable-next-line @next/next-image
                           <img src={acc.accountPicture} alt="" className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white object-cover" />

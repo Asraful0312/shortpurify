@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as blueskyActions from "../blueskyActions.js";
 import type * as cloudinaryActions from "../cloudinaryActions.js";
 import type * as exportActions from "../exportActions.js";
 import type * as facebookActions from "../facebookActions.js";
@@ -16,15 +17,18 @@ import type * as http from "../http.js";
 import type * as outputs from "../outputs.js";
 import type * as outstandActions from "../outstandActions.js";
 import type * as projects from "../projects.js";
+import type * as publicClip from "../publicClip.js";
 import type * as r2 from "../r2.js";
 import type * as r2Actions from "../r2Actions.js";
 import type * as r2storage from "../r2storage.js";
 import type * as socialTokens from "../socialTokens.js";
+import type * as threadsActions from "../threadsActions.js";
 import type * as tiktokActions from "../tiktokActions.js";
 import type * as transcription from "../transcription.js";
 import type * as users from "../users.js";
 import type * as videoProcessingActions from "../videoProcessingActions.js";
 import type * as workflow from "../workflow.js";
+import type * as xActions from "../xActions.js";
 import type * as youtubeActions from "../youtubeActions.js";
 
 import type {
@@ -35,6 +39,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  blueskyActions: typeof blueskyActions;
   cloudinaryActions: typeof cloudinaryActions;
   exportActions: typeof exportActions;
   facebookActions: typeof facebookActions;
@@ -42,15 +47,18 @@ declare const fullApi: ApiFromModules<{
   outputs: typeof outputs;
   outstandActions: typeof outstandActions;
   projects: typeof projects;
+  publicClip: typeof publicClip;
   r2: typeof r2;
   r2Actions: typeof r2Actions;
   r2storage: typeof r2storage;
   socialTokens: typeof socialTokens;
+  threadsActions: typeof threadsActions;
   tiktokActions: typeof tiktokActions;
   transcription: typeof transcription;
   users: typeof users;
   videoProcessingActions: typeof videoProcessingActions;
   workflow: typeof workflow;
+  xActions: typeof xActions;
   youtubeActions: typeof youtubeActions;
 }>;
 

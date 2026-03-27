@@ -4,6 +4,7 @@ import { internalQuery, mutation, query } from "./_generated/server";
 /**
  * Called from the client (SyncUser component) right after Clerk login.
  * Creates the user row on first login; updates name/image on subsequent logins.
+ * Returns { userId, isNew } — the client uses isNew to trigger workspace auto-creation.
  */
 export const upsertUser = mutation({
   args: {
@@ -24,16 +25,18 @@ export const upsertUser = mutation({
         name: args.name,
         imageUrl: args.imageUrl,
       });
-      return existing._id;
+      return { userId: existing._id, isNew: false };
     }
 
-    return await ctx.db.insert("users", {
+    const userId = await ctx.db.insert("users", {
       clerkId: args.clerkId,
       email: args.email,
       name: args.name,
       imageUrl: args.imageUrl,
       createdAt: Date.now(),
     });
+
+    return { userId, isNew: true };
   },
 });
 

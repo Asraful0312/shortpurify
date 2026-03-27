@@ -3,6 +3,7 @@ import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
 import { Id } from "./_generated/dataModel";
+import { projectsAggregate } from "./aggregates";
 
 /**
  * Creates a project record and schedules the AI pipeline.
@@ -39,6 +40,10 @@ export const createProjectAndStart = mutation({
       processingStep: "Queued…",
       createdAt: Date.now(),
     });
+
+    // Maintain aggregate
+    const doc = await ctx.db.get(projectId);
+    await projectsAggregate.insert(ctx, doc!);
 
     // Kick off the durable AI pipeline (must run from an action, so we schedule it)
     await ctx.scheduler.runAfter(0, internal.workflow.kickoff, {
@@ -201,6 +206,9 @@ export const purgeProjectData = internalMutation({
       await ctx.db.delete(output._id);
     }
 
+    // Remove project from aggregate before deleting
+    const projectDoc = await ctx.db.get(projectId);
+    if (projectDoc) await projectsAggregate.delete(ctx, projectDoc);
     await ctx.db.delete(projectId);
   },
 });
@@ -224,11 +232,17 @@ export const updateProjectStatus = internalMutation({
     ctx,
     { projectId, status, processingStep, clipsCount, workflowId, thumbnailUrl },
   ) => {
+    // Only fetch old doc when sumValue (clipsCount) is changing — avoids unnecessary reads
+    const oldDoc = clipsCount !== undefined ? await ctx.db.get(projectId) : null;
     const patch: Record<string, unknown> = { status };
     if (processingStep !== undefined) patch.processingStep = processingStep;
     if (clipsCount !== undefined) patch.clipsCount = clipsCount;
     if (workflowId !== undefined) patch.workflowId = workflowId;
     if (thumbnailUrl !== undefined) patch.thumbnailUrl = thumbnailUrl;
     await ctx.db.patch(projectId, patch);
+    if (oldDoc) {
+      const newDoc = await ctx.db.get(projectId);
+      await projectsAggregate.replace(ctx, oldDoc, newDoc!);
+    }
   },
 });

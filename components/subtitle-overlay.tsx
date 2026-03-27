@@ -151,7 +151,7 @@ export function SubtitleOverlay({
               return (
                 <span
                   key={`${gi}-${wi}`}
-                  className="px-1.5 py-0.5 rounded font-black leading-tight break-words max-w-full"
+                  className="px-1.5 py-0.5 rounded font-black leading-tight wrap-break-word max-w-full"
                   style={{
                     fontSize: `${settings.fontSize}px`,
                     color: isActive ? settings.highlightColor : settings.textColor,

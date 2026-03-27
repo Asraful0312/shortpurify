@@ -14,6 +14,7 @@ import { internalAction, internalMutation, internalQuery, mutation, query } from
 import { internal } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { scheduledAggregate } from "./aggregates";
 
 
 export const schedulePost = mutation({
@@ -67,6 +68,10 @@ export const schedulePost = mutation({
 
     // Save the job ID for cancellation
     await ctx.db.patch(scheduledPostId, { convexJobId: jobId as unknown as string });
+
+    // Maintain aggregate
+    const doc = await ctx.db.get(scheduledPostId);
+    await scheduledAggregate.insert(ctx, doc!);
 
     return { scheduledPostId };
   },
@@ -160,7 +165,12 @@ export const cancelScheduledPost = mutation({
       await ctx.scheduler.cancel(post.convexJobId as unknown as Id<"_scheduled_functions">);
     }
 
+    const oldDoc = await ctx.db.get(scheduledPostId);
     await ctx.db.patch(scheduledPostId, { status: "cancelled" });
+    if (oldDoc) {
+      const newDoc = await ctx.db.get(scheduledPostId);
+      await scheduledAggregate.replace(ctx, oldDoc, newDoc!);
+    }
   },
 });
 
@@ -218,6 +228,11 @@ export const updatePost = internalMutation({
     error: v.optional(v.string()),
   },
   handler: async (ctx, { scheduledPostId, status, postId, error }) => {
+    const oldDoc = await ctx.db.get(scheduledPostId);
     await ctx.db.patch(scheduledPostId, { status, postId, error });
+    if (oldDoc) {
+      const newDoc = await ctx.db.get(scheduledPostId);
+      await scheduledAggregate.replace(ctx, oldDoc, newDoc!);
+    }
   },
 });

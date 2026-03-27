@@ -9,14 +9,15 @@ import { StatsCards } from "@/components/dashboard/stats-cards";
 
 export default function DashboardPage() {
   const projects = useQuery(api.projects.listUserProjects);
+  const aggregateStats = useQuery(api.analytics.getDashboardStats);
 
   const isLoading = projects === undefined;
-  const totalClips = projects?.reduce((sum, p) => sum + (p.clipsCount ?? 0), 0) ?? 0;
+  const totalProjects = aggregateStats?.totalProjects ?? projects?.length ?? 0;
   const stats = {
-    totalProjects: projects?.length ?? 0,
-    clipsGenerated: totalClips,
-    published: 0,
-    creditsLeft: Math.max(0, 3 - (projects?.length ?? 0)),
+    totalProjects,
+    clipsGenerated: aggregateStats?.clipsGenerated ?? 0,
+    published: aggregateStats?.published ?? 0,
+    creditsLeft: Math.max(0, 3 - totalProjects),
     creditsTotal: 3,
   };
 

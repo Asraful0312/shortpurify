@@ -26,7 +26,7 @@ const mainNav = [
 const publishNav = [
   { name: "Publish Hub", href: "/dashboard/publish", icon: Send },
   { name: "Scheduled", href: "/dashboard/scheduled", icon: Clock },
-  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: "Phase 2" },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
 ];
 
 const teamNav = [

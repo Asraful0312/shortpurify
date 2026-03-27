@@ -1,6 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { action, internalMutation, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
+import { r2 } from "./r2storage";
+import { Id } from "./_generated/dataModel";
 
 /**
  * Creates a project record and schedules the AI pipeline.
@@ -13,6 +15,7 @@ export const createProjectAndStart = mutation({
     originalSize: v.optional(v.number()),
     originalKey: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
+    cropMode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -31,6 +34,7 @@ export const createProjectAndStart = mutation({
       originalSize: args.originalSize,
       originalKey: args.originalKey,
       enabledPlatforms: args.enabledPlatforms,
+      cropMode: args.cropMode,
       status: "processing",
       processingStep: "Queued…",
       createdAt: Date.now(),
@@ -122,6 +126,82 @@ export const clearOriginalKey = internalMutation({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {
     await ctx.db.patch(projectId, { originalKey: undefined });
+  },
+});
+
+/**
+ * Permanently delete a project and all associated data:
+ *  - All R2 files (clips, thumbnails, exports, original video)
+ *  - All scheduled posts (pending jobs are cancelled)
+ *  - All output records
+ *  - The project record itself
+ */
+export const deleteProject = action({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const project = await ctx.runQuery(api.projects.getProject, { projectId });
+    if (!project) throw new Error("Project not found");
+
+    // Fetch all outputs so we know which R2 keys to clean up
+    const outputs = await ctx.runQuery(api.outputs.listProjectOutputs, { projectId });
+
+    // Delete every R2 file for every output (non-fatal — continue on error)
+    for (const output of outputs) {
+      for (const key of [output.clipKey, output.thumbnailKey, output.exportKey]) {
+        if (key) {
+          try { await r2.deleteObject(ctx, key); } catch (e) {
+            console.warn("[r2] clip/thumb/export delete failed (non-fatal):", e);
+          }
+        }
+      }
+    }
+
+    // Delete the original uploaded video if it's still in R2
+    if (project.originalKey) {
+      try { await r2.deleteObject(ctx, project.originalKey); } catch (e) {
+        console.warn("[r2] original video delete failed (non-fatal):", e);
+      }
+    }
+
+    // Purge all database records (outputs, scheduled posts, project row)
+    await ctx.runMutation(internal.projects.purgeProjectData, { projectId });
+  },
+});
+
+/** Internal mutation — deletes all DB rows for a project in one transaction. */
+export const purgeProjectData = internalMutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    const outputs = await ctx.db
+      .query("outputs")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .collect();
+
+    for (const output of outputs) {
+      // Cancel any pending Convex scheduler jobs and delete the scheduled post rows
+      const posts = await ctx.db
+        .query("scheduledPosts")
+        .filter((q) => q.eq(q.field("outputId"), output._id))
+        .collect();
+
+      for (const post of posts) {
+        if (post.convexJobId && post.status === "pending") {
+          try {
+            await ctx.scheduler.cancel(
+              post.convexJobId as unknown as Id<"_scheduled_functions">
+            );
+          } catch {}
+        }
+        await ctx.db.delete(post._id);
+      }
+
+      await ctx.db.delete(output._id);
+    }
+
+    await ctx.db.delete(projectId);
   },
 });
 

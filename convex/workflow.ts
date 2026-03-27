@@ -20,11 +20,12 @@ export const kickoff = internalAction({
       projectId: args.projectId,
     });
     const enabledPlatforms = project?.enabledPlatforms ?? undefined;
+    const cropMode = project?.cropMode ?? "smart_crop";
 
     const workflowId = await workflowManager.start(
       ctx,
       internal.workflow.processVideo,
-      { ...args, enabledPlatforms },
+      { ...args, enabledPlatforms, cropMode },
     );
     await ctx.runMutation(internal.projects.updateProjectStatus, {
       projectId: args.projectId,
@@ -46,8 +47,9 @@ export const processVideo = workflowManager.define({
     projectId: v.id("projects"),
     videoUrl: v.string(),
     enabledPlatforms: v.optional(v.array(v.string())),
+    cropMode: v.optional(v.string()),
   },
-  handler: async (step, { projectId, videoUrl, enabledPlatforms }) => {
+  handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode }) => {
     // ── Step 1: Transcription ──────────────────────────────────────────
     await step.runMutation(internal.projects.updateProjectStatus, {
       projectId,
@@ -84,13 +86,16 @@ export const processVideo = workflowManager.define({
     await step.runMutation(internal.projects.updateProjectStatus, {
       projectId,
       status: "processing",
-      processingStep: "Processing clips (AI crop + FFmpeg)…",
+      processingStep: cropMode === "blur_background"
+        ? "Processing clips (blur background + FFmpeg)…"
+        : "Processing clips (AI crop + FFmpeg)…",
     });
 
     await step.runAction(internal.videoProcessingActions.saveClipsToDb, {
       projectId,
       videoUrl,
       clips,
+      cropMode,
     });
 
     // ── Done ───────────────────────────────────────────────────────────

@@ -13,10 +13,21 @@
  */
 
 import { createHash } from "crypto";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { r2 } from "./r2storage";
+
+const DEFAULT_SUBTITLE_SETTINGS = {
+  enabled: true,
+  x: 50, y: 78,
+  fontSize: 26,
+  fontFamily: "Inter, sans-serif",
+  textColor: "#ffffff",
+  highlightColor: "#000000",
+  highlightBg: "#facc15",
+  wordsPerLine: 3,
+};
 
 const SETTINGS_VALIDATOR = v.object({
   enabled: v.boolean(),
@@ -42,11 +53,11 @@ export const exportWithSubtitles = action({
   },
   handler: async (ctx, { outputId, clipKey, clipTitle, subtitleWords, settings }) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthorized");
+    if (!identity) throw new ConvexError("Unauthorized");
 
     const workerUrl = process.env.BURN_SUBTITLES_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
-    if (!workerUrl) throw new Error("BURN_SUBTITLES_URL env var is not set");
+    if (!workerUrl) throw new ConvexError("BURN_SUBTITLES_URL env var is not set");
 
     const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
 
@@ -56,7 +67,6 @@ export const exportWithSubtitles = action({
       .digest("hex")
       .slice(0, 16);
 
-    // ── Cache check ────────────────────────────────────────────────────────────
     if (outputId) {
       const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
       if (output?.exportKey === exportKey && output?.exportSettingsHash === settingsHash) {
@@ -66,7 +76,7 @@ export const exportWithSubtitles = action({
       }
     }
 
-    // ── Cache miss — call Modal ────────────────────────────────────────────────
+
     // Signed GET URL so Modal can download the clip
     const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 });
 
@@ -91,13 +101,13 @@ export const exportWithSubtitles = action({
 
     if (!resp.ok) {
       const txt = await resp.text().catch(() => resp.statusText);
-      throw new Error(`Burn worker error ${resp.status}: ${txt}`);
+      throw new ConvexError(`Burn worker error ${resp.status}: ${txt}`);
     }
 
     const result = (await resp.json()) as { ok: boolean; error?: string };
-    if (!result.ok) throw new Error(result.error ?? "Burn failed");
+    if (!result.ok) throw new ConvexError(result.error ?? "Burn failed");
 
-    // ── Save cache ─────────────────────────────────────────────────────────────
+
     if (outputId) {
       await ctx.runMutation(internal.outputs.saveExportCache, {
         outputId,
@@ -127,8 +137,8 @@ export const ensureExported = internalAction({
     const project = await ctx.runQuery(api.projects.getProject, { projectId: output.projectId });
     if (!project) return null;
 
-    const settings = project.subtitleSettings;
-    if (!settings?.enabled) return null;
+    const settings = project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS;
+    if (!settings.enabled) return null;
 
     // Derive subtitle words from transcript, offset-adjusted to clip start
     const clipStartMs = (output.startTime ?? 0) * 1000;

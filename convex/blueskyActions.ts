@@ -15,9 +15,9 @@
  * No required env vars — credentials are provided by the user at connect time.
  */
 
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./r2storage";
 
@@ -48,7 +48,7 @@ async function createSession(identifier: string, appPassword: string) {
     message?: string;
   };
   if (!data.accessJwt || !data.did) {
-    throw new Error(`Bluesky login failed: ${data.message ?? data.error ?? "Invalid handle or app password"}`);
+    throw new ConvexError(`Bluesky login failed: ${data.message ?? data.error ?? "Invalid handle or app password"}`);
   }
   return data as { did: string; handle: string; accessJwt: string; refreshJwt: string };
 }
@@ -65,16 +65,16 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
     accountPicture?: string;
   } | null;
 
-  if (!token) throw new Error("Bluesky account not connected. Please reconnect.");
+  if (!token) throw new ConvexError("Bluesky account not connected. Please reconnect.");
 
   // Refresh using stored app password if within 10 min of expiry or already expired
   if (token.tokenExpiry && token.tokenExpiry < Date.now() + 10 * 60 * 1000) {
-    if (!token.refreshToken) throw new Error("No app password stored. Please reconnect your Bluesky account.");
+    if (!token.refreshToken) throw new ConvexError("No app password stored. Please reconnect your Bluesky account.");
 
     // The refreshToken field stores the handle as "handle::apppassword"
     const [handle, ...rest] = token.refreshToken.split("::");
     const appPassword = rest.join("::");
-    if (!handle || !appPassword) throw new Error("Stored credentials invalid. Please reconnect your Bluesky account.");
+    if (!handle || !appPassword) throw new ConvexError("Stored credentials invalid. Please reconnect your Bluesky account.");
 
     const session = await createSession(handle, appPassword);
     await ctx.runMutation(internal.socialTokens.saveSocialToken, {
@@ -93,7 +93,6 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
   return token.accessToken;
 }
 
-// ─── Connect ──────────────────────────────────────────────────────────────────
 
 export const connectAccount = action({
   args: { handle: v.string(), appPassword: v.string() },
@@ -135,7 +134,6 @@ export const connectAccount = action({
   },
 });
 
-// ─── Manage ───────────────────────────────────────────────────────────────────
 
 export const disconnectAccount = action({
   args: { accountId: v.string() },
@@ -148,8 +146,6 @@ export const disconnectAccount = action({
   },
 });
 
-// ─── Publish ──────────────────────────────────────────────────────────────────
-
 export const publishClip = action({
   args: {
     outputId: v.id("outputs"),
@@ -161,7 +157,29 @@ export const publishClip = action({
   },
   handler: async (ctx, { outputId, accountId, clipUrl, clipKey, caption, title }) => {
     const user = await requireUser(ctx);
-    const accessToken = await getValidAccessToken(ctx, user._id, accountId);
+    return await _publishBlueskyCoreAction(ctx, { userId: user._id, outputId, accountId, clipUrl, clipKey, caption, title });
+  },
+});
+
+/** Internal version — accepts userId directly (used by scheduled publishing). */
+export const publishClipInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    outputId: v.id("outputs"),
+    accountId: v.string(),
+    caption: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, outputId, accountId, caption, title }) => {
+    return await _publishBlueskyCoreAction(ctx, { userId, outputId, accountId, clipUrl: "", clipKey: undefined, caption, title });
+  },
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function _publishBlueskyCoreAction(ctx: any, { userId, outputId, accountId, clipUrl, clipKey, caption, title }: {
+  userId: Id<"users">; outputId: Id<"outputs">; accountId: string; clipUrl: string; clipKey?: string; caption: string; title: string;
+}) {
+    const accessToken = await getValidAccessToken(ctx, userId, accountId);
 
     // Auto-export with subtitles if not already exported
     const autoExportKey = await ctx.runAction(internal.exportActions.ensureExported, { outputId });
@@ -174,7 +192,7 @@ export const publishClip = action({
 
     // Fetch video bytes (max 50 MB for Bluesky)
     const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    if (!videoRes.ok) throw new ConvexError(`Failed to fetch video: ${videoRes.status}`);
     const videoBuffer = await videoRes.arrayBuffer();
 
     // Resolve the user's PDS DID from their DID document — required as `aud` for service auth
@@ -183,7 +201,7 @@ export const publishClip = action({
       service?: Array<{ id: string; type: string; serviceEndpoint: string }>;
     };
     const pdsEndpoint = didDoc.service?.find((s) => s.id === "#atproto_pds")?.serviceEndpoint;
-    if (!pdsEndpoint) throw new Error("Could not resolve Bluesky PDS endpoint from DID document.");
+    if (!pdsEndpoint) throw new ConvexError("Could not resolve Bluesky PDS endpoint from DID document.");
     const pdsDid = `did:web:${new URL(pdsEndpoint).hostname}`;
 
     // Get a service auth token scoped to the video upload endpoint
@@ -193,7 +211,7 @@ export const publishClip = action({
     );
     const serviceAuthData = await serviceAuthRes.json() as { token?: string; error?: string; message?: string };
     if (!serviceAuthData.token) {
-      throw new Error(`Failed to get Bluesky service auth token: ${serviceAuthData.message ?? serviceAuthData.error ?? JSON.stringify(serviceAuthData)}`);
+      throw new ConvexError(`Failed to get Bluesky service auth token: ${serviceAuthData.message ?? serviceAuthData.error ?? JSON.stringify(serviceAuthData)}`);
     }
     const videoUploadToken = serviceAuthData.token;
 
@@ -214,7 +232,7 @@ export const publishClip = action({
       message?: string;
     };
     if (!uploadData.jobId) {
-      throw new Error(`Bluesky video upload failed: ${uploadData.message ?? uploadData.error ?? JSON.stringify(uploadData)}`);
+      throw new ConvexError(`Bluesky video upload failed: ${uploadData.message ?? uploadData.error ?? JSON.stringify(uploadData)}`);
     }
 
     // Step 2: Poll for video processing completion (up to 90 seconds)
@@ -229,14 +247,14 @@ export const publishClip = action({
         jobStatus?: { state?: string; blob?: unknown; error?: string };
       };
       const job = statusData.jobStatus;
-      if (job?.error) throw new Error(`Bluesky video processing failed: ${job.error}`);
+      if (job?.error) throw new ConvexError(`Bluesky video processing failed: ${job.error}`);
       if (job?.state === "JOB_STATE_COMPLETED" && job.blob) {
         blobRef = job.blob;
         break;
       }
     }
 
-    if (!blobRef) throw new Error("Bluesky video processing timed out. Please try again.");
+    if (!blobRef) throw new ConvexError("Bluesky video processing timed out. Please try again.");
 
     // Step 3: Create post with video embed
     const postText = (caption || title).slice(0, 300);
@@ -269,9 +287,8 @@ export const publishClip = action({
     };
 
     if (!postData.uri) {
-      throw new Error(`Bluesky post failed: ${postData.message ?? postData.error ?? JSON.stringify(postData)}`);
+      throw new ConvexError(`Bluesky post failed: ${postData.message ?? postData.error ?? JSON.stringify(postData)}`);
     }
 
-    return { postId: postData.cid ?? postData.uri };
-  },
-});
+  return { postId: postData.cid ?? postData.uri };
+}

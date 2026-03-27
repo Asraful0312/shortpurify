@@ -11,14 +11,14 @@ import Image from "next/image";
 
 // Platforms that are live vs coming soon
 const PLATFORMS = [
+  { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
+  { id: "x",         name: "X / Twitter",     image: "/icons/twitter.png", live: true },
+  { id: "bluesky",   name: "Bluesky",         image: "/icons/bluesky-icon.png", live: true },
+  { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png", live: true },
   { id: "facebook",  name: "Facebook Pages",  image: "/icons/facebook.png", live: false },
   { id: "instagram", name: "Instagram Reels", image: "/icons/instagram.png", live: false },
-  { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
-  { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png", live: true },
-  { id: "x",         name: "X / Twitter",     image: "/icons/twitter.png", live: true },
   { id: "linkedin",  name: "LinkedIn",        image: "/icons/linkedin.png", live: false },
   { id: "threads",   name: "Threads",         image: "/icons/threads.png", live: false },
-  { id: "bluesky",   name: "Bluesky",         image: "/icons/bluesky-icon.png", live: true },
 ];
 
 export default function PublishPage() {
@@ -161,14 +161,7 @@ export default function PublishPage() {
           <h1 className="text-3xl font-extrabold tracking-tight">Publish Hub</h1>
           <p className="text-muted-foreground mt-1">Connect your social accounts and publish clips directly.</p>
         </div>
-        {hasAnyConnected && (
-          <button
-            onClick={() => setPublishOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-5 py-2.5 rounded-xl shadow-sm transition-all active:scale-95 flex items-center gap-2"
-          >
-            <Send size={16} /> Publish Clip
-          </button>
-        )}
+
       </div>
 
       {/* Platform grid */}
@@ -276,7 +269,7 @@ export default function PublishPage() {
         </div>
       )}
 
-      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} accounts={accounts ?? []} />
+      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} accounts={accounts ?? []} isLoadingAccounts={accounts === undefined} />
       <BlueskyConnectModal
         open={blueskyConnectOpen}
         onClose={() => setBlueskyConnectOpen(false)}

@@ -1,6 +1,6 @@
 "use node";
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { AssemblyAI } from "assemblyai";
 
@@ -21,7 +21,7 @@ export const transcribeVideo = internalAction({
     });
 
     if (transcript.status === "error" || !transcript.text) {
-      throw new Error(
+      throw new ConvexError(
         `AssemblyAI transcription failed: ${transcript.error ?? "no text returned"}`,
       );
     }

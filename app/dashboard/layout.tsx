@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/s
 import { Menu, Sparkles } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { SyncUser } from "@/components/sync-user";
+import Logo from "@/components/shared/logo";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -17,12 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-border h-16 shrink-0 shadow-sm z-30">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-              <Sparkles className="text-primary" size={18} />
-            </div>
-            <span className="text-lg font-extrabold tracking-tight text-primary">ShortPurify</span>
-          </div>
+          <Logo/>
 
           <div className="flex items-center gap-4">
             <UserButton />

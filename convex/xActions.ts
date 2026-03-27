@@ -198,6 +198,31 @@ export const disconnectAccount = action({
 
 // ─── Publish ──────────────────────────────────────────────────────────────────
 
+/** Internal version — accepts userId directly (used by scheduled publishing). */
+export const publishClipInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    outputId: v.id("outputs"),
+    accountId: v.string(),
+    caption: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, outputId, accountId, caption, title }) => {
+    const accessToken = await getValidAccessToken(ctx, userId, accountId);
+    await ctx.runAction(internal.exportActions.ensureExported, { outputId });
+    const appUrl = process.env.APP_URL || "https://shortpurify.com";
+    const text = `${(caption || title).slice(0, 240)}\n\n${appUrl}/clip/${outputId}`;
+    const tweetRes = await fetch(`${X_API}/tweets`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const tweetData = await tweetRes.json() as { data?: { id: string }; errors?: Array<{ message: string }> };
+    if (!tweetData.data?.id) throw new Error(`X tweet failed: ${JSON.stringify(tweetData.errors ?? tweetData)}`);
+    return { tweetId: tweetData.data.id };
+  },
+});
+
 export const publishClip = action({
   args: {
     outputId: v.id("outputs"),

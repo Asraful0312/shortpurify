@@ -711,6 +711,41 @@ def apply_dynamic_crop_encode(
         _extract_thumbnail(dst, thumb_path)
 
 
+def apply_blur_background_encode(
+    src: str,
+    dst: str,
+    thumb_path: Optional[str] = None,
+) -> None:
+    """
+    Create a 1080×1920 output without cropping any content:
+      - Background: source video scaled to fill 1080×1920, then Gaussian-blurred (muted via video-only layer)
+      - Foreground: source video scaled to fit inside 1080×1920 (letterboxed), centred
+    Audio is taken only from the original source track — no double audio.
+    """
+    LOG.info("Blur-background encode: %s → %s", src, dst)
+    filter_complex = (
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,"
+        "gblur=sigma=25[bg];"
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];"
+        "[bg][fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[out]"
+    )
+    _ffmpeg_run([
+        "ffmpeg", "-y",
+        "-i", src,
+        "-filter_complex", filter_complex,
+        "-map", "[out]",
+        "-map", "0:a?",          # single audio track from source; no-op if video has no audio
+        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        "-loglevel", "error",
+        dst,
+    ])
+    if thumb_path:
+        _extract_thumbnail(dst, thumb_path)
+
+
 def _extract_thumbnail(video_path: str, thumb_path: str, at_s: float = 0.3) -> None:
     _ffmpeg_run([
         "ffmpeg", "-y",
@@ -795,19 +830,20 @@ def process_video(
     duration_s: Optional[float] = None,
     thumb_path: Optional[str] = None,
     dynamic_crop: bool = True,
+    crop_mode: str = "smart_crop",  # "smart_crop" | "blur_background"
 ) -> None:
     """
     Full end-to-end pipeline.  Raises on any failure.
+
+    crop_mode:
+      "smart_crop"      — AI face-tracking crop to 9:16 (default)
+      "blur_background" — keep full frame, blur-fill background to 9:16
     """
     if not Path(input_path).exists():
         raise FileNotFoundError(f"Input not found: {input_path}")
 
-    detector = FaceDetector()
-    tracker = FaceTracker()
-    asd = ActiveSpeakerDetector()
-
     with tempfile.TemporaryDirectory(prefix="sp_pipe_") as tmpdir:
-        #Segment extraction
+        # ── Segment extraction ────────────────────────────────────────────
         needs_cut = start_s > 0.001 or duration_s is not None
         if needs_cut:
             seg_path = str(Path(tmpdir) / "segment.mp4")
@@ -816,19 +852,27 @@ def process_video(
         else:
             seg_path = input_path
 
-        #Face detection + ASD
+        # ── Blur-background mode — no face detection needed ───────────────
+        if crop_mode == "blur_background":
+            LOG.info("Crop mode: blur_background")
+            apply_blur_background_encode(seg_path, output_path, thumb_path)
+            LOG.info("Output: %s", output_path)
+            return
+
+        # ── Smart crop mode ───────────────────────────────────────────────
+        detector = FaceDetector()
+        tracker = FaceTracker()
+        asd = ActiveSpeakerDetector()
+
         tracks, fps, vid_w, vid_h, n_frames = analyse_video(
             seg_path, detector, tracker, asd,
             sample_every_n=1,
         )
 
-        #Crop trajectory
         cx_per_frame, crop_w, crop_h = compute_crop_params(
             tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=0.35,
         )
 
-        #Encode
-        # Use dynamic crop when speaker movement is detected (cx variance > 5px)
         cx_std = float(np.std(cx_per_frame))
         use_dynamic = dynamic_crop and _SCIPY_AVAIL and cx_std > 5.0
 

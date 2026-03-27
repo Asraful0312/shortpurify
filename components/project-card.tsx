@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TextShimmerWave } from "./motion-primitives/text-shimmer-wave";
 
 export type ProjectStatus = "uploading" | "processing" | "complete" | "failed";
 

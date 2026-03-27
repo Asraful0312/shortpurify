@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { r2 } from "./r2storage";
 
 /** Get all clips for a project, ordered by viral score descending. */
 export const listProjectOutputs = query({
@@ -11,6 +12,19 @@ export const listProjectOutputs = query({
       .collect();
 
     return outputs.sort((a, b) => (b.viralScore ?? 0) - (a.viralScore ?? 0));
+  },
+});
+
+/**
+ * Generate a fresh signed R2 URL for a clip key.
+ * Called when the stored clipUrl has expired (7-day TTL).
+ */
+export const refreshClipUrl = action({
+  args: { clipKey: v.string() },
+  handler: async (ctx, { clipKey }): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    return r2.getUrl(clipKey, { expiresIn: 60 * 60 * 24 * 7 });
   },
 });
 

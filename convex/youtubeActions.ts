@@ -206,8 +206,9 @@ export const createProjectFromYouTube = action({
     youtubeUrl: v.string(),
     title: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
+    cropMode: v.optional(v.string()),
   },
-  handler: async (ctx, { youtubeUrl, title, enabledPlatforms }): Promise<{ projectId: string }> => {
+  handler: async (ctx, { youtubeUrl, title, enabledPlatforms, cropMode }): Promise<{ projectId: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -241,6 +242,7 @@ export const createProjectFromYouTube = action({
       title: videoTitle,
       originalUrl: data.playbackUrl,
       enabledPlatforms: enabledPlatforms ?? [],
+      cropMode: cropMode ?? "smart_crop",
     });
 
     return { projectId };
@@ -248,6 +250,65 @@ export const createProjectFromYouTube = action({
 });
 
 // ─── Publish ──────────────────────────────────────────────────────────────────
+
+/** Internal version — accepts userId directly (used by scheduled publishing). */
+export const publishClipInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    outputId: v.id("outputs"),
+    accountId: v.string(),
+    caption: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, outputId, accountId, caption, title }) => {
+    const accessToken = await getValidAccessToken(ctx, userId, accountId);
+    const autoExportKey = await ctx.runAction(internal.exportActions.ensureExported, { outputId });
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    const bestKey = autoExportKey ?? output?.exportKey ?? output?.clipKey;
+    let videoUrl = output?.clipUrl ?? "";
+    if (bestKey) videoUrl = await r2.getUrl(bestKey, { expiresIn: 60 * 60 * 2 });
+
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    const videoBuffer = await videoRes.arrayBuffer();
+    const contentType = "video/mp4";
+    const videoTitle = title.length > 100 ? title.slice(0, 97) + "..." : title;
+    const description = caption ? `${caption}\n\n#Shorts` : "#Shorts";
+    const metadata = {
+      snippet: { title: videoTitle, description, categoryId: "22" },
+      status:  { privacyStatus: "public", selfDeclaredMadeForKids: false },
+    };
+
+    const initRes = await fetch(`${YOUTUBE_UPLOAD}?uploadType=resumable&part=snippet,status`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "X-Upload-Content-Type": contentType,
+        "X-Upload-Content-Length": String(videoBuffer.byteLength),
+      },
+      body: JSON.stringify(metadata),
+    });
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({})) as { error?: { message: string } };
+      throw new Error(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
+    }
+    const uploadUrl = initRes.headers.get("location");
+    if (!uploadUrl) throw new Error("YouTube did not return an upload URL");
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType, "Content-Length": String(videoBuffer.byteLength) },
+      body: videoBuffer,
+    });
+    const uploadData = await uploadRes.json() as { id?: string; error?: { message: string } };
+    if (uploadData.error) throw new Error(`YouTube upload failed: ${uploadData.error.message}`);
+    if (!uploadData.id) throw new Error("YouTube did not return a video ID");
+
+    await ctx.runMutation(internal.outputs.savePublishInfo, { outputId, publishStatus: "success", publishRequestId: uploadData.id });
+    return { videoId: uploadData.id };
+  },
+});
 
 export const publishClip = action({
   args: {

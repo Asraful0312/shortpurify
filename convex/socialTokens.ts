@@ -3,7 +3,6 @@ import { internalMutation, internalQuery, query } from "./_generated/server";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-// ─── OAuth state (CSRF protection) ───────────────────────────────────────────
 
 /** Store a random state token before redirecting to OAuth provider. */
 export const saveOAuthState = internalMutation({
@@ -48,7 +47,7 @@ export const consumeOAuthState = internalMutation({
   },
 });
 
-// ─── Social tokens (connected accounts) ──────────────────────────────────────
+
 
 /** Upsert a connected social account token. */
 export const saveSocialToken = internalMutation({

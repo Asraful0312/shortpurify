@@ -168,15 +168,18 @@ export default function HeroSection() {
             {/* Dynamic Island */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[100px] h-[30px] bg-black rounded-full z-30" />
             
-            {/* Phone Content / Video Placeholder */}
-            <div className="absolute inset-0 bg-linear-to-tr from-yellow-400 via-pink-500 to-purple-600">
-               <div className="absolute inset-0 opacity-80 mix-blend-overlay flex justify-center items-center">
-                  <div className="w-40 h-40 border-16 border-white/90 rounded-[3rem] relative animate-pulse">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-16 border-white/90 rounded-full" />
-                    <div className="absolute top-3 right-3 w-4 h-4 bg-white/90 rounded-full" />
-                  </div>
-               </div>
-            </div>
+            {/* Phone Content / Video */}
+            <video
+              key="demo-video"
+              autoPlay
+              loop
+              muted
+              playsInline
+              controls={false}
+              className="absolute inset-0 z-0 w-full h-full object-cover bg-transparent pointer-events-none"
+            >
+              <source src="/video/demoshort.mp4" type="video/mp4" />
+            </video>
 
             {/* Live Overlay UI top */}
             <div className="absolute top-12 left-0 w-full px-5 flex justify-between items-center z-20">

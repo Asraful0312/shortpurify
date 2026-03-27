@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -17,6 +17,8 @@ import {
   ChevronUp,
   FileText,
   Loader2,
+  X,
+  Trash2,
 } from "lucide-react";
 import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
 import { downloadAllAsZip } from "@/lib/download";
@@ -104,13 +106,17 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 export default function ProjectDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.projectId as Id<"projects">;
   const [zipDownloading, setZipDownloading] = useState(false);
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 });
+  const [zipSubtitleWarning, setZipSubtitleWarning] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const project = useQuery(api.projects.getProject, { projectId });
   const outputs = useQuery(api.outputs.listProjectOutputs, { projectId });
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
+  const deleteProject = useAction(api.projects.deleteProject);
 
   // ── Loading ──
   if (project === undefined) {
@@ -170,7 +176,7 @@ export default function ProjectDetailsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 pb-8 border-b border-border/50">
         <div>
-          <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <div className="flex items-start gap-3 mb-3 flex-wrap">
             <Badge
               variant={statusBadgeVariant}
               className="uppercase tracking-widest text-[10px] font-extrabold px-3 py-1"
@@ -181,20 +187,28 @@ export default function ProjectDetailsPage() {
               <Clock size={14} /> {timeAgo(project.createdAt)}
             </div>
           </div>
-          <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight">
+          <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight">
             {project.title}
           </h1>
           <p className="text-muted-foreground mt-2 font-mono text-xs opacity-50">
             {project._id}
           </p>
         </div>
+        <button
+          onClick={() => setDeleteOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold shrink-0"
+        >
+          <Trash2 size={15} /> Delete Project
+        </button>
         {isComplete && outputs && outputs.length > 0 && (
           <button
             disabled={zipDownloading}
             onClick={async () => {
               setZipDownloading(true);
               setZipProgress({ done: 0, total: outputs.length });
+              setZipSubtitleWarning(null);
               try {
+                let subtitleFailCount = 0;
                 // Generate subtitle exported URLs concurrently for all clips
                 const exportedClips = await Promise.all(
                   outputs.map(async (o) => {
@@ -219,18 +233,41 @@ export default function ProjectDetailsPage() {
                         });
                         return { url: downloadUrl, title: o.title };
                       } catch (err) {
-                        console.error(`Failed to burn subtitles for ${o.title}:`, err);
+                        subtitleFailCount++;
+                        console.error(`Failed to burn subtitles for "${o.title}":`, err);
                       }
                     }
                     // Fallback to original clip
                     return { url: o.clipUrl, title: o.title };
                   })
                 );
+                if (subtitleFailCount > 0) {
+                  setZipSubtitleWarning(
+                    `Subtitles could not be burned for ${subtitleFailCount} clip${subtitleFailCount !== 1 ? "s" : ""} — downloaded without subtitles. Check browser console for details.`
+                  );
+                }
 
                 await downloadAllAsZip(
                   exportedClips,
                   project.title,
                   (done, total) => setZipProgress({ done, total }),
+                  {
+                    projectTitle: project.title,
+                    transcriptText: project.transcriptText,
+                    transcriptWords: project.transcriptWords,
+                    clipsMeta: outputs.map((o, i) => ({
+                      index: i + 1,
+                      title: o.title,
+                      startTime: o.startTime,
+                      endTime: o.endTime,
+                      duration: o.startTime != null && o.endTime != null
+                        ? o.endTime - o.startTime
+                        : undefined,
+                      viralScore: o.viralScore,
+                      caption: o.content,
+                      captions: o.captions,
+                    })),
+                  },
                 );
               } finally {
                 setZipDownloading(false);
@@ -251,6 +288,22 @@ export default function ProjectDetailsPage() {
           </button>
         )}
       </div>
+
+      {/* Subtitle burn warning */}
+      {zipSubtitleWarning && (
+        <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 max-w-xl">
+          <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">{zipSubtitleWarning}</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Make sure <code className="font-mono bg-amber-100 px-1 rounded">BURN_SUBTITLES_URL</code> is set in Convex and the Modal worker is deployed.
+            </p>
+          </div>
+          <button onClick={() => setZipSubtitleWarning(null)} className="text-amber-500 hover:text-amber-700 shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Processing state */}
       {isProcessing && (
@@ -387,6 +440,142 @@ export default function ProjectDetailsPage() {
           No clips were generated for this project.
         </p>
       )}
+
+      {/* Delete confirmation dialog */}
+      {deleteOpen && (
+        <DeleteProjectDialog
+          projectTitle={project.title}
+          clipCount={outputs?.length ?? 0}
+          onConfirm={async () => {
+            await deleteProject({ projectId });
+            router.push("/dashboard");
+          }}
+          onClose={() => setDeleteOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+
+function DeleteProjectDialog({
+  projectTitle,
+  clipCount,
+  onConfirm,
+  onClose,
+}: {
+  projectTitle: string;
+  clipCount: number;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const confirmed = typed === projectTitle;
+
+  const handleDelete = async () => {
+    if (!confirmed || deleting) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-300 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-border flex flex-col gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 pt-6 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+              <Trash2 size={18} className="text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-foreground">Delete Project</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">This action cannot be undone.</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={deleting}
+            className="p-2 rounded-xl hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-40 shrink-0"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* What gets deleted */}
+        <div className="mx-6 mb-5 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 space-y-1.5">
+          <p className="text-sm font-bold text-red-800">The following will be permanently deleted:</p>
+          <ul className="text-sm text-red-700 space-y-1">
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              <p>Project <span className="font-semibold">&ldquo;{projectTitle}&rdquo;</span></p>
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              {clipCount} clip{clipCount !== 1 ? "s" : ""} and all associated video files
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              All scheduled posts for this project
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+              Transcript, captions, and subtitle settings
+            </li>
+          </ul>
+        </div>
+
+        {/* Type-to-confirm */}
+        <div className="px-6 pb-5 space-y-2">
+          <label className="text-sm font-bold text-foreground">
+            Type <span className="font-mono bg-secondary px-1.5 py-0.5 rounded text-red-700">{projectTitle}</span> to confirm
+          </label>
+          <input
+            type="text"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleDelete()}
+            disabled={deleting}
+            placeholder={projectTitle}
+            autoFocus
+            className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-400/40 bg-white disabled:opacity-50 placeholder:text-muted-foreground/40 mt-4"
+          />
+          {error && (
+            <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+              <AlertCircle size={12} /> {error}
+            </p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-6 flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={deleting}
+            className="flex-1 py-2.5 rounded-xl border border-border font-semibold text-sm hover:bg-secondary transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!confirmed || deleting}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {deleting ? (
+              <><Loader2 size={15} className="animate-spin" /> Deleting…</>
+            ) : (
+              <><Trash2 size={15} /> Delete Forever</>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { OutputClipProps } from "@/lib/types";
 import { PublishModal } from "./publish-modal";
 import { downloadVideo } from "@/lib/download";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
@@ -30,6 +30,7 @@ function FullscreenPlayer({
   const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
+  const [videoSrc, setVideoSrc] = useState(clip.videoUrl);
   const [processing, setProcessing] = useState(false);
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,9 +42,13 @@ function FullscreenPlayer({
   );
   const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+  const [publishToast, setPublishToast] = useState<string | null>(null);
 
-  const accounts = useQuery(api.socialTokens.getAllTokens) ?? [];
+  const { isAuthenticated } = useConvexAuth();
+  const accountsQuery = useQuery(api.socialTokens.getAllTokens);
+  const accounts = accountsQuery ?? [];
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
+  const refreshClipUrl = useAction(api.outputs.refreshClipUrl);
   const saveSubtitleSettingsMutation = useMutation(api.projects.saveSubtitleSettings);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -95,10 +100,27 @@ function FullscreenPlayer({
     }
   };
 
-  const handleError = () => {
-    if (!isCloudinary) return;
-    setProcessing(true);
-    retryRef.current = setTimeout(() => setRetryKey((k) => k + 1), 8000);
+  const handleError = async (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const code = (e.target as HTMLVideoElement).error?.code;
+    // MEDIA_ERR_ABORTED (1) = browser cancelled the fetch (re-render, unmount). Not a real error.
+    if (code === 1) return;
+
+    if (isCloudinary) {
+      setProcessing(true);
+      retryRef.current = setTimeout(() => setRetryKey((k) => k + 1), 8000);
+      return;
+    }
+
+    // For R2 clips: the stored URL may have expired (7-day TTL). Refresh it from the clipKey.
+    if (clip.clipKey) {
+      try {
+        const fresh = await refreshClipUrl({ clipKey: clip.clipKey });
+        setVideoSrc(fresh);
+        setRetryKey((k) => k + 1);
+      } catch {
+        // refresh failed — nothing more we can do
+      }
+    }
   };
 
   const togglePlay = (e: React.MouseEvent) => {
@@ -189,7 +211,7 @@ function FullscreenPlayer({
             <video
               key={retryKey}
               ref={ref}
-              src={clip.videoUrl}
+              src={videoSrc}
               className="w-full h-full object-cover"
               preload="auto"
               playsInline
@@ -357,13 +379,26 @@ function FullscreenPlayer({
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
         accounts={accounts}
+        isLoadingAccounts={!isAuthenticated || accountsQuery === undefined}
         clipTitle={clip.title}
         clipUrl={clip.videoUrl}
         clipKey={clip.clipKey}
         outputId={clip.id}
         defaultCaption={clip.caption}
         captions={clip.captions}
+        onPublished={(count) => {
+          setPublishOpen(false);
+          setPublishToast(`Published to ${count} account${count !== 1 ? "s" : ""}!`);
+          setTimeout(() => setPublishToast(null), 4000);
+        }}
       />
+
+      {publishToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-300 flex items-center gap-2 bg-green-600 text-white px-5 py-3 rounded-2xl shadow-xl font-semibold text-sm animate-in slide-in-from-bottom-2">
+          <Check size={16} />
+          {publishToast}
+        </div>
+      )}
     </div>,
     document.body,
   );

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import Image from "next/image";
+import Logo from "./logo";
 
 function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -13,15 +14,10 @@ function Navbar() {
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 animate-in slide-in-from-top-4 duration-700">
       <header className="w-full bg-white/95 backdrop-blur-md border border-border/60 shadow-sm rounded-full py-3 px-6 flex items-center justify-between">
-        {/* <div className="flex gap-2 items-center z-50">
-          <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-            <Wand2 size={18} />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-black">ShortPurify</span>
-        </div> */}
+
 
 <Link href="/">
-        <Image className="" src="/logo.png" alt="logo" width={100} height={100}/>
+       <Logo/>
 </Link>
         
         {/* Desktop Nav */}

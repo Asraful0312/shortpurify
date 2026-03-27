@@ -34,6 +34,12 @@ const OutputPreviewCard = memo(function OutputPreviewCard({
         preload="metadata"
         muted
         playsInline
+        onError={(e) => {
+          // MEDIA_ERR_ABORTED (1) = browser cancelled the fetch itself (e.g. re-render, unmount).
+          // This is completely normal for metadata-only preloads — suppress it.
+          const code = (e.target as HTMLVideoElement).error?.code;
+          if (code === 1) return;
+        }}
       />
 
       {/* Play icon overlay */}

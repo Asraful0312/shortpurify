@@ -21,7 +21,7 @@
 
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./r2storage";
 import crypto from "crypto";
@@ -35,15 +35,15 @@ const SCOPES = "user.info.basic,video.upload,video.publish";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireUser(ctx: any): Promise<{ _id: Id<"users"> }> {
   const identity = await ctx.auth.getUserIdentity() as { subject: string } | null;
-  if (!identity) throw new Error("Unauthorized");
+  if (!identity) throw new ConvexError("Unauthorized");
   const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject }) as { _id: Id<"users"> } | null;
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ConvexError("User not found");
   return user;
 }
 
 function callbackUrl() {
   const siteUrl = process.env.CONVEX_SITE_URL;
-  if (!siteUrl) throw new Error("CONVEX_SITE_URL env var not set");
+  if (!siteUrl) throw new ConvexError("CONVEX_SITE_URL env var not set");
   return `${siteUrl}/oauth/tiktok/callback`;
 }
 
@@ -53,11 +53,11 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
     userId, platform: "tiktok", accountId,
   }) as { accessToken: string; refreshToken?: string; tokenExpiry?: number } | null;
 
-  if (!token) throw new Error("TikTok account not connected. Please reconnect.");
+  if (!token) throw new ConvexError("TikTok account not connected. Please reconnect.");
 
   // Refresh if within 5 minutes of expiry
   if (token.tokenExpiry && token.tokenExpiry < Date.now() + 5 * 60 * 1000) {
-    if (!token.refreshToken) throw new Error("No refresh token. Please reconnect your TikTok account.");
+    if (!token.refreshToken) throw new ConvexError("No refresh token. Please reconnect your TikTok account.");
 
     const res = await fetch(TIKTOK_TOKEN_URL, {
       method: "POST",
@@ -76,7 +76,7 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
       error?: string;
       error_description?: string;
     };
-    if (!data.access_token) throw new Error(`Failed to refresh token: ${data.error_description ?? data.error}`);
+    if (!data.access_token) throw new ConvexError(`Failed to refresh token: ${data.error_description ?? data.error}`);
 
     await ctx.runMutation(internal.socialTokens.updateToken, {
       userId, platform: "tiktok", accountId,
@@ -99,14 +99,14 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
   return token.accessToken;
 }
 
-// ─── Connect ──────────────────────────────────────────────────────────────────
+
 
 export const getAuthUrl = action({
   args: {},
   handler: async (ctx): Promise<{ authUrl: string }> => {
     const user = await requireUser(ctx);
     const clientKey = process.env.TIKTOK_CLIENT_KEY;
-    if (!clientKey) throw new Error("TIKTOK_CLIENT_KEY not configured");
+    if (!clientKey) throw new   ConvexError("TIKTOK_CLIENT_KEY not configured");
 
     const stateToken = crypto.randomBytes(32).toString("hex");
     await ctx.runMutation(internal.socialTokens.saveOAuthState, {
@@ -134,7 +134,7 @@ export const handleCallback = internalAction({
 
     // Verify state (CSRF)
     const oauthState = await ctx.runMutation(internal.socialTokens.consumeOAuthState, { token: state });
-    if (!oauthState) throw new Error("Invalid or expired OAuth state");
+    if (!oauthState) throw new ConvexError("Invalid or expired OAuth state");
     const userId = oauthState.userId;
 
     // Exchange code → tokens
@@ -158,7 +158,7 @@ export const handleCallback = internalAction({
       error_description?: string;
     };
     if (!tokenData.access_token) {
-      throw new Error(`Failed to get access token: ${tokenData.error_description ?? tokenData.error}`);
+      throw new ConvexError(`Failed to get access token: ${tokenData.error_description ?? tokenData.error}`);
     }
 
     // Fetch user info
@@ -171,12 +171,12 @@ export const handleCallback = internalAction({
     };
 
     if (userData.error?.code !== "ok" && userData.error?.code !== undefined) {
-      throw new Error(userData.error.message);
+      throw new ConvexError(userData.error.message);
     }
 
     const tiktokUser = userData.data?.user;
     const accountId  = tiktokUser?.open_id ?? tokenData.open_id;
-    if (!accountId) throw new Error("Could not get TikTok user ID");
+    if (!accountId) throw new ConvexError("Could not get TikTok user ID");
 
     await ctx.runMutation(internal.socialTokens.saveSocialToken, {
       userId,
@@ -194,7 +194,6 @@ export const handleCallback = internalAction({
   },
 });
 
-// ─── Manage ───────────────────────────────────────────────────────────────────
 
 export const disconnectAccount = action({
   args: { accountId: v.string() },
@@ -207,7 +206,69 @@ export const disconnectAccount = action({
   },
 });
 
-// ─── Publish ──────────────────────────────────────────────────────────────────
+
+/** Internal version — accepts userId directly (used by scheduled publishing). */
+export const publishClipInternal = internalAction({
+  args: {
+    userId: v.id("users"),
+    outputId: v.id("outputs"),
+    accountId: v.string(),
+    caption: v.string(),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, outputId, accountId, caption, title }) => {
+    const accessToken = await getValidAccessToken(ctx, userId, accountId);
+    const autoExportKey = await ctx.runAction(internal.exportActions.ensureExported, { outputId });
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    const bestKey = autoExportKey ?? output?.exportKey ?? output?.clipKey;
+    let videoUrl = output?.clipUrl ?? "";
+    if (bestKey) videoUrl = await r2.getUrl(bestKey, { expiresIn: 60 * 60 * 2 });
+
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) throw new ConvexError(`Failed to fetch video: ${videoRes.status}`);
+    const videoBuffer = await videoRes.arrayBuffer();
+    const videoSize = videoBuffer.byteLength;
+
+    const creatorRes = await fetch(`${TIKTOK_API}/post/publish/creator_info/query/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+    });
+    const creatorData = await creatorRes.json() as { data?: { privacy_level_options?: string[] } };
+    const allowedPrivacy = creatorData.data?.privacy_level_options ?? [];
+    // Unaudited TikTok apps can only post as SELF_ONLY (private).
+    // After receiving TikTok Direct Post audit approval, change preference to PUBLIC_TO_EVERYONE.
+    const PRIVACY_PREFERENCE = ["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"];
+    const privacyLevel = PRIVACY_PREFERENCE.find(p => allowedPrivacy.includes(p)) ?? allowedPrivacy[0] ?? "SELF_ONLY";
+
+    const sanitizeCaption = (text: string) => text.replace(/https?:\/\/\S+/gi, "").replace(/\s{2,}/g, " ").trim().slice(0, 2200);
+    const postCaption = sanitizeCaption(caption || title);
+
+    const initRes = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({
+        post_info: { title: postCaption, post_mode: "DIRECT_POST", privacy_level: privacyLevel, disable_duet: false, disable_comment: false, disable_stitch: false, video_cover_timestamp_ms: 1000 },
+        source_info: { source: "FILE_UPLOAD", video_size: videoSize, chunk_size: videoSize, total_chunk_count: 1 },
+      }),
+    });
+    const initData = await initRes.json() as { data?: { publish_id?: string; upload_url?: string }; error?: { code: string; message: string } };
+    if (initData.error?.code && initData.error.code !== "ok") throw new ConvexError(`TikTok init failed (${initData.error.code}): ${initData.error.message}`);
+
+    const publishId = initData.data?.publish_id;
+    const uploadUrl = initData.data?.upload_url;
+    if (!publishId || !uploadUrl) throw new ConvexError("TikTok did not return upload URL");
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Range": `bytes 0-${videoSize - 1}/${videoSize}`, "Content-Type": "video/mp4", "Content-Length": String(videoSize) },
+      body: videoBuffer,
+    });
+    if (!uploadRes.ok) throw new ConvexError(`TikTok upload failed: ${await uploadRes.text().catch(() => uploadRes.status.toString())}`);
+
+    await ctx.runMutation(internal.outputs.savePublishInfo, { outputId, publishStatus: "pending", publishRequestId: publishId });
+    return { publishId };
+  },
+});
 
 export const publishClip = action({
   args: {
@@ -233,7 +294,7 @@ export const publishClip = action({
 
     // Fetch video bytes
     const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    if (!videoRes.ok) throw new ConvexError(`Failed to fetch video: ${videoRes.status}`);
     const videoBuffer = await videoRes.arrayBuffer();
     const videoSize = videoBuffer.byteLength;
 
@@ -249,10 +310,11 @@ export const publishClip = action({
       data?: { privacy_level_options?: string[] };
       error?: { code: string; message: string };
     };
-    const allowedPrivacy = creatorData.data?.privacy_level_options ?? ["PUBLIC_TO_EVERYONE"];
-    const privacyLevel = allowedPrivacy.includes("PUBLIC_TO_EVERYONE")
-      ? "PUBLIC_TO_EVERYONE"
-      : allowedPrivacy[0];
+    const allowedPrivacy = creatorData.data?.privacy_level_options ?? [];
+    // Unaudited TikTok apps can only post as SELF_ONLY (private).
+    // After receiving TikTok Direct Post audit approval, change preference to PUBLIC_TO_EVERYONE.
+    const PRIVACY_PREFERENCE = ["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"];
+    const privacyLevel = PRIVACY_PREFERENCE.find(p => allowedPrivacy.includes(p)) ?? allowedPrivacy[0] ?? "SELF_ONLY";
 
     // TikTok blocks captions with URLs; Direct Post title max 2200 chars
     const sanitizeCaption = (text: string) =>
@@ -295,12 +357,12 @@ export const publishClip = action({
     };
 
     if (initData.error?.code && initData.error.code !== "ok") {
-      throw new Error(`TikTok init failed (${initData.error.code}): ${initData.error.message}`);
+      throw new ConvexError(`TikTok init failed (${initData.error.code}): ${initData.error.message}`);
     }
 
     const publishId = initData.data?.publish_id;
     const uploadUrl = initData.data?.upload_url;
-    if (!publishId || !uploadUrl) throw new Error("TikTok did not return upload URL");
+    if (!publishId || !uploadUrl) throw new ConvexError("TikTok did not return upload URL");
 
     // Step 2: Upload video (single chunk)
     const uploadRes = await fetch(uploadUrl, {
@@ -315,7 +377,7 @@ export const publishClip = action({
 
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => uploadRes.status.toString());
-      throw new Error(`TikTok upload failed: ${errText}`);
+      throw new ConvexError(`TikTok upload failed: ${errText}`);
     }
 
     await ctx.runMutation(internal.outputs.savePublishInfo, {

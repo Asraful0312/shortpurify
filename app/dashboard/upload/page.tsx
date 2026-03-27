@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import SingleVideoUploader from "@/components/upload-dropzone";
-import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const ALL_PLATFORMS = [
   { id: "tiktok",    label: "TikTok" },
@@ -32,6 +33,7 @@ export default function UploadPage() {
   const [enabledPlatforms, setEnabledPlatforms] = useState<string[]>(
     ALL_PLATFORMS.map((p) => p.id),
   );
+  const [cropMode, setCropMode] = useState<"smart_crop" | "blur_background">("smart_crop");
 
   // YouTube-specific state
   const [youtubeUrl, setLucideYoutubeUrl] = useState("");
@@ -53,6 +55,7 @@ export default function UploadPage() {
       originalSize: size,
       originalKey: key,
       enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
+      cropMode,
     });
     router.push(`/dashboard/${projectId}`);
   };
@@ -68,6 +71,7 @@ export default function UploadPage() {
         youtubeUrl: url,
         title: title.trim() || undefined,
         enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
+        cropMode,
       });
       router.push(`/dashboard/${projectId}`);
     } catch (err: unknown) {
@@ -118,7 +122,7 @@ export default function UploadPage() {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <LucideYoutube size={15} className="text-red-500" />
+            <Image src="/icons/youtube.png" alt="youtube" width={15} height={15}/>
             YouTube URL
           </button>
         </div>
@@ -177,6 +181,45 @@ export default function UploadPage() {
         )}
       </div>
 
+      {/* Crop mode selector */}
+      <div className="relative z-10 w-full max-w-2xl mb-4">
+        <p className="text-sm font-bold text-foreground mb-2">Video Format</p>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            {
+              value: "smart_crop",
+              icon: <Crop size={18} />,
+              label: "Smart Crop",
+              desc: "AI follows the speaker — best for talking-head content",
+            },
+            {
+              value: "blur_background",
+              icon: <Layers size={18} />,
+              label: "Blur Background",
+              desc: "Full frame centered on blurred background — nothing gets cut",
+            },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setCropMode(opt.value)}
+              className={cn(
+                "flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-left transition-all",
+                cropMode === opt.value
+                  ? "border-primary bg-primary/5"
+                  : "border-border bg-white hover:border-primary/30",
+              )}
+            >
+              <span className={cn("p-1.5 rounded-lg", cropMode === opt.value ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground")}>
+                {opt.icon}
+              </span>
+              <span className="font-bold text-sm">{opt.label}</span>
+              <span className="text-xs text-muted-foreground leading-snug">{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tab content */}
       <div className="relative z-10 w-full max-w-2xl">
         {tab === "file" ? (
@@ -184,8 +227,8 @@ export default function UploadPage() {
         ) : (
           <div className="bg-white border border-border rounded-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
-                <LucideYoutube size={18} className="text-red-500" />
+              <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <Image src="/icons/youtube.png" alt="youtube" width={18} height={18}/>
               </div>
               <div>
                 <p className="text-sm font-bold text-foreground">Import from YouTube</p>
@@ -205,7 +248,7 @@ export default function UploadPage() {
 
             {ytError && (
               <div className="flex items-start gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
+                <AlertCircle size={15} className="mt-0.5 shrink-0" />
                 <p className="text-xs font-medium">{ytError}</p>
               </div>
             )}

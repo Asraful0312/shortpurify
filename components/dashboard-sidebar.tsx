@@ -10,12 +10,13 @@ import {
   Sparkles,
   BarChart3,
   Send,
+  Clock,
   Users,
   Settings,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
+import Logo from "./shared/logo";
 
 const mainNav = [
   { name: "Projects", href: "/dashboard", icon: LayoutDashboard },
@@ -23,7 +24,8 @@ const mainNav = [
 ];
 
 const publishNav = [
-  { name: "Publish Hub", href: "/dashboard/publish", icon: Send, badge: "Phase 2" },
+  { name: "Publish Hub", href: "/dashboard/publish", icon: Send },
+  { name: "Scheduled", href: "/dashboard/scheduled", icon: Clock },
   { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3, badge: "Phase 2" },
 ];
 
@@ -92,12 +94,12 @@ export function DashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-[260px] flex-col border-r border-border bg-white px-4 py-6">
+    <div className="flex h-full w-75% md:w-[260px] flex-col md:border-r border-border bg-background md:bg-white px-4 py-6">
       {/* Brand */}
-      <Image className="mb-8" src="/logo.png" alt="Logo" width={100} height={100} />
+    <Logo/>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-4 overflow-y-auto">
+      <nav className="flex-1 space-y-4 overflow-y-auto mt-8">
         <NavGroup items={mainNav} pathname={pathname} />
         <NavGroup label="Publish" items={publishNav} pathname={pathname} />
         <NavGroup label="Team" items={teamNav} pathname={pathname} />

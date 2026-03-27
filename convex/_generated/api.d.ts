@@ -15,12 +15,12 @@ import type * as exportActions from "../exportActions.js";
 import type * as facebookActions from "../facebookActions.js";
 import type * as http from "../http.js";
 import type * as outputs from "../outputs.js";
-import type * as outstandActions from "../outstandActions.js";
 import type * as projects from "../projects.js";
 import type * as publicClip from "../publicClip.js";
 import type * as r2 from "../r2.js";
 import type * as r2Actions from "../r2Actions.js";
 import type * as r2storage from "../r2storage.js";
+import type * as scheduledPublish from "../scheduledPublish.js";
 import type * as socialTokens from "../socialTokens.js";
 import type * as threadsActions from "../threadsActions.js";
 import type * as tiktokActions from "../tiktokActions.js";
@@ -45,12 +45,12 @@ declare const fullApi: ApiFromModules<{
   facebookActions: typeof facebookActions;
   http: typeof http;
   outputs: typeof outputs;
-  outstandActions: typeof outstandActions;
   projects: typeof projects;
   publicClip: typeof publicClip;
   r2: typeof r2;
   r2Actions: typeof r2Actions;
   r2storage: typeof r2storage;
+  scheduledPublish: typeof scheduledPublish;
   socialTokens: typeof socialTokens;
   threadsActions: typeof threadsActions;
   tiktokActions: typeof tiktokActions;
@@ -546,393 +546,6 @@ export declare const components: {
         "internal",
         { from?: number | string; startAsync?: boolean; workflowId: string },
         null
-      >;
-    };
-  };
-  cloudinary: {
-    lib: {
-      createPendingUpload: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          filename?: string;
-          folder?: string;
-          metadata?: any;
-          tags?: Array<string>;
-          userId?: string;
-        },
-        { publicId: string; uploadId: string }
-      >;
-      deleteAsset: FunctionReference<
-        "action",
-        "internal",
-        {
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          publicId: string;
-        },
-        { error?: string; success: boolean }
-      >;
-      deletePendingUpload: FunctionReference<
-        "mutation",
-        "internal",
-        { uploadId: string },
-        { error?: string; success: boolean }
-      >;
-      finalizeUpload: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          folder?: string;
-          publicId: string;
-          uploadResult: {
-            access_mode?: string;
-            accessibility_analysis?: any;
-            api_key?: string;
-            asset_folder?: string;
-            asset_id?: string;
-            batch_id?: string;
-            bytes?: number;
-            colors?: Array<Array<any>>;
-            context?: any;
-            created_at?: string;
-            delete_token?: string;
-            display_name?: string;
-            done?: boolean;
-            eager?: Array<{
-              bytes?: number;
-              format?: string;
-              height?: number;
-              secure_url?: string;
-              transformation?: string;
-              url?: string;
-              width?: number;
-            }>;
-            etag?: string;
-            existing?: boolean;
-            faces?: Array<Array<number>>;
-            folder?: string;
-            format: string;
-            grayscale?: boolean;
-            height?: number;
-            illustration_score?: number;
-            image_metadata?: any;
-            media_metadata?: any;
-            moderation?: Array<any>;
-            original_extension?: string;
-            original_filename?: string;
-            pages?: number;
-            phash?: string;
-            placeholder?: boolean;
-            public_id: string;
-            quality_analysis?: { focus?: number };
-            resource_type?: string;
-            secure_url: string;
-            semi_transparent?: boolean;
-            signature?: string;
-            status?: string;
-            tags?: Array<string>;
-            type?: string;
-            url: string;
-            version?: number;
-            version_id?: string;
-            width?: number;
-          };
-          userId?: string;
-        },
-        string
-      >;
-      generateUploadCredentials: FunctionReference<
-        "action",
-        "internal",
-        {
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          filename?: string;
-          folder?: string;
-          publicId?: string;
-          tags?: Array<string>;
-          transformation?: {
-            angle?: number | string;
-            aspectRatio?: string | number;
-            background?: string;
-            border?: string;
-            color?: string;
-            crop?: string;
-            defaultImage?: string;
-            density?: number;
-            dpr?: number | string;
-            effect?: string;
-            flags?: string | Array<string>;
-            format?: string;
-            gravity?: string;
-            height?: number;
-            namedTransformation?: string;
-            opacity?: number;
-            overlay?: string;
-            page?: number;
-            quality?: string | number;
-            radius?: number | string;
-            rawTransformation?: string;
-            width?: number;
-            x?: number;
-            y?: number;
-            zoom?: number;
-          };
-          userId?: string;
-        },
-        {
-          uploadParams: {
-            api_key: string;
-            folder?: string;
-            public_id?: string;
-            signature: string;
-            tags?: string;
-            timestamp: string;
-            transformation?: string;
-          };
-          uploadUrl: string;
-        }
-      >;
-      getAsset: FunctionReference<
-        "query",
-        "internal",
-        {
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          publicId: string;
-        },
-        {
-          _creationTime: number;
-          _id: string;
-          bytes?: number;
-          cloudinaryUrl: string;
-          errorMessage?: string;
-          folder?: string;
-          format: string;
-          height?: number;
-          metadata?: any;
-          originalFilename?: string;
-          publicId: string;
-          secureUrl: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          tags?: Array<string>;
-          transformations?: Array<any>;
-          updatedAt: number;
-          uploadedAt: number;
-          userId?: string;
-          width?: number;
-        } | null
-      >;
-      getUploadsByStatus: FunctionReference<
-        "query",
-        "internal",
-        {
-          limit?: number;
-          status: "pending" | "uploading" | "completed" | "failed";
-          userId?: string;
-        },
-        Array<{
-          _creationTime: number;
-          _id: string;
-          bytes?: number;
-          cloudinaryUrl: string;
-          errorMessage?: string;
-          folder?: string;
-          format: string;
-          height?: number;
-          metadata?: any;
-          originalFilename?: string;
-          publicId: string;
-          secureUrl: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          tags?: Array<string>;
-          transformations?: Array<any>;
-          updatedAt: number;
-          uploadedAt: number;
-          userId?: string;
-          width?: number;
-        }>
-      >;
-      listAssets: FunctionReference<
-        "query",
-        "internal",
-        {
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          folder?: string;
-          limit?: number;
-          order?: "asc" | "desc";
-          orderBy?: "uploadedAt" | "updatedAt";
-          tags?: Array<string>;
-          userId?: string;
-        },
-        Array<{
-          _creationTime: number;
-          _id: string;
-          bytes?: number;
-          cloudinaryUrl: string;
-          errorMessage?: string;
-          folder?: string;
-          format: string;
-          height?: number;
-          metadata?: any;
-          originalFilename?: string;
-          publicId: string;
-          secureUrl: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          tags?: Array<string>;
-          transformations?: Array<any>;
-          updatedAt: number;
-          uploadedAt: number;
-          userId?: string;
-          width?: number;
-        }>
-      >;
-      transform: FunctionReference<
-        "query",
-        "internal",
-        {
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          publicId: string;
-          transformation: {
-            angle?: number | string;
-            aspectRatio?: string | number;
-            background?: string;
-            border?: string;
-            color?: string;
-            crop?: string;
-            defaultImage?: string;
-            density?: number;
-            dpr?: number | string;
-            effect?: string;
-            flags?: string | Array<string>;
-            format?: string;
-            gravity?: string;
-            height?: number;
-            namedTransformation?: string;
-            opacity?: number;
-            overlay?: string;
-            page?: number;
-            quality?: string | number;
-            radius?: number | string;
-            rawTransformation?: string;
-            width?: number;
-            x?: number;
-            y?: number;
-            zoom?: number;
-          };
-        },
-        { secureUrl: string; transformedUrl: string }
-      >;
-      updateAsset: FunctionReference<
-        "mutation",
-        "internal",
-        { metadata?: any; publicId: string; tags?: Array<string> },
-        {
-          _creationTime: number;
-          _id: string;
-          bytes?: number;
-          cloudinaryUrl: string;
-          errorMessage?: string;
-          folder?: string;
-          format: string;
-          height?: number;
-          metadata?: any;
-          originalFilename?: string;
-          publicId: string;
-          secureUrl: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          tags?: Array<string>;
-          transformations?: Array<any>;
-          updatedAt: number;
-          uploadedAt: number;
-          userId?: string;
-          width?: number;
-        } | null
-      >;
-      updateUploadStatus: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          bytes?: number;
-          cloudinaryUrl?: string;
-          errorMessage?: string;
-          format?: string;
-          height?: number;
-          publicId?: string;
-          secureUrl?: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          uploadId: string;
-          width?: number;
-        },
-        {
-          _creationTime: number;
-          _id: string;
-          bytes?: number;
-          cloudinaryUrl: string;
-          errorMessage?: string;
-          folder?: string;
-          format: string;
-          height?: number;
-          metadata?: any;
-          originalFilename?: string;
-          publicId: string;
-          secureUrl: string;
-          status: "pending" | "uploading" | "completed" | "failed";
-          tags?: Array<string>;
-          transformations?: Array<any>;
-          updatedAt: number;
-          uploadedAt: number;
-          userId?: string;
-          width?: number;
-        } | null
-      >;
-      upload: FunctionReference<
-        "action",
-        "internal",
-        {
-          base64Data: string;
-          config: { apiKey: string; apiSecret: string; cloudName: string };
-          filename?: string;
-          folder?: string;
-          publicId?: string;
-          tags?: Array<string>;
-          transformation?: {
-            angle?: number | string;
-            aspectRatio?: string | number;
-            background?: string;
-            border?: string;
-            color?: string;
-            crop?: string;
-            defaultImage?: string;
-            density?: number;
-            dpr?: number | string;
-            effect?: string;
-            flags?: string | Array<string>;
-            format?: string;
-            gravity?: string;
-            height?: number;
-            namedTransformation?: string;
-            opacity?: number;
-            overlay?: string;
-            page?: number;
-            quality?: string | number;
-            radius?: number | string;
-            rawTransformation?: string;
-            width?: number;
-            x?: number;
-            y?: number;
-            zoom?: number;
-          };
-          userId?: string;
-        },
-        {
-          bytes?: number;
-          error?: string;
-          format?: string;
-          height?: number;
-          publicId?: string;
-          secureUrl?: string;
-          success: boolean;
-          width?: number;
-        }
       >;
     };
   };
@@ -1925,266 +1538,189 @@ export declare const components: {
       >;
     };
   };
-  uploadthingFileTracker: {
-    callbacks: {
-      handleUploadthingCallback: FunctionReference<
-        "action",
-        "internal",
-        { apiKey?: string; hook: string; rawBody: string; signature: string },
-        | { fileId: string; hook: string; ok: true }
-        | { error: string; ok: false }
-      >;
-    };
-    cleanup: {
-      cleanupExpired: FunctionReference<
-        "action",
-        "internal",
-        { apiKey?: string; batchSize?: number; dryRun?: boolean },
-        {
-          deletedCount: number;
-          hasMore: boolean;
-          keys: Array<string>;
-          remoteDeleteError?: string;
-          remoteDeleteFailed?: boolean;
-          remoteDeletedCount?: number;
-        }
-      >;
-    };
-    config: {
-      getConfig: FunctionReference<
+  aggregate: {
+    btree: {
+      aggregateBetween: FunctionReference<
         "query",
         "internal",
-        {},
-        {
-          defaultTtlMs?: number;
-          deleteBatchSize?: number;
-          deleteRemoteOnExpire?: boolean;
-          hasApiKey: boolean;
-          ttlByFileType?: Record<string, number>;
-          ttlByMimeType?: Record<string, number>;
-        }
+        { k1?: any; k2?: any; namespace?: any },
+        { count: number; sum: number }
       >;
-      setConfig: FunctionReference<
-        "mutation",
+      aggregateBetweenBatch: FunctionReference<
+        "query",
+        "internal",
+        { queries: Array<{ k1?: any; k2?: any; namespace?: any }> },
+        Array<{ count: number; sum: number }>
+      >;
+      atNegativeOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; k2?: any; namespace?: any; offset: number },
+        { k: any; s: number; v: any }
+      >;
+      atOffsetBatch: FunctionReference<
+        "query",
         "internal",
         {
-          config: {
-            defaultTtlMs?: number;
-            deleteBatchSize?: number;
-            deleteRemoteOnExpire?: boolean;
-            ttlByFileType?: Record<string, number>;
-            ttlByMimeType?: Record<string, number>;
-            uploadthingApiKey?: string;
-          };
-          replace?: boolean;
+          queries: Array<{
+            k1?: any;
+            k2?: any;
+            namespace?: any;
+            offset: number;
+          }>;
         },
-        { created: boolean }
+        Array<{ k: any; s: number; v: any }>
       >;
-    };
-    files: {
-      deleteFiles: FunctionReference<
-        "mutation",
+      get: FunctionReference<
+        "query",
         "internal",
-        { keys: Array<string> },
+        { key: any; namespace?: any },
+        null | { k: any; s: number; v: any }
+      >;
+      offset: FunctionReference<
+        "query",
+        "internal",
+        { k1?: any; key: any; namespace?: any },
         number
       >;
-      setFileAccess: FunctionReference<
-        "mutation",
+      offsetUntil: FunctionReference<
+        "query",
         "internal",
-        {
-          access?: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          } | null;
-          key: string;
-        },
-        string | null
+        { k2?: any; key: any; namespace?: any },
+        number
       >;
-      setFolderAccess: FunctionReference<
-        "mutation",
+      paginate: FunctionReference<
+        "query",
         "internal",
         {
-          access?: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          } | null;
-          folder: string;
+          cursor?: string;
+          k1?: any;
+          k2?: any;
+          limit: number;
+          namespace?: any;
+          order: "asc" | "desc";
         },
-        string | null
+        {
+          cursor: string;
+          isDone: boolean;
+          page: Array<{ k: any; s: number; v: any }>;
+        }
       >;
-      upsertFile: FunctionReference<
-        "mutation",
+      paginateNamespaces: FunctionReference<
+        "query",
         "internal",
-        {
-          file: {
-            customId?: string;
-            fileType?: string;
-            key: string;
-            mimeType: string;
-            name: string;
-            size: number;
-            uploadedAt?: number;
-            url: string;
-          };
-          options?: {
-            access?: {
-              allowUserIds?: Array<string>;
-              denyUserIds?: Array<string>;
-              visibility: "public" | "private" | "restricted";
-            };
-            expiresAt?: number;
-            fileType?: string;
-            folder?: string;
-            metadata?: any;
-            tags?: Array<string>;
-            ttlMs?: number;
-          };
-          userId: string;
-        },
-        string
+        { cursor?: string; limit: number },
+        { cursor: string; isDone: boolean; page: Array<any> }
+      >;
+      validate: FunctionReference<
+        "query",
+        "internal",
+        { namespace?: any },
+        any
       >;
     };
-    queries: {
-      getFileByKey: FunctionReference<
+    inspect: {
+      display: FunctionReference<"query", "internal", { namespace?: any }, any>;
+      dump: FunctionReference<"query", "internal", { namespace?: any }, string>;
+      inspectNode: FunctionReference<
         "query",
         "internal",
-        { key: string; viewerUserId?: string },
-        {
-          _creationTime: number;
-          _id: string;
-          access?: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          };
-          customId?: string;
-          expiresAt?: number;
-          fileType?: string;
-          folder?: string;
-          key: string;
-          metadata?: any;
-          mimeType: string;
-          name: string;
-          replacedAt?: number;
-          size: number;
-          tags?: Array<string>;
-          uploadedAt: number;
-          url: string;
-          userId: string;
-        } | null
+        { namespace?: any; node?: string },
+        null
       >;
-      getFolderRuleByFolder: FunctionReference<
+      listTreeNodes: FunctionReference<
         "query",
         "internal",
-        { folder: string },
-        {
-          _creationTime: number;
-          _id: string;
-          access: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          };
-          folder: string;
-          updatedAt: number;
-        } | null
-      >;
-      listAllFiles: FunctionReference<
-        "query",
-        "internal",
-        {
-          folder?: string;
-          includeExpired?: boolean;
-          limit?: number;
-          mimeType?: string;
-          tag?: string;
-          viewerUserId?: string;
-        },
+        { take?: number },
         Array<{
           _creationTime: number;
           _id: string;
-          access?: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          };
-          customId?: string;
-          expiresAt?: number;
-          fileType?: string;
-          folder?: string;
-          key: string;
-          metadata?: any;
-          mimeType: string;
-          name: string;
-          replacedAt?: number;
-          size: number;
-          tags?: Array<string>;
-          uploadedAt: number;
-          url: string;
-          userId: string;
+          aggregate?: { count: number; sum: number };
+          items: Array<{ k: any; s: number; v: any }>;
+          subtrees: Array<string>;
         }>
       >;
-      listFiles: FunctionReference<
+      listTrees: FunctionReference<
         "query",
         "internal",
-        {
-          folder?: string;
-          includeExpired?: boolean;
-          limit?: number;
-          mimeType?: string;
-          ownerUserId: string;
-          tag?: string;
-          viewerUserId?: string;
-        },
+        { take?: number },
         Array<{
           _creationTime: number;
           _id: string;
-          access?: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          };
-          customId?: string;
-          expiresAt?: number;
-          fileType?: string;
-          folder?: string;
-          key: string;
-          metadata?: any;
-          mimeType: string;
-          name: string;
-          replacedAt?: number;
-          size: number;
-          tags?: Array<string>;
-          uploadedAt: number;
-          url: string;
-          userId: string;
-        }>
-      >;
-      listFolderRules: FunctionReference<
-        "query",
-        "internal",
-        { limit?: number },
-        Array<{
-          _creationTime: number;
-          _id: string;
-          access: {
-            allowUserIds?: Array<string>;
-            denyUserIds?: Array<string>;
-            visibility: "public" | "private" | "restricted";
-          };
-          folder: string;
-          updatedAt: number;
+          maxNodeSize: number;
+          namespace?: any;
+          root: string;
         }>
       >;
     };
-    stats: {
-      getUsageStats: FunctionReference<
-        "query",
+    public: {
+      clear: FunctionReference<
+        "mutation",
         "internal",
-        { userId: string },
-        { totalBytes: number; totalFiles: number }
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      delete_: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        null
+      >;
+      deleteIfExists: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any },
+        any
+      >;
+      init: FunctionReference<
+        "mutation",
+        "internal",
+        { maxNodeSize?: number; namespace?: any; rootLazy?: boolean },
+        null
+      >;
+      insert: FunctionReference<
+        "mutation",
+        "internal",
+        { key: any; namespace?: any; summand?: number; value: any },
+        null
+      >;
+      makeRootLazy: FunctionReference<
+        "mutation",
+        "internal",
+        { namespace?: any },
+        null
+      >;
+      replace: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        null
+      >;
+      replaceOrInsert: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          currentKey: any;
+          namespace?: any;
+          newKey: any;
+          newNamespace?: any;
+          summand?: number;
+          value: any;
+        },
+        any
       >;
     };
   };

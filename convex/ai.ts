@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -122,14 +122,14 @@ export const generateClipIdeas = internalAction({
     });
 
     if (response.stop_reason === "max_tokens") {
-      throw new Error(
+      throw new ConvexError(
         "Claude response was truncated (exceeded token limit). " +
         "Try reducing the number of enabled platforms or the transcript length.",
       );
     }
 
     const block = response.content[0];
-    if (block.type !== "text") throw new Error("Unexpected Claude response type");
+    if (block.type !== "text") throw new ConvexError("Unexpected Claude response type");
 
     // Strip markdown code fences Claude sometimes adds (e.g. ```json ... ```)
     const cleaned = block.text
@@ -139,7 +139,7 @@ export const generateClipIdeas = internalAction({
 
     const match = cleaned.match(/\[[\s\S]*\]/);
     if (!match) {
-      throw new Error(
+      throw new ConvexError(
         `Claude did not return a JSON array. Preview: ${block.text.slice(0, 300)}`,
       );
     }

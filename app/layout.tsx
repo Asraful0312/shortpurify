@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShortPurify — AI Short-Form Clip Generator",
+  title: "ShortPurify AI Short-Form Clip Generator",
   description: "Turn long-form videos into viral short clips with AI.",
   icons: {
     icon: "/logo-small.png",

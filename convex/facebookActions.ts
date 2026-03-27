@@ -22,7 +22,7 @@
 
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./r2storage";
 import crypto from "crypto";
@@ -33,9 +33,9 @@ const FB_GRAPH = `https://graph.facebook.com/${FB_VERSION}`;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireUser(ctx: any): Promise<{ _id: Id<"users"> }> {
   const identity = await ctx.auth.getUserIdentity() as { subject: string } | null;
-  if (!identity) throw new Error("Unauthorized");
+  if (!identity) throw new ConvexError("Unauthorized");
   const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject }) as { _id: Id<"users"> } | null;
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ConvexError("User not found");
   return user;
 }
 
@@ -45,7 +45,6 @@ function callbackUrl() {
   return `${siteUrl}/oauth/facebook/callback`;
 }
 
-// ─── Connect ──────────────────────────────────────────────────────────────────
 
 /**
  * Generate a Facebook OAuth URL.
@@ -57,7 +56,7 @@ export const getAuthUrl = action({
     const user = await requireUser(ctx);
 
     const appId = process.env.FACEBOOK_APP_ID;
-    if (!appId) throw new Error("FACEBOOK_APP_ID not configured");
+    if (!appId) throw new ConvexError("FACEBOOK_APP_ID not configured");
 
     // Random state token for CSRF protection
     const stateToken = crypto.randomBytes(32).toString("hex");

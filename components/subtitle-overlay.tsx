@@ -29,7 +29,6 @@ export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {
   wordsPerLine: 3,
 };
 
-// ── Utilities exported for server-side ASS generation ──────────────────────
 
 export function groupWords(words: SubtitleWord[], size: number): SubtitleWord[][] {
   const groups: SubtitleWord[][] = [];
@@ -64,8 +63,6 @@ export function findCurrentGroup(
   }
   return -1;
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 interface SubtitleOverlayProps {
   words: SubtitleWord[];
@@ -130,7 +127,7 @@ export function SubtitleOverlay({
 
   return (
     <div
-      className={`absolute z-30 transform -translate-x-1/2 -translate-y-1/2 ${
+      className={`absolute z-30 transform -translate-x-1/2 -translate-y-1/2 w-max max-w-[90%] flex flex-col items-center ${
         editable ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"
       }`}
       style={{ left: `${settings.x}%`, top: `${settings.y}%` }}
@@ -144,17 +141,17 @@ export function SubtitleOverlay({
         </div>
       )}
       <div
-        className="flex flex-col items-center gap-y-1 select-none px-2 w-max max-w-[85vw]"
+        className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
         style={{ fontFamily: settings.fontFamily }}
       >
         {displayGroups.map((group, gi) => (
-          <div key={gi} className="flex justify-center gap-x-1.5">
+          <div key={gi} className="flex flex-wrap justify-center gap-x-1.5 gap-y-1 w-full text-center">
             {group.map((word, wi) => {
               const isActive = word === activeWord;
               return (
                 <span
                   key={`${gi}-${wi}`}
-                  className="px-1.5 py-0.5 rounded font-black leading-tight"
+                  className="px-1.5 py-0.5 rounded font-black leading-tight break-words max-w-full"
                   style={{
                     fontSize: `${settings.fontSize}px`,
                     color: isActive ? settings.highlightColor : settings.textColor,

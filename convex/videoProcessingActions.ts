@@ -12,7 +12,7 @@
  *   R2_BUCKET / R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY — R2 creds
  */
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { r2 } from "./r2storage";
@@ -31,12 +31,13 @@ async function callWorker(
   clipIndex: number,
   clipUploadUrl: string,
   thumbUploadUrl: string,
+  cropMode: string = "smart_crop",
 ): Promise<WorkerResponse> {
   const workerUrl = process.env.VIDEO_WORKER_URL;
   const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
 
   if (!workerUrl) {
-    throw new Error("VIDEO_WORKER_URL env var is not set");
+    throw new ConvexError("VIDEO_WORKER_URL env var is not set");
   }
 
   const res = await fetch(workerUrl, {
@@ -51,11 +52,12 @@ async function callWorker(
       workerSecret,
       clipUploadUrl,
       thumbUploadUrl,
+      cropMode,
     }),
   });
 
   if (!res.ok) {
-    throw new Error(`Worker HTTP ${res.status}: ${await res.text()}`);
+    throw new ConvexError(`Worker HTTP ${res.status}: ${await res.text()}`);
   }
   return res.json() as Promise<WorkerResponse>;
 }
@@ -68,6 +70,7 @@ export const saveClipsToDb = internalAction({
   args: {
     projectId: v.id("projects"),
     videoUrl: v.string(),
+    cropMode: v.optional(v.string()),
     clips: v.array(
       v.object({
         title: v.string(),
@@ -81,7 +84,7 @@ export const saveClipsToDb = internalAction({
       }),
     ),
   },
-  handler: async (ctx, { projectId, videoUrl, clips }) => {
+  handler: async (ctx, { projectId, videoUrl, clips, cropMode = "smart_crop" }) => {
     // Generate R2 presigned upload URLs for all clips before dispatching workers.
     const presigned = await Promise.all(
       clips.map(async (_, i) => {
@@ -106,6 +109,7 @@ export const saveClipsToDb = internalAction({
             i,
             clipUploadUrl,
             thumbUploadUrl,
+            cropMode,
           );
           return { clip, i, result, clipKey, thumbKey };
         } catch (err) {

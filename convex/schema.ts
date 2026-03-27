@@ -43,6 +43,7 @@ export default defineSchema({
     ),
     // Which platforms to generate captions for (defaults to all)
     enabledPlatforms: v.optional(v.array(v.string())),
+    cropMode: v.optional(v.string()), // "smart_crop" | "blur_background"
     // R2 key of the original uploaded video — deleted once clips are generated
     originalKey: v.optional(v.string()),
     // Persisted subtitle style — shared across all clips in this project
@@ -99,6 +100,31 @@ export default defineSchema({
     createdAt: v.number(),
     codeVerifier: v.optional(v.string()), // PKCE — used by X/Twitter OAuth
   }).index("by_token", ["token"]),
+
+  // Scheduled publish jobs — one row per account per scheduled post
+  scheduledPosts: defineTable({
+    userId: v.id("users"),
+    outputId: v.id("outputs"),
+    platform: v.string(),
+    accountId: v.string(),
+    accountName: v.string(),
+    accountPicture: v.optional(v.string()),
+    clipTitle: v.string(),
+    caption: v.string(),
+    scheduledAt: v.number(),          // ms timestamp when to publish
+    convexJobId: v.optional(v.string()), // Id<"_scheduled_functions"> for cancellation
+    status: v.union(
+      v.literal("pending"),
+      v.literal("published"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    postId: v.optional(v.string()),   // platform post ID after publish
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"]),
 
   // Connected social accounts — one row per page/account per user
   socialTokens: defineTable({

@@ -152,6 +152,7 @@ def process_video(body: dict) -> dict:
     clip_index: int = int(body.get("clipIndex", 0))
     clip_upload_url: str = body.get("clipUploadUrl", "")
     thumb_upload_url: str = body.get("thumbUploadUrl", "")
+    crop_mode: str = body.get("cropMode", "smart_crop")  # "smart_crop" | "blur_background"
     duration = max(1.0, end - start)
 
     if not video_url:
@@ -184,6 +185,7 @@ def process_video(body: dict) -> dict:
                 duration_s=duration,
                 thumb_path=thumb,
                 dynamic_crop=True,
+                crop_mode=crop_mode,
             )
         except Exception as exc:
             logging.exception("Pipeline error")

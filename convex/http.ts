@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { creem } from "./billing";
 
 const http = httpRouter();
 
@@ -174,5 +175,10 @@ http.route({
     }
   }),
 });
+
+// Creem billing webhooks — handles checkout.completed, subscription.*, product.*
+// Webhook URL to register in Creem dashboard:
+//   https://<your-deployment>.convex.site/creem/events
+creem.registerRoutes(http, { path: "/creem/events" });
 
 export default http;

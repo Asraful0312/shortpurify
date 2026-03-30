@@ -26,8 +26,12 @@ export const transcribeVideo = internalAction({
       );
     }
 
-    // Simplify word objects — keep only what we store in Convex
-    const words = (transcript.words ?? []).map((w) => ({
+    // Simplify word objects — keep only what we store in Convex.
+    // Convex array limit is 8192; cap at 8000 to stay safely under it.
+    // For very long videos this means subtitle words beyond ~1.5hrs may be missing,
+    // but the full transcript text used by Claude AI is always complete.
+    const MAX_WORDS = 8000;
+    const words = (transcript.words ?? []).slice(0, MAX_WORDS).map((w) => ({
       text: w.text ?? "",
       start: w.start ?? 0, // milliseconds
       end: w.end ?? 0,     // milliseconds

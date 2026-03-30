@@ -2,14 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { friendlyError as extractError } from "@/lib/utils";
+
+function friendlyError(err: unknown): string {
+  const msg = extractError(err, "This invitation may have expired or already been used.").toLowerCase();
+  if (msg.includes("expired")) return "This invitation has expired.";
+  if (msg.includes("already")) return "This invitation has already been used.";
+  if (msg.includes("not found")) return "Invitation not found. The link may be invalid.";
+  return extractError(err, "Something went wrong accepting the invitation.");
+}
 
 export default function AcceptInvitePage() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded: clerkLoaded } = useUser();
+  const { isAuthenticated, isLoading: convexLoading } = useConvexAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const invitationId = searchParams.get("id");
@@ -20,8 +30,10 @@ export default function AcceptInvitePage() {
   const acceptInvitation = useMutation(api.tenants.acceptInvitation);
 
   useEffect(() => {
-    if (!isLoaded || !invitationId) return;
-    if (!user) {
+    // Wait for both Clerk and Convex auth to be ready
+    if (!clerkLoaded || convexLoading || !invitationId) return;
+
+    if (!user || !isAuthenticated) {
       // Redirect to sign-in with return URL
       router.replace(`/sign-in?redirect_url=/invite/accept?id=${invitationId}`);
       return;
@@ -32,12 +44,12 @@ export default function AcceptInvitePage() {
         setState("success");
         setTimeout(() => router.replace("/dashboard/team"), 2500);
       })
-      .catch((err: any) => {
+      .catch((err) => {
         setState("error");
-        setErrorMsg(err?.message ?? "Failed to accept invitation. It may have expired or already been used.");
+        setErrorMsg(friendlyError(err));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, user?.id, invitationId]);
+  }, [clerkLoaded, convexLoading, isAuthenticated, user?.id, invitationId]);
 
   if (!invitationId) {
     return (

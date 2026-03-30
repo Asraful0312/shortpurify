@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
-  Users, Plus, Crown, Shield, User, Mail, Trash2, RotateCw, CheckCircle2, AlertCircle, Settings,
+  Users, Plus, Crown, Shield, User, Mail, Trash2, RotateCw, CheckCircle2, AlertCircle, Settings, Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useWorkspace } from "@/components/workspace-context";
+import { friendlyError } from "@/lib/utils";
 
 type Role = "owner" | "admin" | "member";
 
@@ -25,13 +27,13 @@ const ROLE_CAPABILITIES: Record<Role, string[]> = {
 };
 
 export default function TeamPage() {
-  const orgs = useQuery(api.tenants.listOrganizations, {});
-  const org = orgs?.[0] ?? null;
-  const orgId = org?._id;
+  const { activeOrg, activeOrgId, myRole: ctxRole, isOwner: ctxIsOwner, isAdmin: ctxIsAdmin, isLoading: workspaceLoading } = useWorkspace();
+  const orgId = activeOrgId ?? undefined;
 
   const members      = useQuery(api.tenants.listMembers,    orgId ? { organizationId: orgId } : "skip");
   const invitations  = useQuery(api.tenants.listInvitations, orgId ? { organizationId: orgId } : "skip");
   const currentMember = useQuery(api.tenants.getCurrentMember, orgId ? { organizationId: orgId } : "skip");
+  const usage        = useQuery(api.usage.getUsage, { workspaceId: orgId });
 
   const inviteMember     = useMutation(api.tenants.inviteMember);
   const removeMember     = useMutation(api.tenants.removeMember);
@@ -47,12 +49,12 @@ export default function TeamPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [savingName, setSavingName]     = useState(false);
 
-  const isOwner = currentMember?.role === "owner";
-  const isAdmin = currentMember?.role === "admin" || isOwner;
+  const isOwner = ctxIsOwner;
+  const isAdmin = ctxIsAdmin;
 
   // Populate workspace name input once loaded
-  if (org && workspaceName === "" && org.name) {
-    setWorkspaceName(org.name);
+  if (activeOrg && workspaceName === "" && activeOrg.name) {
+    setWorkspaceName(activeOrg.name);
   }
 
   async function handleInvite() {
@@ -70,7 +72,7 @@ export default function TeamPage() {
       setTimeout(() => setInviteState("idle"), 3000);
     } catch (err: any) {
       setInviteState("error");
-      setInviteError(err?.message ?? "Failed to send invite");
+      setInviteError(friendlyError(err, "Failed to send invite"));
       setTimeout(() => setInviteState("idle"), 4000);
     }
   }
@@ -80,7 +82,7 @@ export default function TeamPage() {
     try {
       await updateMemberRole({ organizationId: orgId, memberUserId, role: newRole });
     } catch (err: any) {
-      alert(err?.message ?? "Failed to update role");
+      alert(friendlyError(err, "Failed to update role"));
     }
   }
 
@@ -89,7 +91,7 @@ export default function TeamPage() {
     try {
       await removeMember({ organizationId: orgId, memberUserId });
     } catch (err: any) {
-      alert(err?.message ?? "Failed to remove member");
+      alert(friendlyError(err, "Failed to remove member"));
     }
   }
 
@@ -99,15 +101,20 @@ export default function TeamPage() {
     try {
       await updateOrg({ organizationId: orgId, name: workspaceName.trim() });
     } catch (err: any) {
-      alert(err?.message ?? "Failed to update workspace name");
+      alert(friendlyError(err, "Failed to update workspace name"));
     } finally {
       setSavingName(false);
     }
   }
 
-  const isLoading = orgs === undefined;
+  const isLoading = workspaceLoading;
   const memberCount = members?.length ?? 0;
   const pendingCount = invitations?.filter((i) => i.status === "pending").length ?? 0;
+
+  // Plan-based team limits
+  const memberLimit = usage?.limits.teamMembers ?? null; // null = unlimited
+  const atMemberLimit = memberLimit !== null && memberCount >= memberLimit;
+  const isPaidPlan = usage?.tier !== "starter" && usage?.tier !== undefined;
 
   if (isLoading) {
     return (
@@ -120,7 +127,7 @@ export default function TeamPage() {
     );
   }
 
-  if (!org) {
+  if (!activeOrg) {
     return (
       <div className="p-6 md:p-10 max-w-4xl mx-auto w-full flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -141,15 +148,22 @@ export default function TeamPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">{org.name}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">{activeOrg.name}</h1>
           <p className="text-muted-foreground mt-1">Manage members and workspace settings.</p>
         </div>
         <div className="flex items-center gap-2 bg-white border border-border px-4 py-2 rounded-xl shadow-sm">
           <Users size={16} className="text-muted-foreground" />
-          <span className="text-sm font-bold">{memberCount} member{memberCount !== 1 ? "s" : ""}</span>
+          <span className="text-sm font-bold">
+            {memberCount}{memberLimit !== null ? `/${memberLimit}` : ""} member{memberCount !== 1 ? "s" : ""}
+          </span>
           {pendingCount > 0 && (
             <Badge variant="secondary" className="text-[10px] font-extrabold">
               {pendingCount} pending
+            </Badge>
+          )}
+          {atMemberLimit && (
+            <Badge variant="secondary" className="text-[10px] font-extrabold bg-amber-100 text-amber-700 border-amber-200">
+              Limit reached
             </Badge>
           )}
         </div>
@@ -181,51 +195,100 @@ export default function TeamPage() {
       {/* Invite Section — admins & owners only */}
       {isAdmin && (
         <div className="bg-white border border-border rounded-2xl p-6 shadow-sm">
-          <h2 className="font-extrabold text-base mb-4 flex items-center gap-2">
-            <Mail size={16} /> Invite Team Member
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="colleague@example.com"
-              type="email"
-              className="flex-1 rounded-xl"
-              onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-              disabled={inviteState === "sending"}
-            />
-            <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
-              className="border border-border rounded-xl px-3 py-2 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-36"
-              disabled={inviteState === "sending"}
-            >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
-            <button
-              onClick={handleInvite}
-              disabled={!inviteEmail.trim() || inviteState === "sending"}
-              className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-xl shadow-md hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
-            >
-              {inviteState === "sending" ? (
-                <><RotateCw size={14} className="animate-spin" /> Sending…</>
-              ) : inviteState === "sent" ? (
-                <><CheckCircle2 size={14} /> Sent!</>
-              ) : (
-                <><Plus size={16} /> Send Invite</>
-              )}
-            </button>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-extrabold text-base flex items-center gap-2">
+              <Mail size={16} /> Invite Team Member
+            </h2>
+            {memberLimit !== null && (
+              <span className="text-xs font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full">
+                {memberCount} / {memberLimit} seats used
+              </span>
+            )}
           </div>
-          {inviteState === "error" && (
-            <p className="text-xs text-red-600 font-bold mt-3 bg-red-50 border border-red-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
-              <AlertCircle size={12} /> {inviteError}
-            </p>
-          )}
-          {inviteState === "sent" && (
-            <p className="text-xs text-green-700 font-bold mt-3 bg-green-50 border border-green-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
-              <CheckCircle2 size={12} /> Invitation email sent to {inviteEmail || "the invitee"}.
-            </p>
+
+          {/* Locked — Starter plan has no team members */}
+          {!isPaidPlan ? (
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <Lock size={18} className="text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold">Team collaboration requires Pro</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Upgrade to invite teammates and collaborate on projects.</p>
+              </div>
+              <a
+                href="/dashboard/billing"
+                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold shadow hover:bg-primary/90 transition-all"
+              >
+                Upgrade to Pro
+              </a>
+            </div>
+          ) : atMemberLimit ? (
+            /* At member limit */
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <Lock size={18} className="text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold">Team seat limit reached</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  You have {memberCount}/{memberLimit} seats filled. Upgrade to Agency for unlimited team members.
+                </p>
+              </div>
+              <a
+                href="/dashboard/billing"
+                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-extrabold shadow hover:bg-primary/90 transition-all"
+              >
+                Upgrade to Agency
+              </a>
+            </div>
+          ) : (
+            /* Normal invite form */
+            <>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@example.com"
+                  type="email"
+                  className="flex-1 rounded-xl"
+                  onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                  disabled={inviteState === "sending"}
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
+                  className="border border-border rounded-xl px-3 py-2 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-36"
+                  disabled={inviteState === "sending"}
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button
+                  onClick={handleInvite}
+                  disabled={!inviteEmail.trim() || inviteState === "sending"}
+                  className="bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-xl shadow-md hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                >
+                  {inviteState === "sending" ? (
+                    <><RotateCw size={14} className="animate-spin" /> Sending…</>
+                  ) : inviteState === "sent" ? (
+                    <><CheckCircle2 size={14} /> Sent!</>
+                  ) : (
+                    <><Plus size={16} /> Send Invite</>
+                  )}
+                </button>
+              </div>
+              {inviteState === "error" && (
+                <p className="text-xs text-red-600 font-bold mt-3 bg-red-50 border border-red-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                  <AlertCircle size={12} /> {inviteError}
+                </p>
+              )}
+              {inviteState === "sent" && (
+                <p className="text-xs text-green-700 font-bold mt-3 bg-green-50 border border-green-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+                  <CheckCircle2 size={12} /> Invitation email sent to {inviteEmail || "the invitee"}.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -233,7 +296,9 @@ export default function TeamPage() {
       {/* Members List */}
       <div className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-border bg-secondary/30">
-          <h2 className="font-extrabold text-base">Members ({memberCount})</h2>
+          <h2 className="font-extrabold text-base">
+            Members ({memberCount}{memberLimit !== null ? `/${memberLimit}` : ""})
+          </h2>
         </div>
         <div className="divide-y divide-border">
           {members === undefined ? (
@@ -360,7 +425,7 @@ export default function TeamPage() {
               />
               <button
                 onClick={handleSaveWorkspaceName}
-                disabled={savingName || workspaceName.trim() === org.name}
+                disabled={savingName || workspaceName.trim() === activeOrg.name}
                 className="bg-primary text-primary-foreground font-extrabold px-4 py-2 rounded-xl shadow-sm hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {savingName ? "Saving…" : "Save"}

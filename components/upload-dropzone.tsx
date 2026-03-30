@@ -8,11 +8,13 @@ import { FileVideo, Sparkles, AlertCircle, Upload } from "lucide-react";
 
 interface SingleVideoUploaderProps {
   onUploadComplete: (url: string, size: number, fileName: string, key: string) => Promise<void>;
+  onFileSelected?: (file: File) => false | void;
   disabled?: boolean;
 }
 
 export default function SingleVideoUploader({
   onUploadComplete,
+  onFileSelected,
   disabled = false,
 }: SingleVideoUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
@@ -30,6 +32,9 @@ export default function SingleVideoUploader({
       setError("Please select a video file.");
       return;
     }
+
+    // Notify parent — if it returns false, cancel the upload
+    if (onFileSelected?.(file) === false) return;
 
     setIsUploading(true);
     setError(null);

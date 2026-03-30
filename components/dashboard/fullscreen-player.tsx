@@ -13,6 +13,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
 import { SubtitleEditor } from "../subtitle-editor";
+import { useWorkspace } from "../workspace-context";
 
 function FullscreenPlayer({
   clip,
@@ -45,7 +46,9 @@ function FullscreenPlayer({
   const [publishToast, setPublishToast] = useState<string | null>(null);
 
   const { isAuthenticated } = useConvexAuth();
+  const { isAdmin, activeOrgId } = useWorkspace();
   const accountsQuery = useQuery(api.socialTokens.getAllTokens);
+  const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   const accounts = accountsQuery ?? [];
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const refreshClipUrl = useAction(api.outputs.refreshClipUrl);
@@ -68,9 +71,19 @@ function FullscreenPlayer({
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
+
+    // Suppress MEDIA_ERR_ABORTED (code 1) at the native level so the Next.js
+    // dev overlay doesn't show "Runtime AbortError" when src changes mid-load.
+    const el = ref.current;
+    const suppressAbort = (e: Event) => {
+      if ((e.target as HTMLVideoElement).error?.code === 1) e.stopImmediatePropagation();
+    };
+    el?.addEventListener("error", suppressAbort, true);
+
     return () => {
       document.body.style.overflow = "auto";
       if (retryRef.current) clearTimeout(retryRef.current);
+      el?.removeEventListener("error", suppressAbort, true);
     };
   }, []);
 
@@ -100,18 +113,33 @@ function FullscreenPlayer({
     }
   };
 
+  // Keep videoSrc in sync when the parent re-renders with a new signed URL
+  // (happens when Convex re-queries after processing completes).
+  // Only update when NOT actively playing to avoid aborting mid-playback.
+  useEffect(() => {
+    if (!playing && clip.videoUrl && clip.videoUrl !== videoSrc) {
+      setVideoSrc(clip.videoUrl);
+    }
+  }, [clip.videoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleError = async (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const code = (e.target as HTMLVideoElement).error?.code;
-    // MEDIA_ERR_ABORTED (1) = browser cancelled the fetch (re-render, unmount). Not a real error.
+    const videoEl = e.target as HTMLVideoElement;
+    const code = videoEl.error?.code;
+
+    // MEDIA_ERR_ABORTED (code 1) = browser cancelled its own fetch.
+    // This fires when the src changes while a load is in-flight (React re-render).
+    // It is not a real error — the new src will load immediately after.
     if (code === 1) return;
 
+    // MEDIA_ERR_NETWORK (code 2) or MEDIA_ERR_SRC_NOT_SUPPORTED (code 4)
+    // usually means the signed URL expired. Refresh and retry.
     if (isCloudinary) {
       setProcessing(true);
       retryRef.current = setTimeout(() => setRetryKey((k) => k + 1), 8000);
       return;
     }
 
-    // For R2 clips: the stored URL may have expired (7-day TTL). Refresh it from the clipKey.
+    // For R2 clips: refresh the signed URL then force the player to reload.
     if (clip.clipKey) {
       try {
         const fresh = await refreshClipUrl({ clipKey: clip.clipKey });
@@ -311,7 +339,7 @@ function FullscreenPlayer({
 
           {/* Mobile action bar */}
           <div className="sm:hidden absolute right-4 bottom-12 flex flex-col gap-5 items-center z-20">
-            {hasSubtitles && (
+            {hasSubtitles && isAdmin && (
               <ActionButton icon={<Wand2 size={22} />} onClick={toggleSubtitleEditor} />
             )}
             <ActionButton
@@ -331,7 +359,7 @@ function FullscreenPlayer({
 
         {/* Desktop sidebar */}
         <div className="hidden sm:flex flex-col gap-6 items-center" onClick={(e) => e.stopPropagation()}>
-          {hasSubtitles && (
+          {hasSubtitles && isAdmin && (
             <ActionButton icon={<Wand2 size={22} />} label="Edit" onClick={toggleSubtitleEditor} />
           )}
           <ActionButton
@@ -349,7 +377,7 @@ function FullscreenPlayer({
           />
 
           {/* Subtitle editor panel */}
-          {showSubtitleEditor && hasSubtitles && (
+          {showSubtitleEditor && hasSubtitles && isAdmin && (
             <div className="mt-2">
               <SubtitleEditor
                 settings={subtitleSettings}
@@ -362,7 +390,7 @@ function FullscreenPlayer({
       </div>
 
       {/* Mobile subtitle editor — bottom sheet */}
-      {showSubtitleEditor && hasSubtitles && (
+      {showSubtitleEditor && hasSubtitles && isAdmin && (
         <div
           className="sm:hidden absolute bottom-0 left-0 right-0 z-50 p-4"
           onClick={(e) => e.stopPropagation()}
@@ -386,6 +414,7 @@ function FullscreenPlayer({
         outputId={clip.id}
         defaultCaption={clip.caption}
         captions={clip.captions}
+        canSchedule={usage?.limits.scheduledPublishing ?? false}
         onPublished={(count) => {
           setPublishOpen(false);
           setPublishToast(`Published to ${count} account${count !== 1 ? "s" : ""}!`);

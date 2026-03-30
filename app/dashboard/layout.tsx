@@ -1,13 +1,15 @@
 import { ReactNode } from "react";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Menu, Sparkles } from "lucide-react";
+import { Menu } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { SyncUser } from "@/components/sync-user";
 import Logo from "@/components/shared/logo";
+import { WorkspaceProvider } from "@/components/workspace-context";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
+    <WorkspaceProvider>
     <div className="flex h-screen overflow-hidden bg-secondary/20 font-sans selection:bg-primary/20">
       {/* Desktop Sidebar */}
       <aside className="hidden md:block">
@@ -46,5 +48,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </main>
       </div>
     </div>
+    </WorkspaceProvider>
   );
 }

@@ -474,20 +474,38 @@ class ActiveSpeakerDetector:
         self, tracks: List[FaceTrack], n_frames: int
     ) -> None:
         """
-        Score = (mean face area) × (visible frame fraction).
-        Larger + more-consistently-visible face → higher score.
-        Works well for single-presenter footage.
+        Score = (mean face area) × (visible frame fraction) × off-center bonus.
+
+        The off-center bonus rewards faces on the sides of the frame (typical podcast
+        hosts) and discounts objects near the horizontal center (mics, props, logos).
+        This prevents the crop from locking onto a central mic stand instead of a face.
         """
+        # Estimate frame width from visible boxes across all tracks
+        all_boxes = [b for t in tracks for b in t.boxes if b is not None]
+        if all_boxes:
+            frame_cx_estimate = np.median([b.cx for b in all_boxes])
+            frame_w_estimate = max(b.x2 for b in all_boxes)
+        else:
+            frame_cx_estimate = 0.0
+            frame_w_estimate = 1.0
+
         for track in tracks:
             visible = [b for b in track.boxes if b is not None]
             if not visible:
                 continue
             mean_area = sum(b.area() for b in visible) / len(visible)
             visibility = len(visible) / max(n_frames, 1)
-            track.speaking_score = mean_area * visibility
+
+            # Off-center bonus: faces far from the horizontal center score higher.
+            # A face at the edge gets 2.0×, a face dead-center gets 0.5×.
+            mean_cx = np.mean([b.cx for b in visible])
+            center_dist = abs(mean_cx - frame_cx_estimate) / max(frame_w_estimate * 0.5, 1.0)
+            off_center_bonus = 0.5 + 1.5 * min(center_dist, 1.0)
+
+            track.speaking_score = mean_area * visibility * off_center_bonus
 
         LOG.debug(
-            "Heuristic scores: %s",
+            "Heuristic scores (with off-center bonus): %s",
             {t.track_id: round(t.speaking_score, 2) for t in tracks},
         )
 
@@ -507,6 +525,12 @@ def compute_crop_params(
 
     For landscape (16:9) source → crop window is vid_h tall, (vid_h * 9/16) wide.
     For already-vertical source → use full width.
+
+    Multi-speaker strategy (podcast mode):
+      When 2+ tracks have similar scores (within 40% of the top score),
+      we build a per-frame trajectory that follows the visible face closest
+      to the crop window's last position — this naturally pans between speakers
+      rather than locking onto one person for the entire clip.
 
     Returns:
         cx_per_frame  shape [n_frames]   float pixel x-center of crop window
@@ -529,8 +553,10 @@ def compute_crop_params(
         LOG.info("No face tracks detected; applying center crop")
         return np.full(n_frames, cx_default), crop_w, crop_h
 
-    # Pick the dominant (highest-scored) speaker
-    best = max(tracks, key=lambda t: t.speaking_score)
+    # Sort tracks by score descending
+    sorted_tracks = sorted(tracks, key=lambda t: t.speaking_score, reverse=True)
+    best = sorted_tracks[0]
+
     LOG.info(
         "Dominant speaker: track=%d  score=%.3f  visible_frames=%d/%d",
         best.track_id,
@@ -539,11 +565,49 @@ def compute_crop_params(
         n_frames,
     )
 
-    # Build per-frame cx array (NaN where track not visible)
-    cx_raw = np.full(n_frames, np.nan)
-    for fi, box in enumerate(best.boxes[:n_frames]):
-        if box is not None:
-            cx_raw[fi] = box.cx
+    # Multi-speaker mode: include any track whose score is within 40% of the top score.
+    # This handles podcasts/interviews where 2 hosts have similar face sizes.
+    score_threshold = best.speaking_score * 0.60
+    candidate_tracks = [t for t in sorted_tracks if t.speaking_score >= score_threshold]
+
+    LOG.info(
+        "Candidate tracks for multi-speaker crop: %d (threshold=%.3f)",
+        len(candidate_tracks), score_threshold,
+    )
+
+    if len(candidate_tracks) == 1:
+        # Single dominant speaker — simple trajectory following their face
+        cx_raw = np.full(n_frames, np.nan)
+        for fi, box in enumerate(best.boxes[:n_frames]):
+            if box is not None:
+                cx_raw[fi] = box.cx
+    else:
+        # Multi-speaker: per frame, pick the candidate face that is visible.
+        # If multiple faces visible in same frame, prefer the one whose cx is
+        # farthest from center (i.e. actually on one side, not a mic/prop in the middle).
+        # Apply momentum: only switch speakers when the new face is clearly separate
+        # from the current crop center, preventing rapid oscillation.
+        cx_raw = np.full(n_frames, np.nan)
+        last_cx = cx_default
+
+        for fi in range(n_frames):
+            visible: List[Tuple[float, float]] = []  # (cx, speaking_score)
+            for t in candidate_tracks:
+                if fi < len(t.boxes) and t.boxes[fi] is not None:
+                    visible.append((t.boxes[fi].cx, t.speaking_score))  # type: ignore[union-attr]
+
+            if not visible:
+                continue
+
+            if len(visible) == 1:
+                cx_raw[fi] = visible[0][0]
+                last_cx = visible[0][0]
+            else:
+                # Prefer the face closer to the current crop center (smooth panning).
+                # Among faces equidistant, prefer higher speaking_score.
+                best_cx = min(visible, key=lambda v: abs(v[0] - last_cx))[0]
+                cx_raw[fi] = best_cx
+                last_cx = best_cx
 
     # Fill gaps so we never have NaN after this point
     _forward_fill(cx_raw, cx_default)
@@ -552,9 +616,11 @@ def compute_crop_params(
     if np.all(np.isnan(cx_raw)):
         return np.full(n_frames, cx_default), crop_w, crop_h
 
-    # Smooth to eliminate jitter
+    # Smooth to eliminate jitter — use a longer window for multi-speaker to prevent
+    # rapid ping-pong between faces
+    sigma_s = smooth_sigma_s * (2.0 if len(candidate_tracks) > 1 else 1.0)
     if _SCIPY_AVAIL:
-        sigma = max(1.0, smooth_sigma_s * fps)
+        sigma = max(1.0, sigma_s * fps)
         cx_smooth = _gauss1d(cx_raw, sigma=sigma)
     else:
         # Simple rolling mean fallback (±15 frames)

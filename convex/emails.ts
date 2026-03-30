@@ -25,7 +25,7 @@ export const sendInvitation = internalAction({
       return;
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://shortpurify.com";
+    const appUrl = process.env.APP_URL ?? "https://shortpurify.com";
     const acceptUrl = `${appUrl}/invite/accept?id=${invitationId}`;
     const expiresDate = new Date(expiresAt).toLocaleDateString("en-US", {
       month: "long", day: "numeric", year: "numeric",

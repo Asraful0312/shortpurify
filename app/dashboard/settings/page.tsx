@@ -1,240 +1,282 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Bell, Globe, Shield, Trash2, Eye, EyeOff } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Save, Trash2, AlertTriangle, Building2, UserCircle, ExternalLink, Loader2 } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { useMutation, useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useWorkspace } from "@/components/workspace-context";
+import { useRouter } from "next/navigation";
+import { friendlyError } from "@/lib/utils";
+
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  danger,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handle() {
+    setLoading(true);
+    setError("");
+    try {
+      await onConfirm();
+      onClose();
+    } catch (e) {
+      setError(friendlyError(e, "Something went wrong"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-border p-6 flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${danger ? "bg-red-100" : "bg-amber-100"}`}>
+            <AlertTriangle size={18} className={danger ? "text-red-600" : "text-amber-600"} />
+          </div>
+          <h2 className="text-base font-extrabold">{title}</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">{description}</p>
+        {error && (
+          <p className="text-xs text-red-600 font-semibold bg-red-50 border border-red-200 px-3 py-2 rounded-xl">{error}</p>
+        )}
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-secondary transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handle}
+            disabled={loading}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-extrabold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 ${
+              danger
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-primary text-primary-foreground hover:bg-primary/90"
+            }`}
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [notifications, setNotifications] = useState({
-    processingComplete: true,
-    publishSuccess: true,
-    weeklyDigest: false,
-    productUpdates: true,
-  });
+  const { user } = useUser();
+  const { activeOrgId, activeOrg, isOwner } = useWorkspace();
+  const router = useRouter();
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  // Workspace rename
+  const updateOrganization = useMutation(api.tenants.updateOrganization);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState("");
+  const [renameSaved, setRenameSaved] = useState(false);
+
+  // Initialize name from activeOrg once loaded
+  const currentName = activeOrg?.name ?? "";
+  const displayName = workspaceName !== "" ? workspaceName : currentName;
+
+  // Danger zone
+  const deleteAllProjects = useAction(api.projects.deleteAllWorkspaceProjects);
+  const deleteOrganization = useMutation(api.tenants.deleteOrganization);
+
+  const [confirmDialog, setConfirmDialog] = useState<null | "deleteProjects" | "deleteWorkspace">(null);
+
+  const isPersonal = !activeOrgId;
+
+  async function handleRename() {
+    if (!activeOrgId || !workspaceName.trim() || workspaceName.trim() === currentName) return;
+    setRenameSaving(true);
+    setRenameError("");
+    try {
+      await updateOrganization({ organizationId: activeOrgId, name: workspaceName.trim() });
+      setRenameSaved(true);
+      setTimeout(() => setRenameSaved(false), 2000);
+    } catch (e) {
+      setRenameError(friendlyError(e, "Failed to rename workspace"));
+    } finally {
+      setRenameSaving(false);
+    }
+  }
+
+  async function handleDeleteAllProjects() {
+    if (!activeOrgId) return;
+    await deleteAllProjects({ workspaceId: activeOrgId });
+  }
+
+  async function handleDeleteWorkspace() {
+    if (!activeOrgId) return;
+    await deleteOrganization({ organizationId: activeOrgId });
+    router.push("/dashboard");
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="p-6 md:p-10 max-w-3xl mx-auto w-full">
+        <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-1">Only workspace owners can access settings.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-10 max-w-3xl mx-auto w-full min-h-full flex flex-col gap-6">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account preferences and integrations.</p>
+        <p className="text-muted-foreground mt-1">Manage your workspace and account preferences.</p>
       </div>
 
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="api">API & Integrations</TabsTrigger>
-          <TabsTrigger value="danger">Danger Zone</TabsTrigger>
-        </TabsList>
-
-        {/* General */}
-        <TabsContent value="general">
-          <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-5">
-            <h2 className="font-extrabold">Profile</h2>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-bold mb-1.5 block">Display Name</label>
-                <Input defaultValue="ShortPurify User" className="rounded-xl" />
-              </div>
-              <div>
-                <label className="text-sm font-bold mb-1.5 block">Email</label>
-                <Input defaultValue="user@example.com" type="email" className="rounded-xl" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-bold mb-1.5 block">Default Caption Language</label>
-              <select className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
-                <option>English</option>
-                <option>Bengali</option>
-                <option>Spanish</option>
-                <option>French</option>
-                <option>Hindi</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm font-bold mb-1.5 block">Default Export Format</label>
-              <select className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
-                <option>9:16 (Vertical — TikTok/Reels/Shorts)</option>
-                <option>1:1 (Square — Instagram Feed)</option>
-                <option>16:9 (Landscape — YouTube)</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between p-4 border border-border rounded-xl">
-              <div>
-                <p className="text-sm font-bold">Auto-generate captions</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Automatically add AI captions to every new clip
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between p-4 border border-border rounded-xl">
-              <div>
-                <p className="text-sm font-bold">Face-tracking crop</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Use Cloudinary g_auto:face for all 9:16 clips
-                </p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <button
-              onClick={handleSave}
-              className="bg-primary text-primary-foreground font-extrabold px-6 py-2.5 rounded-xl shadow-md hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-2 self-start"
-            >
-              <Save size={16} />
-              {saved ? "Saved!" : "Save Changes"}
-            </button>
+      {/* Profile */}
+      <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+        <h2 className="font-extrabold flex items-center gap-2">
+          <UserCircle size={18} /> My Account
+        </h2>
+        <div className="flex items-center gap-4">
+          {user?.imageUrl && (
+            <img src={user.imageUrl} alt="avatar" className="w-14 h-14 rounded-full object-cover border border-border" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm truncate">{user?.fullName ?? "—"}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {user?.primaryEmailAddress?.emailAddress ?? "—"}
+            </p>
           </div>
-        </TabsContent>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Your name, email, password, and profile picture are managed through your Clerk account.
+        </p>
+        <a
+          href="https://accounts.clerk.dev/user"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="self-start flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-sm font-bold transition-colors"
+        >
+          <ExternalLink size={14} /> Manage Profile
+        </a>
+      </div>
 
-        {/* Notifications */}
-        <TabsContent value="notifications">
-          <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
-            <h2 className="font-extrabold flex items-center gap-2">
-              <Bell size={18} /> Notification Preferences
-            </h2>
-            {(Object.entries(notifications) as [keyof typeof notifications, boolean][]).map(
-              ([key, val]) => {
-                const labels: Record<keyof typeof notifications, { title: string; desc: string }> = {
-                  processingComplete: { title: "Processing Complete", desc: "Get notified when your AI pipeline finishes" },
-                  publishSuccess: { title: "Publish Success", desc: "Confirmation when clips go live on platforms" },
-                  weeklyDigest: { title: "Weekly Digest", desc: "Summary of your clips' performance every Monday" },
-                  productUpdates: { title: "Product Updates", desc: "New features and improvements from ShortPurify" },
-                };
-                return (
-                  <div key={key} className="flex items-center justify-between p-4 border border-border rounded-xl">
-                    <div>
-                      <p className="text-sm font-bold">{labels[key].title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{labels[key].desc}</p>
-                    </div>
-                    <Switch
-                      checked={val}
-                      onCheckedChange={(v) => setNotifications((n) => ({ ...n, [key]: v }))}
-                    />
-                  </div>
-                );
-              }
+      {/* Workspace name */}
+      {!isPersonal && (
+        <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+          <h2 className="font-extrabold flex items-center gap-2">
+            <Building2 size={18} /> Workspace Settings
+          </h2>
+          <div>
+            <label className="text-sm font-bold mb-1.5 block">Workspace Name</label>
+            <input
+              value={displayName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleRename()}
+              placeholder={currentName}
+              maxLength={60}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {renameError && (
+              <p className="text-xs text-red-600 font-semibold mt-1.5">{renameError}</p>
             )}
           </div>
-        </TabsContent>
+          <button
+            onClick={handleRename}
+            disabled={renameSaving || !workspaceName.trim() || workspaceName.trim() === currentName}
+            className="self-start flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-extrabold text-sm shadow hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {renameSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {renameSaved ? "Saved!" : "Save Name"}
+          </button>
+        </div>
+      )}
 
-        {/* API */}
-        <TabsContent value="api">
-          <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-5">
-            <h2 className="font-extrabold flex items-center gap-2">
-              <Globe size={18} /> API & Integrations
-            </h2>
+      {/* Danger Zone */}
+      <div className="bg-white border-2 border-red-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+        <h2 className="font-extrabold text-red-600 flex items-center gap-2">
+          <Trash2 size={18} /> Danger Zone
+        </h2>
+        <p className="text-sm text-muted-foreground">These actions are irreversible. Please proceed with caution.</p>
 
+        {/* Delete all projects */}
+        {!isPersonal && (
+          <div className="flex items-center justify-between p-4 border border-red-200 rounded-xl bg-red-50/30">
             <div>
-              <label className="text-sm font-bold mb-1.5 block">Your API Key</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type={showApiKey ? "text" : "password"}
-                    defaultValue="sp_live_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
-                    readOnly
-                    className="rounded-xl pr-10 font-mono text-xs"
-                  />
-                  <button
-                    onClick={() => setShowApiKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-                <button className="px-4 py-2 border border-border rounded-xl text-sm font-bold hover:bg-secondary transition-colors">
-                  Regenerate
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Keep this secret. Use it to call the ShortPurify API directly.
+              <p className="text-sm font-bold text-red-700">Delete All Workspace Projects</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Permanently removes all projects, clips, and exports in this workspace.
               </p>
             </div>
-
-            <div className="border-t border-border pt-5">
-              <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                <Shield size={15} /> Connected Services
-              </h3>
-              {[
-                { name: "UploadThing", desc: "File storage & video uploads", connected: true },
-                { name: "Cloudinary", desc: "Smart video transformations", connected: true },
-                { name: "Deepgram", desc: "Speech-to-text transcription", connected: true },
-                { name: "Upload-Post", desc: "Multi-platform auto-publishing", connected: false },
-              ].map(({ name, desc, connected }) => (
-                <div
-                  key={name}
-                  className="flex items-center justify-between py-3 border-b border-border/50 last:border-0"
-                >
-                  <div>
-                    <p className="text-sm font-bold">{name}</p>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
-                  </div>
-                  <button
-                    className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
-                      connected
-                        ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                        : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10"
-                    }`}
-                  >
-                    {connected ? "Connected ✓" : "Connect"}
-                  </button>
-                </div>
-              ))}
-            </div>
+            <button
+              onClick={() => setConfirmDialog("deleteProjects")}
+              className="ml-4 shrink-0 px-4 py-2 border border-red-300 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors"
+            >
+              Delete All
+            </button>
           </div>
-        </TabsContent>
+        )}
 
-        {/* Danger Zone */}
-        <TabsContent value="danger">
-          <div className="bg-white border-2 border-red-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
-            <h2 className="font-extrabold text-red-600 flex items-center gap-2">
-              <Trash2 size={18} /> Danger Zone
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              These actions are irreversible. Please proceed with caution.
-            </p>
-
-            <div className="flex items-center justify-between p-4 border border-red-200 rounded-xl bg-red-50/30">
-              <div>
-                <p className="text-sm font-bold text-red-700">Delete All Projects</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Permanently remove all projects, clips, and exports.
-                </p>
-              </div>
-              <button className="px-4 py-2 border border-red-300 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition-colors">
-                Delete All
-              </button>
+        {/* Delete workspace */}
+        {!isPersonal && (
+          <div className="flex items-center justify-between p-4 border border-red-200 rounded-xl bg-red-50/30">
+            <div>
+              <p className="text-sm font-bold text-red-700">Delete Workspace</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Permanently delete this workspace, all its projects, and remove all members.
+              </p>
             </div>
-
-            <div className="flex items-center justify-between p-4 border border-red-200 rounded-xl bg-red-50/30">
-              <div>
-                <p className="text-sm font-bold text-red-700">Delete Account</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Permanently delete your account and all associated data.
-                </p>
-              </div>
-              <button className="px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition-colors">
-                Delete Account
-              </button>
-            </div>
+            <button
+              onClick={() => setConfirmDialog("deleteWorkspace")}
+              className="ml-4 shrink-0 px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+
+        {/* Personal workspace — just show info */}
+        {isPersonal && (
+          <div className="p-4 border border-border rounded-xl text-sm text-muted-foreground">
+            Your personal workspace cannot be deleted. To close your account, contact support.
+          </div>
+        )}
+      </div>
+
+      {/* Confirm dialogs */}
+      {confirmDialog === "deleteProjects" && (
+        <ConfirmDialog
+          title="Delete All Projects?"
+          description={`This will permanently delete every project, clip, and export in "${currentName}". This cannot be undone.`}
+          confirmLabel="Delete All Projects"
+          danger
+          onConfirm={handleDeleteAllProjects}
+          onClose={() => setConfirmDialog(null)}
+        />
+      )}
+      {confirmDialog === "deleteWorkspace" && (
+        <ConfirmDialog
+          title="Delete Workspace?"
+          description={`This will permanently delete the "${currentName}" workspace, all its projects, and remove all members. This cannot be undone.`}
+          confirmLabel="Delete Workspace"
+          danger
+          onConfirm={handleDeleteWorkspace}
+          onClose={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

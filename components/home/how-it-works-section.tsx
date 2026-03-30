@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MousePointer2, Upload, FileVideo, Sparkles, Check, Download, Scissors } from "lucide-react";
+import { MousePointer2, Upload, FileVideo, Sparkles, Check, Download, Scissors, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
@@ -10,7 +10,6 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center p-6 min-h-[350px]">
       <AnimatePresence mode="wait">
-        
         {step === 0 && (
           <motion.div
             key="upload"
@@ -18,24 +17,54 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.4 }}
-            className="w-full max-w-sm h-[250px] border-2 border-dashed border-primary/40 rounded-3xl bg-white/80 backdrop-blur-md flex flex-col items-center justify-center gap-4 relative overflow-hidden shadow-sm"
+            className="w-full max-w-sm flex flex-col gap-3"
           >
-            <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-2">
-              <Upload size={32} />
+            {/* YouTube URL Mockup */}
+            <div className="bg-white border border-border rounded-2xl p-3 shadow-sm flex items-center gap-3 relative overflow-hidden">
+               <Image src="/icons/youtube.png" alt="YouTube" width={20} height={20} />
+               <div className="h-4 flex items-center">
+                  <motion.span 
+                    initial={{ width: 0 }}
+                    animate={{ width: "auto" }}
+                    transition={{ delay: 0.8, duration: 1.5 }}
+                    className="text-[11px] font-mono whitespace-nowrap overflow-hidden text-muted-foreground"
+                  >
+                    youtube.com/watch?v=dQw4w9W...
+                  </motion.span>
+               </div>
+               <motion.div 
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 transition={{ delay: 2.2 }}
+                 className="ml-auto bg-primary/10 text-primary px-2 py-1 rounded-lg text-[9px] font-extrabold"
+               >
+                 PASTE
+               </motion.div>
             </div>
-            <p className="font-semibold text-muted-foreground text-center px-6">Drag & Drop your video or <span className="text-primary font-bold">Browse</span></p>
+
+            {/* Upload Box */}
+            <div className="w-full h-[180px] border-2 border-dashed border-primary/40 rounded-3xl bg-white/80 backdrop-blur-md flex flex-col items-center justify-center gap-3 relative overflow-hidden shadow-sm">
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+                    <Upload size={24} />
+                </div>
+                <p className="text-[11px] font-bold text-muted-foreground text-center px-10">
+                    <span className="text-primary">Upload</span> MP4, MOV or WebM
+                </p>
+                <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-primary/5 pointer-events-none" />
+            </div>
             
+            {/* Cursor */}
             <motion.div
-              initial={{ x: 140, y: 150, opacity: 0 }}
-              animate={{ x: 20, y: 0, opacity: 1 }}
-              transition={{ delay: 0.5, duration: 1.5, ease: "easeOut" }}
+              initial={{ x: 260, y: 60, opacity: 0 }}
+              animate={{ x: 230, y: 10, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 1.2, ease: "easeOut" }}
               className="absolute z-50 text-foreground drop-shadow-xl"
             >
-              <MousePointer2 size={36} fill="black" stroke="white" />
+              <MousePointer2 size={32} fill="black" stroke="white" />
               <motion.div 
-                animate={{ scale: [1, 0.5, 1], opacity: [0, 1, 0] }}
-                transition={{ delay: 2, duration: 0.4 }}
-                className="absolute -top-3 -left-3 w-10 h-10 bg-primary/40 rounded-full"
+                animate={{ scale: [1, 0.4, 1], opacity: [0, 1, 0] }}
+                transition={{ delay: 1.5, duration: 0.4 }}
+                className="absolute -top-2 -left-2 w-8 h-8 bg-primary/40 rounded-full"
               />
             </motion.div>
           </motion.div>
@@ -58,14 +87,23 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
                  className="absolute top-0 left-0 right-0 h-24 bg-linear-to-b from-transparent via-primary/20 to-primary/80 border-b-2 border-primary z-10"
                />
                
-               {/* Floating analysis boxes */}
-               <motion.div 
-                 animate={{ opacity: [0, 1, 0] }}
-                 transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
-                 className="absolute top-4 right-4 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 rounded shadow-sm"
-               >
-                 Hook Found
-               </motion.div>
+                {/* Floating analysis badges */}
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="absolute top-4 right-4 bg-yellow-400 text-black text-[10px] font-black px-2 py-1 rounded shadow-lg border border-yellow-500 z-20 flex items-center gap-1"
+                >
+                  <Sparkles size={10} /> Hook Found
+                </motion.div>
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1.2 }}
+                  className="absolute bottom-4 left-4 bg-primary text-white text-[9px] font-black px-2 py-1 rounded shadow-lg z-20 flex items-center gap-1"
+                >
+                  <Scissors size={10} /> Smart Crop Auto
+                </motion.div>
             </div>
             <div className="w-full p-6 flex flex-col gap-4 bg-white z-20">
               <div className="flex items-center gap-3">
@@ -73,8 +111,8 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
                     <Image src="/logo-small.png" alt="logo" width={24} height={24} />
                  </div>
                  <div>
-                   <p className="font-extrabold text-sm text-foreground">AI is cooking...</p>
-                   <p className="text-xs text-muted-foreground font-medium">Finding hooks & generating captions</p>
+                   <p className="font-extrabold text-sm text-foreground">Claude AI is analyzing...</p>
+                   <p className="text-xs text-muted-foreground font-medium">Picking the highest-viral moments</p>
                  </div>
               </div>
               <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
@@ -110,25 +148,29 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
                    transition={{ delay: i * 0.2, type: "spring" }}
                    className="flex-1 bg-[#1A1A1A] rounded-2xl overflow-hidden relative shadow-2xl border border-white/10 group"
                  >
-                   <div className="absolute top-3 right-3 flex gap-2">
-                     <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center shadow-lg backdrop-blur-md">
-                       <Scissors size={12} className="text-white" />
-                     </div>
-                     <div className="w-6 h-6 rounded-full bg-primary/90 flex items-center justify-center shadow-lg">
-                       <Check size={14} className="text-white" />
-                     </div>
-                   </div>
-                   <div className="absolute bottom-4 left-0 right-0 p-3">
-                     <div className="h-2.5 w-full bg-white/20 rounded-full mb-2"></div>
-                     <div className="h-2.5 w-2/3 bg-white/20 rounded-full mb-4"></div>
-                     <div className="flex gap-2">
-                        <div className="h-6 w-1/2 bg-white/10 rounded-md"></div>
-                        <div className="h-6 w-8 bg-blue-500/80 rounded-md"></div>
-                     </div>
-                   </div>
-                 </motion.div>
+                    <div className="absolute top-3 right-3 flex gap-1.5">
+                      <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center shadow-lg backdrop-blur-md">
+                        {i === 1 ? (
+                            <Image src="/icons/tik-tok.png" alt="TikTok" width={14} height={14} />
+                        ) : (
+                            <Image src="/icons/youtube-short.png" alt="YouTube" width={14} height={14} />
+                        )}
+                      </div>
+                      <div className="w-6 h-6 rounded-full bg-primary/90 flex items-center justify-center shadow-lg border border-white/20">
+                        <Check size={12} className="text-white" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-4 left-0 right-0 p-3">
+                      <div className="h-2 w-full bg-white/20 rounded-full mb-1.5"></div>
+                      <div className="h-2 w-2/3 bg-white/20 rounded-full mb-3"></div>
+                      <div className="flex gap-1.5 overflow-hidden">
+                         <div className="h-5 w-12 bg-white/15 rounded flex items-center justify-center text-[8px] text-white font-bold">READY</div>
+                         <div className="h-5 w-5 bg-white/15 rounded-full"></div>
+                      </div>
+                    </div>
+                  </motion.div>
                ))}
-               <div className="w-[12px] h-full bg-border/50 rounded-full shrink-0"></div>
+               <div className="w-[12px] h-full bg-zinc-200/50 rounded-full shrink-0"></div>
             </div>
 
             <motion.div 
@@ -137,13 +179,13 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
               transition={{ delay: 0.8 }}
               className="flex justify-between items-center bg-white px-5 py-3 rounded-2xl shadow-xl border border-border/80 relative z-20"
             >
-               <span className="font-extrabold text-sm flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                 2 Viral Clips Ready
-               </span>
-               <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 flex items-center gap-1.5 border border-primary/20">
-                 <Download size={16} /> Export All
-               </button>
+                <span className="font-extrabold text-sm flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  6 Viral Clips Generated
+                </span>
+                <button className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 border border-primary/20">
+                  <Send size={14} /> Post to Socials
+                </button>
 
                <motion.div
                   initial={{ x: -20, y: 100, opacity: 0 }}
@@ -193,9 +235,9 @@ export default function HowItWorksSection() {
   }, []);
 
   const steps = [
-    { step: "01", title: "Upload your raw footage", desc: "Paste a YouTube link or drop your video file directly into our dashboard." },
-    { step: "02", title: "AI analyzes & clips", desc: "ShortPurify finds the best moments, adds captions, and crops perfectly for mobile." },
-    { step: "03", title: "Review & Publish", desc: "Preview your clips, make slight tweaks if needed, and export directly to your socials." }
+    { step: "01", title: "Paste a YouTube link or upload a video", desc: "Drop a video file or paste any YouTube URL ShortPurify fetches and transcribes it automatically. No downloading needed." },
+    { step: "02", title: "AI finds hooks, crops & captions", desc: "Claude AI scans the transcript, picks the 4–6 highest-viral moments, writes captions for every platform, and smart-crops each clip for mobile." },
+    { step: "03", title: "Review, edit & publish", desc: "Preview clips, tweak subtitles with the built-in editor, then publish directly to your connected accounts or schedule for later." },
   ];
 
   return (

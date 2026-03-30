@@ -13,6 +13,7 @@
 import { makeTenantsAPI } from "@djpanda/convex-tenants";
 import { components, internal } from "./_generated/api";
 import { authz } from "./authz";
+import { ConvexError } from "convex/values";
 
 export const {
   // Organizations (= workspaces)
@@ -87,6 +88,12 @@ export const {
    * Send invitation email via Resend when a member is invited.
    */
   onInvitationCreated: async (ctx, invitation) => {
+    // Enforce plan-based team member limits before sending the invite
+    const check = await ctx.runQuery(internal.usage.canInviteMember, {
+      workspaceId: invitation.organizationId,
+    });
+    if (!check.allowed) throw new ConvexError(check.reason);
+
     await ctx.scheduler.runAfter(0, internal.emails.sendInvitation, {
       email: invitation.inviteeIdentifier,
       organizationName: invitation.organizationName,
@@ -108,6 +115,71 @@ export const {
       role: invitation.role,
       invitationId: invitation.invitationId,
       expiresAt: invitation.expiresAt,
+    });
+  },
+
+  // ── workspaceMembers sync hooks ──────────────────────────────────────────
+
+  /** Creator becomes owner when a workspace is created. */
+  onOrganizationCreated: async (ctx, { organizationId, ownerId }) => {
+    // Enforce per-plan workspace creation limits (check BEFORE inserting the new membership)
+    const check = await ctx.runQuery(internal.usage.canCreateWorkspaceForUser, { clerkId: ownerId });
+    if (!check.allowed) throw new ConvexError(check.reason);
+
+    await ctx.runMutation(internal.workspaceMembers.upsertMember, {
+      workspaceId: organizationId,
+      clerkId: ownerId,
+      role: "owner",
+    });
+  },
+
+  /** Owner was transferred — update roles for both users. */
+  onMemberRoleChanged: async (ctx, { organizationId, userId, newRole }) => {
+    await ctx.runMutation(internal.workspaceMembers.upsertMember, {
+      workspaceId: organizationId,
+      clerkId: userId,
+      role: newRole,
+    });
+  },
+
+  /** Admin directly added a member via addMember mutation. */
+  onMemberAdded: async (ctx, { organizationId, userId, role }) => {
+    await ctx.runMutation(internal.workspaceMembers.upsertMember, {
+      workspaceId: organizationId,
+      clerkId: userId,
+      role,
+    });
+  },
+
+  /** Invited user accepted — add them to workspaceMembers. */
+  onInvitationAccepted: async (ctx, { organizationId, userId, role }) => {
+    await ctx.runMutation(internal.workspaceMembers.upsertMember, {
+      workspaceId: organizationId,
+      clerkId: userId,
+      role,
+    });
+  },
+
+  /** Member was removed by an admin/owner. */
+  onMemberRemoved: async (ctx, { organizationId, userId }) => {
+    await ctx.runMutation(internal.workspaceMembers.removeMember, {
+      workspaceId: organizationId,
+      clerkId: userId,
+    });
+  },
+
+  /** Member left voluntarily. */
+  onMemberLeft: async (ctx, { organizationId, userId }) => {
+    await ctx.runMutation(internal.workspaceMembers.removeMember, {
+      workspaceId: organizationId,
+      clerkId: userId,
+    });
+  },
+
+  /** Workspace deleted — clean up all membership rows. */
+  onOrganizationDeleted: async (ctx, { organizationId }) => {
+    await ctx.runMutation(internal.workspaceMembers.removeAllMembers, {
+      workspaceId: organizationId,
     });
   },
 });

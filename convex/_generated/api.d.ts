@@ -12,6 +12,7 @@ import type * as aggregates from "../aggregates.js";
 import type * as ai from "../ai.js";
 import type * as analytics from "../analytics.js";
 import type * as authz from "../authz.js";
+import type * as billing from "../billing.js";
 import type * as blueskyActions from "../blueskyActions.js";
 import type * as cloudinaryActions from "../cloudinaryActions.js";
 import type * as emails from "../emails.js";
@@ -30,9 +31,11 @@ import type * as tenants from "../tenants.js";
 import type * as threadsActions from "../threadsActions.js";
 import type * as tiktokActions from "../tiktokActions.js";
 import type * as transcription from "../transcription.js";
+import type * as usage from "../usage.js";
 import type * as users from "../users.js";
 import type * as videoProcessingActions from "../videoProcessingActions.js";
 import type * as workflow from "../workflow.js";
+import type * as workspaceMembers from "../workspaceMembers.js";
 import type * as xActions from "../xActions.js";
 import type * as youtubeActions from "../youtubeActions.js";
 
@@ -47,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   analytics: typeof analytics;
   authz: typeof authz;
+  billing: typeof billing;
   blueskyActions: typeof blueskyActions;
   cloudinaryActions: typeof cloudinaryActions;
   emails: typeof emails;
@@ -65,9 +69,11 @@ declare const fullApi: ApiFromModules<{
   threadsActions: typeof threadsActions;
   tiktokActions: typeof tiktokActions;
   transcription: typeof transcription;
+  usage: typeof usage;
   users: typeof users;
   videoProcessingActions: typeof videoProcessingActions;
   workflow: typeof workflow;
+  workspaceMembers: typeof workspaceMembers;
   xActions: typeof xActions;
   youtubeActions: typeof youtubeActions;
 }>;
@@ -2502,6 +2508,581 @@ export declare const components: {
         "internal",
         { memberUserId: string; role: string; teamId: string; userId: string },
         null
+      >;
+    };
+  };
+  creem: {
+    lib: {
+      createOrder: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          order: {
+            affiliate?: string | null;
+            amount: number;
+            amountDue?: number;
+            amountPaid?: number;
+            checkoutId?: string | null;
+            createdAt: string;
+            currency: string;
+            customerId: string;
+            discountAmount?: number;
+            discountId?: string | null;
+            id: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            productId: string;
+            status: string;
+            subTotal?: number;
+            taxAmount?: number;
+            transactionId?: string | null;
+            type: string;
+            updatedAt: string;
+          };
+        },
+        any
+      >;
+      createProduct: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          product: {
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          };
+        },
+        any
+      >;
+      createSubscription: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          subscription: {
+            amount: number | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt?: string | null;
+            checkoutId: string | null;
+            collectionMethod?: string;
+            createdAt: string;
+            currency: string | null;
+            currentPeriodEnd: string | null;
+            currentPeriodStart: string;
+            customerId: string;
+            discountId?: string | null;
+            endedAt: string | null;
+            endsAt?: string | null;
+            id: string;
+            lastTransactionId?: string | null;
+            metadata: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            nextTransactionDate?: string | null;
+            priceId?: string;
+            productId: string;
+            recurringInterval: string | null;
+            seats?: number | null;
+            startedAt: string | null;
+            status: string;
+            trialEnd?: string | null;
+            trialStart?: string | null;
+          };
+        },
+        any
+      >;
+      executeSubscriptionLifecycle: FunctionReference<
+        "action",
+        "internal",
+        {
+          apiKey: string;
+          cancelMode?: string;
+          operation: "cancel" | "resume" | "pause";
+          previousCancelAtPeriodEnd?: boolean;
+          previousStatus?: string;
+          serverIdx?: number;
+          serverURL?: string;
+          subscriptionId: string;
+        },
+        any
+      >;
+      executeSubscriptionUpdate: FunctionReference<
+        "action",
+        "internal",
+        {
+          apiKey: string;
+          previousProductId?: string;
+          previousSeats?: number | null;
+          productId?: string;
+          serverIdx?: number;
+          serverURL?: string;
+          subscriptionId: string;
+          units?: number;
+          updateBehavior?: string;
+        },
+        any
+      >;
+      getCurrentSubscription: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        {
+          amount: number | null;
+          cancelAtPeriodEnd: boolean;
+          canceledAt?: string | null;
+          checkoutId: string | null;
+          collectionMethod?: string;
+          createdAt: string;
+          currency: string | null;
+          currentPeriodEnd: string | null;
+          currentPeriodStart: string;
+          customerId: string;
+          discountId?: string | null;
+          endedAt: string | null;
+          endsAt?: string | null;
+          id: string;
+          lastTransactionId?: string | null;
+          metadata: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          nextTransactionDate?: string | null;
+          priceId?: string;
+          product: {
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          };
+          productId: string;
+          recurringInterval: string | null;
+          seats?: number | null;
+          startedAt: string | null;
+          status: string;
+          trialEnd?: string | null;
+          trialStart?: string | null;
+        } | null
+      >;
+      getCustomerByEntityId: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        {
+          country?: string;
+          createdAt?: string;
+          email?: string;
+          entityId: string;
+          id: string;
+          metadata?: Record<string, any>;
+          mode?: string;
+          name?: string | null;
+          updatedAt?: string;
+        } | null
+      >;
+      getProduct: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        {
+          billingPeriod?: string;
+          billingType: string;
+          createdAt: string;
+          currency: string;
+          defaultSuccessUrl?: string | null;
+          description: string | null;
+          features?: Array<{ description: string; id: string }>;
+          id: string;
+          imageUrl?: string;
+          metadata?: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          name: string;
+          price: number;
+          productUrl?: string;
+          status: string;
+          taxCategory?: string;
+          taxMode?: string;
+        } | null
+      >;
+      getSubscription: FunctionReference<
+        "query",
+        "internal",
+        { id: string },
+        {
+          amount: number | null;
+          cancelAtPeriodEnd: boolean;
+          canceledAt?: string | null;
+          checkoutId: string | null;
+          collectionMethod?: string;
+          createdAt: string;
+          currency: string | null;
+          currentPeriodEnd: string | null;
+          currentPeriodStart: string;
+          customerId: string;
+          discountId?: string | null;
+          endedAt: string | null;
+          endsAt?: string | null;
+          id: string;
+          lastTransactionId?: string | null;
+          metadata: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          nextTransactionDate?: string | null;
+          priceId?: string;
+          productId: string;
+          recurringInterval: string | null;
+          seats?: number | null;
+          startedAt: string | null;
+          status: string;
+          trialEnd?: string | null;
+          trialStart?: string | null;
+        } | null
+      >;
+      insertCustomer: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          country?: string;
+          createdAt?: string;
+          email?: string;
+          entityId: string;
+          id: string;
+          metadata?: Record<string, any>;
+          mode?: string;
+          name?: string | null;
+          updatedAt?: string;
+        },
+        string
+      >;
+      listAllUserSubscriptions: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        Array<{
+          amount: number | null;
+          cancelAtPeriodEnd: boolean;
+          canceledAt?: string | null;
+          checkoutId: string | null;
+          collectionMethod?: string;
+          createdAt: string;
+          currency: string | null;
+          currentPeriodEnd: string | null;
+          currentPeriodStart: string;
+          customerId: string;
+          discountId?: string | null;
+          endedAt: string | null;
+          endsAt?: string | null;
+          id: string;
+          lastTransactionId?: string | null;
+          metadata: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          nextTransactionDate?: string | null;
+          priceId?: string;
+          product: {
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          } | null;
+          productId: string;
+          recurringInterval: string | null;
+          seats?: number | null;
+          startedAt: string | null;
+          status: string;
+          trialEnd?: string | null;
+          trialStart?: string | null;
+        }>
+      >;
+      listCustomerSubscriptions: FunctionReference<
+        "query",
+        "internal",
+        { customerId: string },
+        Array<{
+          amount: number | null;
+          cancelAtPeriodEnd: boolean;
+          canceledAt?: string | null;
+          checkoutId: string | null;
+          collectionMethod?: string;
+          createdAt: string;
+          currency: string | null;
+          currentPeriodEnd: string | null;
+          currentPeriodStart: string;
+          customerId: string;
+          discountId?: string | null;
+          endedAt: string | null;
+          endsAt?: string | null;
+          id: string;
+          lastTransactionId?: string | null;
+          metadata: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          nextTransactionDate?: string | null;
+          priceId?: string;
+          productId: string;
+          recurringInterval: string | null;
+          seats?: number | null;
+          startedAt: string | null;
+          status: string;
+          trialEnd?: string | null;
+          trialStart?: string | null;
+        }>
+      >;
+      listProducts: FunctionReference<
+        "query",
+        "internal",
+        { includeArchived?: boolean },
+        Array<{
+          billingPeriod?: string;
+          billingType: string;
+          createdAt: string;
+          currency: string;
+          defaultSuccessUrl?: string | null;
+          description: string | null;
+          features?: Array<{ description: string; id: string }>;
+          id: string;
+          imageUrl?: string;
+          metadata?: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          name: string;
+          price: number;
+          productUrl?: string;
+          status: string;
+          taxCategory?: string;
+          taxMode?: string;
+        }>
+      >;
+      listUserOrders: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        Array<{
+          affiliate?: string | null;
+          amount: number;
+          amountDue?: number;
+          amountPaid?: number;
+          checkoutId?: string | null;
+          createdAt: string;
+          currency: string;
+          customerId: string;
+          discountAmount?: number;
+          discountId?: string | null;
+          id: string;
+          metadata?: Record<string, any>;
+          mode?: string;
+          productId: string;
+          status: string;
+          subTotal?: number;
+          taxAmount?: number;
+          transactionId?: string | null;
+          type: string;
+          updatedAt: string;
+        }>
+      >;
+      listUserSubscriptions: FunctionReference<
+        "query",
+        "internal",
+        { entityId: string },
+        Array<{
+          amount: number | null;
+          cancelAtPeriodEnd: boolean;
+          canceledAt?: string | null;
+          checkoutId: string | null;
+          collectionMethod?: string;
+          createdAt: string;
+          currency: string | null;
+          currentPeriodEnd: string | null;
+          currentPeriodStart: string;
+          customerId: string;
+          discountId?: string | null;
+          endedAt: string | null;
+          endsAt?: string | null;
+          id: string;
+          lastTransactionId?: string | null;
+          metadata: Record<string, any>;
+          mode?: string;
+          modifiedAt: string | null;
+          nextTransactionDate?: string | null;
+          priceId?: string;
+          product: {
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          } | null;
+          productId: string;
+          recurringInterval: string | null;
+          seats?: number | null;
+          startedAt: string | null;
+          status: string;
+          trialEnd?: string | null;
+          trialStart?: string | null;
+        }>
+      >;
+      patchSubscription: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          cancelAtPeriodEnd?: boolean;
+          clearOptimistic?: boolean;
+          productId?: string;
+          seats?: number | null;
+          status?: string;
+          subscriptionId: string;
+        },
+        any
+      >;
+      syncProducts: FunctionReference<
+        "action",
+        "internal",
+        { apiKey: string; serverIdx?: number; serverURL?: string },
+        any
+      >;
+      updateProduct: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          product: {
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          };
+        },
+        any
+      >;
+      updateProducts: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          products: Array<{
+            billingPeriod?: string;
+            billingType: string;
+            createdAt: string;
+            currency: string;
+            defaultSuccessUrl?: string | null;
+            description: string | null;
+            features?: Array<{ description: string; id: string }>;
+            id: string;
+            imageUrl?: string;
+            metadata?: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            name: string;
+            price: number;
+            productUrl?: string;
+            status: string;
+            taxCategory?: string;
+            taxMode?: string;
+          }>;
+        },
+        any
+      >;
+      updateSubscription: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          subscription: {
+            amount: number | null;
+            cancelAtPeriodEnd: boolean;
+            canceledAt?: string | null;
+            checkoutId: string | null;
+            collectionMethod?: string;
+            createdAt: string;
+            currency: string | null;
+            currentPeriodEnd: string | null;
+            currentPeriodStart: string;
+            customerId: string;
+            discountId?: string | null;
+            endedAt: string | null;
+            endsAt?: string | null;
+            id: string;
+            lastTransactionId?: string | null;
+            metadata: Record<string, any>;
+            mode?: string;
+            modifiedAt: string | null;
+            nextTransactionDate?: string | null;
+            priceId?: string;
+            productId: string;
+            recurringInterval: string | null;
+            seats?: number | null;
+            startedAt: string | null;
+            status: string;
+            trialEnd?: string | null;
+            trialStart?: string | null;
+          };
+        },
+        any
       >;
     };
   };

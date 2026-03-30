@@ -6,19 +6,38 @@ import { api } from "@/convex/_generated/api";
 import { Plus, Video, Sparkles, Clapperboard, Send, Zap } from "lucide-react";
 import { ProjectCard } from "@/components/project-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
+import { useWorkspace } from "@/components/workspace-context";
 
 export default function DashboardPage() {
-  const projects = useQuery(api.projects.listUserProjects);
-  const aggregateStats = useQuery(api.analytics.getDashboardStats);
+  const { activeOrgId, activeOrg, isLoading: workspaceLoading } = useWorkspace();
 
-  const isLoading = projects === undefined;
+  // Personal projects — always fetched so we have them ready
+  const personalProjects = useQuery(api.projects.listUserProjects);
+
+  // Workspace projects — only fetched when in a non-personal workspace
+  const workspaceProjects = useQuery(
+    api.projects.listWorkspaceProjects,
+    activeOrgId ? { workspaceId: activeOrgId } : "skip",
+  );
+
+  const workspaceId = activeOrgId ?? undefined;
+  const aggregateStats = useQuery(api.analytics.getDashboardStats, { workspaceId });
+
+  const isPersonalView = !activeOrgId;
+  const projects = isPersonalView ? personalProjects : workspaceProjects;
+  const isLoading = workspaceLoading || projects === undefined;
+
+  const usageData = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
+
   const totalProjects = aggregateStats?.totalProjects ?? projects?.length ?? 0;
   const stats = {
     totalProjects,
     clipsGenerated: aggregateStats?.clipsGenerated ?? 0,
     published: aggregateStats?.published ?? 0,
-    creditsLeft: Math.max(0, 3 - totalProjects),
-    creditsTotal: 3,
+    projectsUsed: usageData?.usage.projectsUsed ?? 0,
+    projectsLimit: usageData !== undefined ? (usageData?.limits.projects ?? Infinity) : 5,
+    minutesUsed: usageData?.usage.minutesUsed ?? 0,
+    minutesLimit: usageData !== undefined ? (usageData?.limits.minutes ?? 60) : 60,
   };
 
   return (
@@ -26,9 +45,13 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Your Projects</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {isPersonalView ? "Your Projects" : `${activeOrg?.name ?? "Workspace"} Projects`}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Manage all your generated viral clips in one place.
+            {isPersonalView
+              ? "Manage all your generated viral clips in one place."
+              : "Shared projects in this workspace."}
           </p>
         </div>
         <Link
@@ -83,14 +106,16 @@ export default function DashboardPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && projects.length === 0 && (
+      {!isLoading && projects!.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-[2rem] bg-white/50 p-10 text-center min-h-[400px]">
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6 shadow-sm">
             <Video size={32} />
           </div>
           <h3 className="text-2xl font-bold mb-2">No projects yet</h3>
           <p className="text-muted-foreground max-w-sm mb-8">
-            Upload your first raw video to let AI extract the most viral moments.
+            {isPersonalView
+              ? "Upload your first raw video to let AI extract the most viral moments."
+              : "No one in this workspace has created a project yet."}
           </p>
           <Link
             href="/dashboard/upload"
@@ -103,16 +128,16 @@ export default function DashboardPage() {
       )}
 
       {/* Projects grid */}
-      {!isLoading && projects.length > 0 && (
+      {!isLoading && projects!.length > 0 && (
         <>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-lg">Recent Projects</h2>
             <span className="text-sm text-muted-foreground font-medium">
-              {projects.length} project{projects.length !== 1 ? "s" : ""}
+              {projects!.length} project{projects!.length !== 1 ? "s" : ""}
             </span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {projects.map((project) => (
+            {projects!.map((project) => (
               <ProjectCard
                 key={project._id}
                 project={{

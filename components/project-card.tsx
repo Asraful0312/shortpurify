@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TextShimmerWave } from "./motion-primitives/text-shimmer-wave";
+import { TextShimmer } from "./motion-primitives/text-shimmer";
 
 export type ProjectStatus = "uploading" | "processing" | "complete" | "failed";
 
@@ -69,10 +70,27 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
              </div>
           </div>
 
-          <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md", config.className)}>
-            <Icon size={12} className={cn(config.spin && "animate-spin")} />
-            {config.text}
+   
+
+            {config.text === "AI Processing" ? (
+          <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex bg-amber-100 items-center gap-1.5 shadow-sm backdrop-blur-md",)}>
+              <TextShimmer>Processing...</TextShimmer>
           </div>
+            ) : config.text === "Uploading" ? (
+                <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex bg-blue-100 items-center gap-1.5 shadow-sm backdrop-blur-md",)}>
+              <TextShimmer>Uploading...</TextShimmer>
+          </div>
+            ) :  config.text === "Ready" ?(
+                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-100 text-green-700 border-green-200")}>
+            <CheckCircle2 size={12} />
+            Ready
+          </div>
+            ) : (
+                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-red-100 text-red-700 border-red-200")}>
+            <AlertCircle size={12} />
+            Failed
+          </div>
+            )}
         </div>
 
         {/* Content Area */}

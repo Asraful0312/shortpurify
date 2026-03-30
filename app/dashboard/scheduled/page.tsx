@@ -3,10 +3,11 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { cn } from "@/lib/utils";
+import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
-import { AlertCircle, Calendar, CheckCircle2, Clock, Loader2, X } from "lucide-react";
+import { AlertCircle, Calendar, CheckCircle2, Clock, Loader2, X, Lock } from "lucide-react";
 import { useState } from "react";
+import { useWorkspace } from "@/components/workspace-context";
 
 const PLATFORM_META: Record<string, { name: string; image: string }> = {
   youtube:   { name: "YouTube Shorts",  image: "/icons/youtube-short.png" },
@@ -28,10 +29,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ScheduledPage() {
+  const { activeOrgId } = useWorkspace();
   const posts = useQuery(api.scheduledPublish.getScheduledPosts);
   const cancelPost = useMutation(api.scheduledPublish.cancelScheduledPost);
+  const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   const [cancelling, setCancelling] = useState<string | null>(null);
 
+  const canSchedule = usage?.limits.scheduledPublishing ?? true; // default true while loading
   const isLoading = posts === undefined;
 
   const upcoming = (posts ?? []).filter((p) => p.status === "pending");
@@ -43,7 +47,7 @@ export default function ScheduledPage() {
     try {
       await cancelPost({ scheduledPostId: id as Id<"scheduledPosts"> });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to cancel");
+      alert(friendlyError(err, "Failed to cancel"));
     } finally {
       setCancelling(null);
     }
@@ -55,6 +59,27 @@ export default function ScheduledPage() {
         <h1 className="text-3xl font-extrabold tracking-tight">Scheduled Posts</h1>
         <p className="text-muted-foreground mt-1">Manage your upcoming and past scheduled publications.</p>
       </div>
+
+      {/* Upgrade banner for Starter users */}
+      {!canSchedule && usage !== undefined && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <Lock size={18} className="text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-extrabold text-amber-900">Scheduled publishing requires Pro</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Upgrade to Pro Creator to schedule posts in advance across all your connected accounts.
+            </p>
+          </div>
+          <a
+            href="/dashboard/billing"
+            className="shrink-0 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-extrabold hover:bg-primary/90 transition-all"
+          >
+            Upgrade
+          </a>
+        </div>
+      )}
 
       {isLoading && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">

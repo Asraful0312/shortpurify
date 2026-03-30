@@ -44,6 +44,10 @@ export default defineSchema({
     // Which platforms to generate captions for (defaults to all)
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()), // "smart_crop" | "blur_background"
+    // Workspace (org) this project belongs to. Undefined = personal project.
+    workspaceId: v.optional(v.string()),
+    // Duration of the source video in seconds — used for monthly minute metering
+    durationSeconds: v.optional(v.number()),
     // R2 key of the original uploaded video — deleted once clips are generated
     originalKey: v.optional(v.string()),
     // Persisted subtitle style — shared across all clips in this project
@@ -59,7 +63,9 @@ export default defineSchema({
       wordsPerLine: v.number(),
     })),
     createdAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_workspace", ["workspaceId"]),
 
   outputs: defineTable({
     projectId: v.id("projects"),
@@ -125,6 +131,20 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_status", ["userId", "status"]),
+
+  /**
+   * Denormalized workspace membership — kept in sync via convex-tenants hooks
+   * and a client-side syncMembership call on login.
+   * Allows server-side auth checks without accessing tenants' internal tables.
+   */
+  workspaceMembers: defineTable({
+    workspaceId: v.string(),       // org _id from convex-tenants
+    clerkId: v.string(),           // Clerk user ID (identity.subject)
+    userId: v.id("users"),         // Convex user _id — for joining with projects
+    role: v.string(),              // "owner" | "admin" | "member"
+  })
+    .index("by_workspace", ["workspaceId"])
+    .index("by_clerk_workspace", ["clerkId", "workspaceId"]),
 
   // Connected social accounts — one row per page/account per user
   socialTokens: defineTable({

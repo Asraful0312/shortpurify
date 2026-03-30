@@ -21,7 +21,7 @@
 
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./r2storage";
 import crypto from "crypto";
@@ -39,15 +39,15 @@ const SCOPES = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function requireUser(ctx: any): Promise<{ _id: Id<"users"> }> {
   const identity = await ctx.auth.getUserIdentity() as { subject: string } | null;
-  if (!identity) throw new Error("Unauthorized");
+  if (!identity) throw new ConvexError("Unauthorized");
   const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject }) as { _id: Id<"users"> } | null;
-  if (!user) throw new Error("User not found");
+  if (!user) throw new ConvexError("User not found");
   return user;
 }
 
 function callbackUrl() {
   const siteUrl = process.env.CONVEX_SITE_URL;
-  if (!siteUrl) throw new Error("CONVEX_SITE_URL env var not set");
+  if (!siteUrl) throw new ConvexError("CONVEX_SITE_URL env var not set");
   return `${siteUrl}/oauth/youtube/callback`;
 }
 
@@ -57,11 +57,11 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
     userId, platform: "youtube", accountId,
   }) as { accessToken: string; refreshToken?: string; tokenExpiry?: number } | null;
 
-  if (!token) throw new Error("YouTube account not connected. Please reconnect.");
+  if (!token) throw new ConvexError("YouTube account not connected. Please reconnect.");
 
   // Refresh if within 5 minutes of expiry
   if (token.tokenExpiry && token.tokenExpiry < Date.now() + 5 * 60 * 1000) {
-    if (!token.refreshToken) throw new Error("No refresh token. Please reconnect your YouTube account.");
+    if (!token.refreshToken) throw new ConvexError("No refresh token. Please reconnect your YouTube account.");
 
     const res = await fetch(GOOGLE_TOKEN_URL, {
       method: "POST",
@@ -74,7 +74,7 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
       }),
     });
     const data = await res.json() as { access_token?: string; expires_in?: number; error?: string };
-    if (!data.access_token) throw new Error(`Failed to refresh token: ${data.error}`);
+    if (!data.access_token) throw new ConvexError(`Failed to refresh token: ${data.error}`);
 
     await ctx.runMutation(internal.socialTokens.updateToken, {
       userId, platform: "youtube", accountId,
@@ -87,14 +87,15 @@ async function getValidAccessToken(ctx: any, userId: Id<"users">, accountId: str
   return token.accessToken;
 }
 
-// ─── Connect ──────────────────────────────────────────────────────────────────
 
 export const getAuthUrl = action({
   args: {},
   handler: async (ctx): Promise<{ authUrl: string }> => {
     const user = await requireUser(ctx);
+    const check = await ctx.runQuery(internal.usage.canConnectPlatform, { userId: user._id, platform: "youtube" });
+    if (!check.allowed) throw new ConvexError(check.reason);
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) throw new Error("GOOGLE_CLIENT_ID not configured");
+    if (!clientId) throw new ConvexError("GOOGLE_CLIENT_ID not configured");
 
     const stateToken = crypto.randomBytes(32).toString("hex");
     await ctx.runMutation(internal.socialTokens.saveOAuthState, {
@@ -123,7 +124,7 @@ export const handleCallback = internalAction({
 
     // Verify state (CSRF)
     const oauthState = await ctx.runMutation(internal.socialTokens.consumeOAuthState, { token: state });
-    if (!oauthState) throw new Error("Invalid or expired OAuth state");
+    if (!oauthState) throw new ConvexError("Invalid or expired OAuth state");
     const userId = oauthState.userId;
 
     // Exchange code → tokens
@@ -144,7 +145,7 @@ export const handleCallback = internalAction({
       expires_in?: number;
       error?: string;
     };
-    if (!tokenData.access_token) throw new Error(`Failed to get access token: ${tokenData.error}`);
+    if (!tokenData.access_token) throw new ConvexError(`Failed to get access token: ${tokenData.error}`);
 
     // Fetch channel info
     const channelRes = await fetch(`${YOUTUBE_API}/channels?part=snippet&mine=true`, {
@@ -158,8 +159,8 @@ export const handleCallback = internalAction({
       error?: { message: string };
     };
 
-    if (channelData.error) throw new Error(channelData.error.message);
-    if (!channelData.items?.length) throw new Error("No YouTube channel found for this Google account.");
+    if (channelData.error) throw new ConvexError(channelData.error.message);
+    if (!channelData.items?.length) throw new ConvexError("No YouTube channel found for this Google account.");
 
     const channel = channelData.items[0];
 
@@ -207,18 +208,19 @@ export const createProjectFromYouTube = action({
     title: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()),
+    workspaceId: v.optional(v.string()),
   },
-  handler: async (ctx, { youtubeUrl, title, enabledPlatforms, cropMode }): Promise<{ projectId: string }> => {
+  handler: async (ctx, { youtubeUrl, title, enabledPlatforms, cropMode, workspaceId }): Promise<{ projectId: string }> => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw new ConvexError("Not authenticated");
 
     const videoId = extractVideoId(youtubeUrl);
-    if (!videoId) throw new Error("Not a valid YouTube URL");
+    if (!videoId) throw new ConvexError("Not a valid YouTube URL");
 
     const workerUrl = process.env.VIDEO_WORKER_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET;
     if (!workerUrl || !workerSecret) {
-      throw new Error("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables.");
+      throw new ConvexError("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables.");
     }
 
     const extractUrl = workerUrl.replace("process-video", "extract-youtube-info");
@@ -228,14 +230,38 @@ export const createProjectFromYouTube = action({
       body: JSON.stringify({ youtubeUrl, workerSecret }),
     });
 
-    if (!res.ok) throw new Error(`Worker returned HTTP ${res.status}`);
+    if (!res.ok) throw new ConvexError(`Worker returned HTTP ${res.status}`);
 
-    const data = await res.json() as { ok?: boolean; playbackUrl?: string; title?: string; error?: string };
+    const data = await res.json() as {
+      ok?: boolean;
+      playbackUrl?: string;
+      title?: string;
+      durationSeconds?: number;
+      error?: string;
+    };
     if (!data.ok || !data.playbackUrl) {
-      throw new Error(data.error ?? "Failed to extract video playback URL.");
+      throw new ConvexError(data.error ?? "Failed to extract video playback URL.");
     }
 
     const videoTitle = title?.trim() || data.title || "YouTube Import";
+    const estimatedDurationMinutes = data.durationSeconds
+      ? Math.ceil(data.durationSeconds / 60)
+      : undefined;
+
+    // Pre-flight plan limit check (actions can runQuery)
+    const user = await ctx.runQuery(internal.users.getUserByClerkId, {
+      clerkId: identity.subject,
+    });
+    if (!user) throw new ConvexError("User not found");
+
+    const limitCheck = await ctx.runQuery(internal.usage.canCreateProject, {
+      userId: user._id,
+      workspaceId,
+      estimatedDurationMinutes,
+    });
+    if (!limitCheck.allowed) {
+      throw new ConvexError(limitCheck.reason);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const projectId = await ctx.runMutation((internal as any).projects.createProjectAndStart, {
@@ -243,13 +269,14 @@ export const createProjectFromYouTube = action({
       originalUrl: data.playbackUrl,
       enabledPlatforms: enabledPlatforms ?? [],
       cropMode: cropMode ?? "smart_crop",
+      workspaceId,
+      estimatedDurationMinutes,
     });
 
     return { projectId };
   },
 });
 
-// ─── Publish ──────────────────────────────────────────────────────────────────
 
 /** Internal version — accepts userId directly (used by scheduled publishing). */
 export const publishClipInternal = internalAction({
@@ -269,7 +296,7 @@ export const publishClipInternal = internalAction({
     if (bestKey) videoUrl = await r2.getUrl(bestKey, { expiresIn: 60 * 60 * 2 });
 
     const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    if (!videoRes.ok) throw new ConvexError(`Failed to fetch video: ${videoRes.status}`);
     const videoBuffer = await videoRes.arrayBuffer();
     const contentType = "video/mp4";
     const videoTitle = title.length > 100 ? title.slice(0, 97) + "..." : title;
@@ -291,10 +318,10 @@ export const publishClipInternal = internalAction({
     });
     if (!initRes.ok) {
       const err = await initRes.json().catch(() => ({})) as { error?: { message: string } };
-      throw new Error(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
+      throw new ConvexError(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
     }
     const uploadUrl = initRes.headers.get("location");
-    if (!uploadUrl) throw new Error("YouTube did not return an upload URL");
+    if (!uploadUrl) throw new ConvexError("YouTube did not return an upload URL");
 
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
@@ -302,8 +329,8 @@ export const publishClipInternal = internalAction({
       body: videoBuffer,
     });
     const uploadData = await uploadRes.json() as { id?: string; error?: { message: string } };
-    if (uploadData.error) throw new Error(`YouTube upload failed: ${uploadData.error.message}`);
-    if (!uploadData.id) throw new Error("YouTube did not return a video ID");
+    if (uploadData.error) throw new ConvexError(`YouTube upload failed: ${uploadData.error.message}`);
+    if (!uploadData.id) throw new ConvexError("YouTube did not return a video ID");
 
     await ctx.runMutation(internal.outputs.savePublishInfo, { outputId, publishStatus: "success", publishRequestId: uploadData.id });
     return { videoId: uploadData.id };
@@ -334,7 +361,7 @@ export const publishClip = action({
 
     // Fetch the video bytes
     const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) throw new Error(`Failed to fetch video: ${videoRes.status}`);
+    if (!videoRes.ok) throw new ConvexError(`Failed to fetch video: ${videoRes.status}`);
     const videoBuffer = await videoRes.arrayBuffer();
     const contentType = "video/mp4";
 
@@ -364,11 +391,11 @@ export const publishClip = action({
 
     if (!initRes.ok) {
       const err = await initRes.json().catch(() => ({})) as { error?: { message: string } };
-      throw new Error(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
+      throw new ConvexError(`YouTube upload init failed: ${err.error?.message ?? initRes.status}`);
     }
 
     const uploadUrl = initRes.headers.get("location");
-    if (!uploadUrl) throw new Error("YouTube did not return an upload URL");
+    if (!uploadUrl) throw new ConvexError("YouTube did not return an upload URL");
 
     // Step 2: upload video bytes
     const uploadRes = await fetch(uploadUrl, {
@@ -385,8 +412,8 @@ export const publishClip = action({
       error?: { message: string };
     };
 
-    if (uploadData.error) throw new Error(`YouTube upload failed: ${uploadData.error.message}`);
-    if (!uploadData.id)   throw new Error("YouTube did not return a video ID");
+    if (uploadData.error) throw new ConvexError(`YouTube upload failed: ${uploadData.error.message}`);
+    if (!uploadData.id)   throw new ConvexError("YouTube did not return a video ID");
 
     await ctx.runMutation(internal.outputs.savePublishInfo, {
       outputId,

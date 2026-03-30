@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -19,13 +19,16 @@ import {
   Loader2,
   X,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
 import { downloadAllAsZip } from "@/lib/download";
+import { friendlyError } from "@/lib/utils";
 import { OutputPreview } from "@/components/output-preview";
 import { ProcessingStatus } from "@/components/dashboard/processing-status";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspace } from "@/components/workspace-context";
 
 // ── Pipeline steps ─────────────────────────────────────────────────────────────
 
@@ -113,10 +116,43 @@ export default function ProjectDetailsPage() {
   const [zipSubtitleWarning, setZipSubtitleWarning] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Rename state
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+
+  const { myRole } = useWorkspace();
+  const canRename = myRole === "owner" || myRole === "admin" || myRole === null; // null = personal workspace
+
   const project = useQuery(api.projects.getProject, { projectId });
   const outputs = useQuery(api.outputs.listProjectOutputs, { projectId });
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const deleteProject = useAction(api.projects.deleteProject);
+  const renameProject = useMutation(api.projects.renameProject);
+
+  function startRename() {
+    setRenameValue(project?.title ?? "");
+    setRenameError("");
+    setRenaming(true);
+  }
+
+  async function commitRename() {
+    if (!renameValue.trim() || renameValue.trim() === project?.title) {
+      setRenaming(false);
+      return;
+    }
+    setRenameSaving(true);
+    setRenameError("");
+    try {
+      await renameProject({ projectId, title: renameValue.trim() });
+      setRenaming(false);
+    } catch (e) {
+      setRenameError(friendlyError(e, "Failed to rename project"));
+    } finally {
+      setRenameSaving(false);
+    }
+  }
 
   // ── Loading ──
   if (project === undefined) {
@@ -187,9 +223,57 @@ export default function ProjectDetailsPage() {
               <Clock size={14} /> {timeAgo(project.createdAt)}
             </div>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight">
-            {project.title}
-          </h1>
+          {renaming ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenaming(false);
+                  }}
+                  maxLength={120}
+                  disabled={renameSaving}
+                  className="text-2xl lg:text-3xl font-extrabold tracking-tight bg-transparent border-b-2 border-primary focus:outline-none w-full min-w-0 disabled:opacity-60"
+                />
+                <button
+                  onClick={commitRename}
+                  disabled={renameSaving}
+                  className="shrink-0 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-1"
+                >
+                  {renameSaving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                  Save
+                </button>
+                <button
+                  onClick={() => setRenaming(false)}
+                  disabled={renameSaving}
+                  className="shrink-0 p-1.5 rounded-xl hover:bg-secondary transition-colors disabled:opacity-50"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              {renameError && (
+                <p className="text-xs text-red-600 font-semibold">{renameError}</p>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 group/rename">
+              <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tight">
+                {project.title}
+              </h1>
+              {canRename && (
+                <button
+                  onClick={startRename}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors opacity-0 group-hover/rename:opacity-100"
+                  title="Rename project"
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
+            </div>
+          )}
           <p className="text-muted-foreground mt-2 font-mono text-xs opacity-50">
             {project._id}
           </p>
@@ -481,7 +565,7 @@ function DeleteProjectDialog({
     try {
       await onConfirm();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(friendlyError(e));
       setDeleting(false);
     }
   };

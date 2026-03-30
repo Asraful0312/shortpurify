@@ -13,9 +13,9 @@ export default function PrivacyPolicy() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
-      <Navbar />
+
       
-      <main className="pt-32 pb-20 px-4">
+      <main className="pt-12 pb-20 px-4">
         <div className="max-w-4xl mx-auto">
           <motion.div 
             initial={fadeIn.initial}
@@ -91,7 +91,7 @@ export default function PrivacyPolicy() {
               <section className="space-y-4 text-center py-10 bg-secondary/30 rounded-3xl border border-border/40">
                 <h2 className="text-2xl font-bold text-foreground">Questions?</h2>
                 <p className="max-w-md mx-auto">
-                  If you have any questions about this Privacy Policy, please contact us at support@shortpurify.com.
+                  If you have any questions about this Privacy Policy, please contact us at <a className="text-ring underline font-semibold" href="mailto:support@shortpurify.com">support@shortpurify.com</a>.
                 </p>
               </section>
             </div>

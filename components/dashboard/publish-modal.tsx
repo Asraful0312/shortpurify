@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Send, Calendar, CheckCircle2, X, Loader2, AlertCircle, Link2, Clock } from "lucide-react";
+import { Send, Calendar, CheckCircle2, X, Loader2, AlertCircle, Link2, Clock, Lock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, friendlyError } from "@/lib/utils";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -48,6 +48,8 @@ interface PublishModalProps {
   /** Per-platform AI captions keyed by platform id */
   captions?: Record<string, string>;
   onPublished?: (successCount: number) => void;
+  /** Whether the current plan allows scheduled publishing */
+  canSchedule?: boolean;
 }
 
 export function PublishModal({
@@ -62,6 +64,7 @@ export function PublishModal({
   defaultCaption,
   captions,
   onPublished,
+  canSchedule = true,
 }: PublishModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [platformCaptions, setPlatformCaptions] = useState<Record<string, string>>({});
@@ -163,7 +166,7 @@ export function PublishModal({
           } catch (err) {
             setAccountStatuses((prev) => ({
               ...prev,
-              [acc.accountId]: { phase: "error", error: err instanceof Error ? err.message : "Failed" },
+              [acc.accountId]: { phase: "error", error: friendlyError(err, "Failed") },
             }));
           }
         })
@@ -253,7 +256,7 @@ export function PublishModal({
             ...prev,
             [acc.accountId]: {
               phase: "error",
-              error: err instanceof Error ? err.message : "Failed",
+              error: friendlyError(err, "Failed"),
             },
           }));
         }
@@ -540,27 +543,43 @@ export function PublishModal({
               <div>
                 <p className="text-sm font-bold mb-2">When</p>
                 <div className="flex gap-2">
-                  {(["now", "schedule"] as const).map((m) => (
+                  <button
+                    onClick={() => setMode("now")}
+                    disabled={isPublishing}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all",
+                      mode === "now"
+                        ? "border-primary bg-primary/5"
+                        : "border-border text-muted-foreground hover:border-primary/30"
+                    )}
+                  >
+                    <Send size={14} /> Publish Now
+                  </button>
+
+                  {canSchedule ? (
                     <button
-                      key={m}
-                      onClick={() => setMode(m)}
+                      onClick={() => setMode("schedule")}
                       disabled={isPublishing}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all",
-                        mode === m
+                        mode === "schedule"
                           ? "border-primary bg-primary/5"
                           : "border-border text-muted-foreground hover:border-primary/30"
                       )}
                     >
-                      {m === "now" ? (
-                        <><Send size={14} /> Publish Now</>
-                      ) : (
-                        <><Calendar size={14} /> Schedule</>
-                      )}
+                      <Calendar size={14} /> Schedule
                     </button>
-                  ))}
+                  ) : (
+                    <a
+                      href="/dashboard/billing"
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-amber-200 text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-all"
+                      title="Upgrade to Pro to schedule posts"
+                    >
+                      <Lock size={14} /> Schedule <span className="text-[10px] font-extrabold bg-amber-100 px-1.5 py-0.5 rounded-full ml-1">PRO</span>
+                    </a>
+                  )}
                 </div>
-                {mode === "schedule" && (
+                {mode === "schedule" && canSchedule && (
                   <SchedulePicker value={scheduledDate} onChange={setScheduledDate} />
                 )}
               </div>

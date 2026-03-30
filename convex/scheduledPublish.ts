@@ -36,6 +36,17 @@ export const schedulePost = mutation({
       .unique();
     if (!user) throw new ConvexError("User not found");
 
+    // Plan check — scheduled publishing requires Pro+
+    const workspace = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_clerk_workspace", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    const check = await ctx.runQuery(internal.usage.canSchedulePost, {
+      userId: user._id,
+      workspaceId: workspace?.workspaceId,
+    });
+    if (!check.allowed) throw new ConvexError(check.reason);
+
     // Denormalize account display info
     const token = await ctx.db
       .query("socialTokens")

@@ -67,6 +67,7 @@ export const processVideo = workflowManager.define({
       projectId,
       transcriptText: transcript.text,
       transcriptWords: transcript.words,
+      durationSeconds: transcript.duration,
     });
 
     // ── Step 2: AI Analysis ────────────────────────────────────────────

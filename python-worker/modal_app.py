@@ -266,10 +266,12 @@ def extract_youtube_info(body: dict) -> dict:
                 if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("height", 0) <= 1080
             ]
 
+            duration_s = v_info.get("duration")  # seconds (int or float), None if unknown
+
             if muxed:
                 # Pick the best resolution muxed stream
                 best = sorted(muxed, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
-                return {"ok": True, "title": res_title, "playbackUrl": best["url"]}
+                return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
 
             # 3. Fallback to best video-only direct stream (transcription still works on these)
             video_only = [
@@ -278,19 +280,19 @@ def extract_youtube_info(body: dict) -> dict:
             ]
             if video_only:
                 best = sorted(video_only, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
-                return {"ok": True, "title": res_title, "playbackUrl": best["url"]}
+                return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
 
             # 4. Fallback to ANY direct playable stream
             if playable:
-                return {"ok": True, "title": res_title, "playbackUrl": playable[-1]["url"]}
+                return {"ok": True, "title": res_title, "playbackUrl": playable[-1]["url"], "durationSeconds": duration_s}
 
             # 5. Last resort: If we filtered everything, take anything with a URL (even HLS)
             raw_fmts = [f for f in all_fmts if f.get("url")]
             if raw_fmts:
-                 return {"ok": True, "title": res_title, "playbackUrl": raw_fmts[-1]["url"]}
+                 return {"ok": True, "title": res_title, "playbackUrl": raw_fmts[-1]["url"], "durationSeconds": duration_s}
 
             if v_info.get("url"):
-                 return {"ok": True, "title": res_title, "playbackUrl": v_info["url"]}
+                 return {"ok": True, "title": res_title, "playbackUrl": v_info["url"], "durationSeconds": duration_s}
 
             return {"ok": False, "error": "No direct playback URLs found for this video"}
 

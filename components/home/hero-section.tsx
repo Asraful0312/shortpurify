@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { SignUpButton } from "@clerk/clerk-react";
-import { Star, BarChart2, Heart, MessageCircle, Send, Plus, Scissors, PlayCircle } from "lucide-react";
+import { Star, BarChart2, Heart, MessageCircle, Send, Plus, Scissors, PlayCircle, X } from "lucide-react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Helper component for counting up numbers
 const AnimatedCounter = ({ from = 0, to = 85, delay = 1000 }) => {
@@ -50,17 +50,40 @@ const starItem = {
 };
 
 export default function HeroSection() {
+  const [showVideo, setShowVideo] = useState(false);
+
+  // Close on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowVideo(false);
+    };
+    if (showVideo) {
+      window.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [showVideo]);
+
   return (
     <section className="relative overflow-hidden bg-white pt-32 flex flex-col items-center border-b border-border/40">
       {/* Hero Text Content (Top) */}
       <div className="container mx-auto px-4 relative z-20 flex flex-col items-center text-center mt-12 mb-10">
         <h1 className="text-5xl md:text-[5.5rem] font-bold tracking-tight max-w-5xl text-black mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 leading-[1.05]">
-          Automate long videos into <br className="hidden md:block" /> viral-ready shorts
+          Turn long videos into <br className="hidden md:block" /> viral-ready shorts
         </h1>
 
-        <p className="text-xl text-muted-foreground mb-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-relaxed font-medium">
-          Upload once. ShortPurify’s AI instantly finds your best moments, clips them, writes captions, scores virality, and prepares everything for <Image className="inline size-4" src='/icons/tik-tok.png' alt="tiktok" width={20} height={20}/> <Image className="inline size-4" src='/icons/youtube-short.png' alt="youtube short" width={20} height={20}/> <Image className="inline size-4" src='/icons/linkedin.png' alt="linkedin" width={20} height={20}/> <Image className="inline size-3" src='/icons/twitter.png' alt="twitter" width={20} height={20}/> <Image className="inline size-4" src='/icons/threads.png' alt="threads" width={20} height={20}/> and more saving you 10+ hours per week.
-        </p>
+        <div className="text-xl text-muted-foreground mb-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-relaxed font-medium ">
+          Paste a YouTube link or upload any video. ShortPurify&apos;s AI finds the best moments, generates captions, scores each clip for virality, and publishes directly to{" "}
+          <Image className="inline size-4 align-middle" src="/icons/tik-tok.png" alt="tiktok" width={20} height={20} />{" "}
+          <Image className="inline size-4 align-middle" src="/icons/youtube-short.png" alt="youtube short" width={20} height={20} />{" "}
+          <Image className="inline size-3 align-middle" src="/icons/twitter.png" alt="twitter" width={20} height={20} />{" "}
+          <Image className="inline size-4 align-middle" src="/icons/threads.png" alt="threads" width={20} height={20} />{" "}
+          <Image className="inline size-4 align-middle" src="/icons/bluesky-icon.png" alt="bluesky" width={20} height={20} />{" "}
+           saving you 10+ hours per week.
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-200">
           <SignUpButton mode="modal">
@@ -68,7 +91,10 @@ export default function HeroSection() {
               Get Started Free
             </button>
           </SignUpButton>
-        <button className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm">
+          <button 
+            onClick={() => setShowVideo(true)}
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm"
+          >
             <PlayCircle size={20} className="text-muted-foreground" />
             See It in Action (2 min demo)
           </button>
@@ -261,6 +287,48 @@ export default function HeroSection() {
         </motion.div>
 
       </div>
+
+      {/* Video Modal Overlay */}
+      <AnimatePresence>
+        {showVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => setShowVideo(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-5xl aspect-video bg-black rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(255,215,95,0.2)] border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button 
+                onClick={() => setShowVideo(false)}
+                className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10"
+              >
+                <X size={24} />
+              </button>
+
+              {/* YouTube Embed */}
+              <iframe
+                width="100%"
+                height="100%"
+                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"
+                title="Product Demo"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full"
+              ></iframe>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </section>
   );

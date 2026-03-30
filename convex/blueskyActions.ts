@@ -98,6 +98,8 @@ export const connectAccount = action({
   args: { handle: v.string(), appPassword: v.string() },
   handler: async (ctx, { handle, appPassword }): Promise<{ handle: string }> => {
     const user = await requireUser(ctx);
+    const check = await ctx.runQuery(internal.usage.canConnectPlatform, { userId: user._id, platform: "bluesky" });
+    if (!check.allowed) throw new ConvexError(check.reason);
 
     // Normalise handle — strip leading @ if user included it
     const cleanHandle = handle.replace(/^@/, "").trim();

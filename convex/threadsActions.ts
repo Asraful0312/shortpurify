@@ -21,7 +21,7 @@
 
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { r2 } from "./r2storage";
 import crypto from "crypto";
@@ -92,6 +92,8 @@ export const getAuthUrl = action({
   args: {},
   handler: async (ctx): Promise<{ authUrl: string }> => {
     const user = await requireUser(ctx);
+    const check = await ctx.runQuery(internal.usage.canConnectPlatform, { userId: user._id, platform: "threads" });
+    if (!check.allowed) throw new ConvexError(check.reason);
     const appId = process.env.THREADS_APP_ID;
     if (!appId) throw new Error("THREADS_APP_ID not configured");
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useWorkspace } from "@/components/workspace-context";
 import { BarChart3, TrendingUp, Send, Scissors, Eye, ThumbsUp, ArrowUpRight, Star } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
@@ -30,11 +31,13 @@ const chartConfig = {
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState(7);
+  const { activeOrgId } = useWorkspace();
+  const workspaceId = activeOrgId ?? undefined;
 
-  const stats           = useQuery(api.analytics.getDashboardStats);
-  const weeklyActivity  = useQuery(api.analytics.getWeeklyActivity, { days });
-  const platformBreak   = useQuery(api.analytics.getPublishedByPlatform);
-  const topClips        = useQuery(api.analytics.getTopClips, { limit: 5 });
+  const stats           = useQuery(api.analytics.getDashboardStats, { workspaceId });
+  const weeklyActivity  = useQuery(api.analytics.getWeeklyActivity, { days, workspaceId });
+  const platformBreak   = useQuery(api.analytics.getPublishedByPlatform, { workspaceId });
+  const topClips        = useQuery(api.analytics.getTopClips, { limit: 5, workspaceId });
 
   const totalPublished   = stats?.published ?? 0;
   const totalGenerated   = stats?.clipsGenerated ?? 0;

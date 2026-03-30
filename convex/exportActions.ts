@@ -83,8 +83,31 @@ export const exportWithSubtitles = action({
     // Presigned PUT URL for the export output (deterministic key → overwrites old export)
     const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
 
-    // TODO: Determine user plan and set watermark to "" for PRO users.
-    const watermark = "shortpurify.com";
+    // Watermark is only burned for free-plan users.
+    // entityId = workspaceId if this output belongs to a workspace project, otherwise userId.
+    let watermark = "shortpurify.com";
+    if (outputId) {
+      const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+      const project = output
+        ? await ctx.runQuery(api.projects.getProject, { projectId: output.projectId })
+        : null;
+      if (project) {
+        const paid = await ctx.runQuery(internal.usage.isPaidPlan, {
+          workspaceId: project.workspaceId ?? undefined,
+          fallbackEntityId: project.userId,
+        });
+        if (paid) watermark = "";
+      }
+    } else {
+      // No outputId — fall back to the authenticated user's plan
+      const user = await ctx.runQuery(internal.users.getUserByClerkId, {
+        clerkId: identity.subject,
+      });
+      if (user) {
+        const paid = await ctx.runQuery(internal.usage.isPaidPlan, { fallbackEntityId: user._id });
+        if (paid) watermark = "";
+      }
+    }
 
     const resp = await fetch(workerUrl, {
       method: "POST",
@@ -165,10 +188,17 @@ export const ensureExported = internalAction({
     const clipUrl              = await r2.getUrl(output.clipKey, { expiresIn: 60 * 60 });
     const { url: uploadUrl }   = await r2.generateUploadUrl(exportKey);
 
+    // Check plan — no watermark for paid workspaces/users (cascades to owner's subscription)
+    const paid = await ctx.runQuery(internal.usage.isPaidPlan, {
+      workspaceId: project.workspaceId ?? undefined,
+      fallbackEntityId: project.userId,
+    });
+    const watermark = paid ? "" : "shortpurify.com";
+
     const resp = await fetch(workerUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark: "shortpurify.com" }),
+      body: JSON.stringify({ workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark }),
     });
 
     if (!resp.ok) return null; // skip silently — publish will use raw clip

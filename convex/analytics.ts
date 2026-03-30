@@ -4,12 +4,16 @@
  * projectsAggregate  → O(log n) total projects & clips per user
  * scheduledAggregate → O(log n) published count per user/platform
  * Direct queries     → weekly activity (time-bucketed), top clips
+ *
+ * All queries accept an optional workspaceId. When provided, stats are aggregated
+ * across all workspace members (server-side membership check enforced).
  */
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import { projectsAggregate, scheduledAggregate } from "./aggregates";
+import { Doc, Id } from "./_generated/dataModel";
 
 
 async function getAuthUser(ctx: QueryCtx | MutationCtx) {
@@ -25,53 +29,173 @@ async function getAuthUser(ctx: QueryCtx | MutationCtx) {
 
 /**
  * Fast aggregate-based stats for the dashboard stats cards.
- * O(log n) for all three counts — no full table scans.
+ * Personal mode: O(log n) via aggregates — no full table scans.
+ * Workspace mode: direct queries filtered by workspaceId.
  */
 export const getDashboardStats = query({
-  handler: async (ctx) => {
+  args: { workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { workspaceId }) => {
     const user = await getAuthUser(ctx);
     if (!user) return { totalProjects: 0, clipsGenerated: 0, published: 0 };
 
-    const [totalProjects, clipsGenerated, published] = await Promise.all([
-      projectsAggregate.count(ctx, { namespace: user._id }),
-      projectsAggregate.sum(ctx, { namespace: user._id }),
-      scheduledAggregate.count(ctx, {
-        namespace: user._id,
-        bounds: { prefix: ["published"] },
-      }),
-    ]);
+    // Personal mode — use fast aggregates
+    if (!workspaceId) {
+      const [totalProjects, clipsGenerated, published] = await Promise.all([
+        projectsAggregate.count(ctx, { namespace: user._id }),
+        projectsAggregate.sum(ctx, { namespace: user._id }),
+        scheduledAggregate.count(ctx, {
+          namespace: user._id,
+          bounds: { prefix: ["published"] },
+        }),
+      ]);
+      return { totalProjects, clipsGenerated, published };
+    }
+
+    // Workspace mode — use helper (includes legacy personal projects for owner)
+    const projects = await getWorkspaceProjects(ctx, workspaceId);
+    if (!projects) return { totalProjects: 0, clipsGenerated: 0, published: 0 };
+
+    const totalProjects = projects.length;
+    const clipsGenerated = projects.reduce((sum, p) => sum + (p.clipsCount ?? 0), 0);
+
+    // Published posts from workspace members for workspace projects
+    const projectIds = new Set(projects.map((p) => p._id));
+    const members = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .collect();
+
+    const allPublished = (
+      await Promise.all(
+        members.map((m) =>
+          ctx.db
+            .query("scheduledPosts")
+            .withIndex("by_user_status", (q) =>
+              q.eq("userId", m.userId).eq("status", "published")
+            )
+            .collect()
+        )
+      )
+    ).flat();
+
+    // Only count published posts whose output belongs to a workspace project
+    const outputProjectMap = new Map<string, string>();
+    for (const post of allPublished) {
+      if (!outputProjectMap.has(post.outputId)) {
+        const output = await ctx.db.get(post.outputId);
+        if (output) outputProjectMap.set(post.outputId, output.projectId);
+      }
+    }
+    const published = allPublished.filter((post) => {
+      const projId = outputProjectMap.get(post.outputId);
+      return projId && projectIds.has(projId as Id<"projects">);
+    }).length;
 
     return { totalProjects, clipsGenerated, published };
   },
 });
+
+/**
+ * Helper: get workspace-scoped projects if workspaceId is provided + verify membership.
+ * Returns null if caller is not a member (or not authenticated).
+ */
+async function getWorkspaceProjects(
+  ctx: QueryCtx,
+  workspaceId: string,
+) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) return null;
+
+  const membership = await ctx.db
+    .query("workspaceMembers")
+    .withIndex("by_clerk_workspace", (q) =>
+      q.eq("clerkId", identity.subject).eq("workspaceId", workspaceId)
+    )
+    .unique();
+  if (!membership) return null;
+
+  // Only return projects explicitly tagged with this workspace
+  const workspaceProjects = await ctx.db
+    .query("projects")
+    .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .collect();
+
+  return workspaceProjects;
+}
 
 
 /**
  * Returns clips-generated and published counts bucketed by day for the last N days.
  */
 export const getWeeklyActivity = query({
-  args: { days: v.optional(v.number()) },
-  handler: async (ctx, { days = 7 }) => {
+  args: { days: v.optional(v.number()), workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { days = 7, workspaceId }) => {
     const user = await getAuthUser(ctx);
     if (!user) return [];
 
     const now = Date.now();
     const startMs = now - days * 24 * 60 * 60 * 1000;
 
-    const [projects, publishedPosts] = await Promise.all([
-      ctx.db
-        .query("projects")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .filter((q) => q.gte(q.field("createdAt"), startMs))
-        .collect(),
-      ctx.db
-        .query("scheduledPosts")
-        .withIndex("by_user_status", (q) =>
-          q.eq("userId", user._id).eq("status", "published"),
+    let projects: Doc<"projects">[];
+    let publishedPosts: Doc<"scheduledPosts">[];
+
+    if (workspaceId) {
+      // Workspace mode: only projects tagged with this workspace
+      const wsProjects = await getWorkspaceProjects(ctx, workspaceId);
+      if (!wsProjects) return [];
+
+      projects = wsProjects.filter((p) => p.createdAt >= startMs);
+
+      // Get published posts scoped to workspace projects
+      const projectIds = new Set(wsProjects.map((p) => p._id));
+      const members = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .collect();
+
+      const allPosts = (
+        await Promise.all(
+          members.map((m) =>
+            ctx.db
+              .query("scheduledPosts")
+              .withIndex("by_user_status", (q) =>
+                q.eq("userId", m.userId).eq("status", "published")
+              )
+              .filter((q) => q.gte(q.field("scheduledAt"), startMs))
+              .collect()
+          )
         )
-        .filter((q) => q.gte(q.field("scheduledAt"), startMs))
-        .collect(),
-    ]);
+      ).flat();
+
+      // Filter to only posts linked to workspace projects
+      const outputProjectMap = new Map<string, string>();
+      for (const post of allPosts) {
+        if (!outputProjectMap.has(post.outputId)) {
+          const output = await ctx.db.get(post.outputId);
+          if (output) outputProjectMap.set(post.outputId, output.projectId);
+        }
+      }
+      publishedPosts = allPosts.filter((post) => {
+        const projId = outputProjectMap.get(post.outputId);
+        return projId && projectIds.has(projId as Id<"projects">);
+      });
+    } else {
+      // Personal mode
+      [projects, publishedPosts] = await Promise.all([
+        ctx.db
+          .query("projects")
+          .withIndex("by_user", (q) => q.eq("userId", user._id))
+          .filter((q) => q.gte(q.field("createdAt"), startMs))
+          .collect(),
+        ctx.db
+          .query("scheduledPosts")
+          .withIndex("by_user_status", (q) =>
+            q.eq("userId", user._id).eq("status", "published")
+          )
+          .filter((q) => q.gte(q.field("scheduledAt"), startMs))
+          .collect(),
+      ]);
+    }
 
     // Build day buckets oldest-first
     const buckets: { day: string; date: number; clipsGenerated: number; published: number }[] = [];
@@ -99,41 +223,97 @@ export const getWeeklyActivity = query({
 
 
 /**
- * Returns published clip counts grouped by platform using the aggregate.
- * Each platform: O(log n) via prefix query on scheduledAggregate.
+ * Returns published clip counts grouped by platform.
+ * Personal mode: O(log n) via prefix query on scheduledAggregate.
+ * Workspace mode: direct queries scoped to workspace projects.
  */
 export const getPublishedByPlatform = query({
-  handler: async (ctx) => {
+  args: { workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { workspaceId }) => {
     const user = await getAuthUser(ctx);
     if (!user) return [];
 
     const PLATFORMS = ["youtube", "tiktok", "instagram", "x", "bluesky", "facebook", "linkedin"];
 
-    const counts = await Promise.all(
-      PLATFORMS.map(async (platform) => ({
-        platform,
-        count: await scheduledAggregate.count(ctx, {
-          namespace: user._id,
-          bounds: { prefix: ["published", platform] },
-        }),
-      })),
-    );
+    if (!workspaceId) {
+      // Personal mode — use fast aggregates
+      const counts = await Promise.all(
+        PLATFORMS.map(async (platform) => ({
+          platform,
+          count: await scheduledAggregate.count(ctx, {
+            namespace: user._id,
+            bounds: { prefix: ["published", platform] },
+          }),
+        }))
+      );
+      return counts.filter((p) => p.count > 0).sort((a, b) => b.count - a.count);
+    }
 
-    return counts.filter((p) => p.count > 0).sort((a, b) => b.count - a.count);
+    // Workspace mode — direct queries
+    const wsProjects = await getWorkspaceProjects(ctx, workspaceId);
+    if (!wsProjects) return [];
+
+    const projectIds = new Set(wsProjects.map((p) => p._id));
+    const members = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .collect();
+
+    const allPublished = (
+      await Promise.all(
+        members.map((m) =>
+          ctx.db
+            .query("scheduledPosts")
+            .withIndex("by_user_status", (q) =>
+              q.eq("userId", m.userId).eq("status", "published")
+            )
+            .collect()
+        )
+      )
+    ).flat();
+
+    // Filter to workspace-scoped posts
+    const outputProjectMap = new Map<string, string>();
+    for (const post of allPublished) {
+      if (!outputProjectMap.has(post.outputId)) {
+        const output = await ctx.db.get(post.outputId);
+        if (output) outputProjectMap.set(post.outputId, output.projectId);
+      }
+    }
+
+    const platformCounts = new Map<string, number>();
+    for (const post of allPublished) {
+      const projId = outputProjectMap.get(post.outputId);
+      if (projId && projectIds.has(projId as Id<"projects">)) {
+        platformCounts.set(post.platform, (platformCounts.get(post.platform) ?? 0) + 1);
+      }
+    }
+
+    return Array.from(platformCounts.entries())
+      .map(([platform, count]) => ({ platform, count }))
+      .filter((p) => p.count > 0)
+      .sort((a, b) => b.count - a.count);
   },
 });
 
 
 export const getTopClips = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 5 }) => {
+  args: { limit: v.optional(v.number()), workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { limit = 5, workspaceId }) => {
     const user = await getAuthUser(ctx);
     if (!user) return [];
 
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
+    let projects;
+    if (workspaceId) {
+      const wsProjects = await getWorkspaceProjects(ctx, workspaceId);
+      if (!wsProjects) return [];
+      projects = wsProjects;
+    } else {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+    }
 
     const allOutputs: { id: string; title: string; platform: string; viralScore: number; projectTitle: string }[] = [];
 

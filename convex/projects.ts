@@ -1,9 +1,27 @@
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
 import { Id } from "./_generated/dataModel";
 import { projectsAggregate } from "./aggregates";
+import { creem } from "./billing";
+import { PLAN_LIMITS } from "./usage";
+
+const PRODUCT_PLAN_MAP: Record<string, "pro" | "agency"> = {
+  prod_Y9tigUuiNrmSvwHwikJhb: "pro",
+  prod_16zm9hSnU7sIDUiL2xnqta: "pro",
+  prod_6Dzfw7cKFtti6Ok8XSSMkr: "agency",
+  prod_4ys826ufB69smQJCq4kD0o: "agency",
+};
+function tierFromId(id: string | null | undefined): "starter" | "pro" | "agency" {
+  if (!id) return "starter";
+  return PRODUCT_PLAN_MAP[id] ?? "starter";
+}
+function monthStart(): number {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
 
 /**
  * Creates a project record and schedules the AI pipeline.
@@ -17,6 +35,10 @@ export const createProjectAndStart = mutation({
     originalKey: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()),
+    workspaceId: v.optional(v.string()),
+    // Duration in minutes — used for pre-flight minute limit check.
+    // Pass this when it's known before upload (client-side video element, YouTube info).
+    estimatedDurationMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -28,6 +50,44 @@ export const createProjectAndStart = mutation({
       .unique();
     if (!user) throw new Error("User not found — please refresh the page");
 
+    // ── Plan limit enforcement ─────────────────────────────────────────────────
+    const entityId = args.workspaceId ?? user._id;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscription = await creem.subscriptions.getCurrent(ctx as any, { entityId });
+    const tier = tierFromId(subscription?.productId ?? null);
+    const limits = PLAN_LIMITS[tier];
+    const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
+    const ms = monthStart();
+
+    const projectsThisMonth = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.gte(q.field("createdAt"), ms))
+      .collect();
+
+    // Project count limit
+    if (limits.projects !== Infinity && projectsThisMonth.length >= limits.projects) {
+      throw new ConvexError(
+        `${planName} plan limit of ${limits.projects} projects/month reached. Upgrade to continue.`
+      );
+    }
+
+    // Minute limit — only enforced when duration is known upfront
+    if (args.estimatedDurationMinutes !== undefined) {
+      const minutesUsed = Math.round(
+        projectsThisMonth.reduce((sum, p) => sum + (p.durationSeconds ?? 0), 0) / 60
+      );
+      const remaining = limits.minutes - minutesUsed;
+      if (args.estimatedDurationMinutes > remaining) {
+        throw new ConvexError(
+          remaining <= 0
+            ? `You've used all ${limits.minutes} video minutes on the ${planName} plan this month.`
+            : `This video is ~${args.estimatedDurationMinutes} min but you only have ${remaining} min left this month on the ${planName} plan.`
+        );
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const projectId = await ctx.db.insert("projects", {
       userId: user._id,
       title: args.title,
@@ -36,6 +96,7 @@ export const createProjectAndStart = mutation({
       originalKey: args.originalKey,
       enabledPlatforms: args.enabledPlatforms,
       cropMode: args.cropMode,
+      workspaceId: args.workspaceId,
       status: "processing",
       processingStep: "Queued…",
       createdAt: Date.now(),
@@ -76,6 +137,37 @@ export const listUserProjects = query({
   },
 });
 
+/**
+ * List all projects visible in a workspace:
+ *   - Projects explicitly tagged with this workspaceId
+ *   - Personal projects owned by any workspace member
+ *
+ * Server-side: verifies the caller is actually a member before returning data.
+ */
+export const listWorkspaceProjects = query({
+  args: { workspaceId: v.string() },
+  handler: async (ctx, { workspaceId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    // Server-side membership check
+    const callerMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_clerk_workspace", (q) =>
+        q.eq("clerkId", identity.subject).eq("workspaceId", workspaceId)
+      )
+      .unique();
+    if (!callerMembership) return [];
+
+    // Only return projects explicitly tagged with this workspace
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .order("desc")
+      .collect();
+  },
+});
+
 /** Get a single project by ID. */
 export const getProject = query({
   args: { projectId: v.id("projects") },
@@ -84,7 +176,7 @@ export const getProject = query({
   },
 });
 
-/** Save transcript data (text + words) after step 1. */
+/** Save transcript data (text + words + duration) after step 1. */
 export const saveTranscript = internalMutation({
   args: {
     projectId: v.id("projects"),
@@ -97,9 +189,10 @@ export const saveTranscript = internalMutation({
         speaker: v.optional(v.string()),
       }),
     ),
+    durationSeconds: v.optional(v.number()),
   },
-  handler: async (ctx, { projectId, transcriptText, transcriptWords }) => {
-    await ctx.db.patch(projectId, { transcriptText, transcriptWords });
+  handler: async (ctx, { projectId, transcriptText, transcriptWords, durationSeconds }) => {
+    await ctx.db.patch(projectId, { transcriptText, transcriptWords, durationSeconds });
   },
 });
 
@@ -122,7 +215,80 @@ export const saveSubtitleSettings = mutation({
   handler: async (ctx, { projectId, settings }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    const project = await ctx.db.get(projectId);
+    if (!project) throw new Error("Project not found");
+
+    // Allow project owner or workspace admin/owner
+    const isOwner = project.userId === user._id;
+    if (!isOwner && project.workspaceId) {
+      const membership = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_clerk_workspace", (q) =>
+          q.eq("clerkId", identity.subject).eq("workspaceId", project.workspaceId!)
+        )
+        .unique();
+      if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+        throw new Error("Not authorized");
+      }
+    } else if (!isOwner) {
+      throw new Error("Not authorized");
+    }
+
     await ctx.db.patch(projectId, { subtitleSettings: settings });
+  },
+});
+
+/**
+ * Rename a project. Allowed for:
+ *   - The project owner (personal project)
+ *   - Workspace owner or admin (workspace project)
+ * Regular workspace members are rejected server-side.
+ */
+export const renameProject = mutation({
+  args: { projectId: v.id("projects"), title: v.string() },
+  handler: async (ctx, { projectId, title }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Not authenticated");
+
+    const trimmed = title.trim();
+    if (!trimmed) throw new ConvexError("Title cannot be empty");
+    if (trimmed.length > 120) throw new ConvexError("Title too long");
+
+    const project = await ctx.db.get(projectId);
+    if (!project) throw new ConvexError("Project not found");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new ConvexError("User not found");
+
+    const isProjectOwner = project.userId === user._id;
+
+    if (!isProjectOwner) {
+      if (project.workspaceId) {
+        const membership = await ctx.db
+          .query("workspaceMembers")
+          .withIndex("by_clerk_workspace", (q) =>
+            q.eq("clerkId", identity.subject).eq("workspaceId", project.workspaceId!)
+          )
+          .unique();
+        if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+          throw new ConvexError("Only workspace owners and admins can rename projects");
+        }
+      } else {
+        throw new ConvexError("Not authorized to rename this project");
+      }
+    }
+
+    await ctx.db.patch(projectId, { title: trimmed });
   },
 });
 
@@ -149,6 +315,25 @@ export const deleteProject = action({
 
     const project = await ctx.runQuery(api.projects.getProject, { projectId });
     if (!project) throw new Error("Project not found");
+
+    // Server-side auth: must be project owner or workspace admin/owner
+    const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject });
+    if (!user) throw new Error("User not found");
+
+    const isProjectOwner = project.userId === user._id;
+    if (!isProjectOwner) {
+      if (project.workspaceId) {
+        const membership = await ctx.runQuery(internal.workspaceMembers.getMembership, {
+          workspaceId: project.workspaceId,
+          clerkId: identity.subject,
+        });
+        if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
+          throw new Error("Not authorized to delete this project");
+        }
+      } else {
+        throw new Error("Not authorized to delete this project");
+      }
+    }
 
     // Fetch all outputs so we know which R2 keys to clean up
     const outputs = await ctx.runQuery(api.outputs.listProjectOutputs, { projectId });
@@ -210,6 +395,30 @@ export const purgeProjectData = internalMutation({
     const projectDoc = await ctx.db.get(projectId);
     if (projectDoc) await projectsAggregate.delete(ctx, projectDoc);
     await ctx.db.delete(projectId);
+  },
+});
+
+/**
+ * Delete all projects in a workspace. Owner-only.
+ * Re-uses the deleteProject action per project to clean up R2 files too.
+ */
+export const deleteAllWorkspaceProjects = action({
+  args: { workspaceId: v.string() },
+  handler: async (ctx, { workspaceId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Verify caller is workspace owner
+    const membership = await ctx.runQuery(internal.workspaceMembers.getMembership, {
+      workspaceId,
+      clerkId: identity.subject,
+    });
+    if (!membership || membership.role !== "owner") throw new Error("Not authorized");
+
+    const projects = await ctx.runQuery(api.projects.listWorkspaceProjects, { workspaceId });
+    for (const project of projects) {
+      await ctx.runAction(api.projects.deleteProject, { projectId: project._id });
+    }
   },
 });
 

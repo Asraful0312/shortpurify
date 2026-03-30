@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useWorkspace } from "@/components/workspace-context";
 import SingleVideoUploader from "@/components/upload-dropzone";
 import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
 
 const ALL_PLATFORMS = [
@@ -24,10 +25,12 @@ type Tab = "file" | "youtube";
 
 export default function UploadPage() {
   const router = useRouter();
+  const { activeOrgId } = useWorkspace();
   const createProject = useMutation(api.projects.createProjectAndStart);
   const importFromYouTube = useAction(api.youtubeActions.createProjectFromYouTube);
+  const usageData = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
 
-  const [tab, setTab] = useState<Tab>("file");
+  const [tab, setTab] = useState<Tab>("youtube");
   const [title, setTitle] = useState("");
   const [showPlatforms, setShowPlatforms] = useState(false);
   const [enabledPlatforms, setEnabledPlatforms] = useState<string[]>(
@@ -40,6 +43,12 @@ export default function UploadPage() {
   const [ytLoading, setYtLoading] = useState(false);
   const [ytError, setYtError] = useState("");
 
+  // File upload error state
+  const [uploadError, setUploadError] = useState("");
+
+  // Duration detected from selected file (browser reads this before upload)
+  const [fileDurationMinutes, setFileDurationMinutes] = useState<number | undefined>(undefined);
+
   const togglePlatform = (id: string) => {
     setEnabledPlatforms((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -47,17 +56,24 @@ export default function UploadPage() {
   };
 
   const handleUploadComplete = async (url: string, size: number, fileName: string, key: string) => {
+    setUploadError("");
     const fromFile = fileName.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
     const finalTitle = title.trim() || fromFile || "Untitled Project";
-    const projectId = await createProject({
-      title: finalTitle,
-      originalUrl: url,
-      originalSize: size,
-      originalKey: key,
-      enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
-      cropMode,
-    });
-    router.push(`/dashboard/${projectId}`);
+    try {
+      const projectId = await createProject({
+        title: finalTitle,
+        originalUrl: url,
+        originalSize: size,
+        originalKey: key,
+        enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
+        cropMode,
+        workspaceId: activeOrgId ?? undefined,
+        estimatedDurationMinutes: fileDurationMinutes,
+      });
+      router.push(`/dashboard/${projectId}`);
+    } catch (err: unknown) {
+      setUploadError(friendlyError(err));
+    }
   };
 
   const handleYouTubeImport = async () => {
@@ -72,11 +88,11 @@ export default function UploadPage() {
         title: title.trim() || undefined,
         enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
         cropMode,
+        workspaceId: activeOrgId ?? undefined,
       });
       router.push(`/dashboard/${projectId}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      setYtError(msg);
+      setYtError(friendlyError(err));
       setYtLoading(false);
     }
   };
@@ -101,19 +117,6 @@ export default function UploadPage() {
         <div className="flex rounded-xl border border-border bg-secondary/30 p-1 gap-1">
           <button
             type="button"
-            onClick={() => setTab("file")}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
-              tab === "file"
-                ? "bg-white shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Upload size={15} />
-            Upload File
-          </button>
-          <button
-            type="button"
             onClick={() => setTab("youtube")}
             className={cn(
               "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
@@ -125,11 +128,24 @@ export default function UploadPage() {
             <Image src="/icons/youtube.png" alt="youtube" width={15} height={15}/>
             YouTube URL
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("file")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all",
+              tab === "file"
+                ? "bg-white shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Upload size={15} />
+            Upload File
+          </button>
         </div>
       </div>
 
       {/* Title input */}
-      <div className="relative z-10 w-full max-w-2xl mb-4">
+      {/* <div className="relative z-10 w-full max-w-2xl mb-4">
         <label className="block text-sm font-bold text-foreground mb-1.5">
           Project Title
         </label>
@@ -141,7 +157,7 @@ export default function UploadPage() {
           maxLength={120}
           className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white placeholder:text-muted-foreground"
         />
-      </div>
+      </div> */}
 
       {/* Platform toggles */}
       <div className="relative z-10 w-full max-w-2xl mb-4">
@@ -223,7 +239,67 @@ export default function UploadPage() {
       {/* Tab content */}
       <div className="relative z-10 w-full max-w-2xl">
         {tab === "file" ? (
-          <SingleVideoUploader onUploadComplete={handleUploadComplete} />
+          <div className="flex flex-col gap-3">
+            <SingleVideoUploader
+              onUploadComplete={handleUploadComplete}
+              disabled={
+                // Block upload if project count already at limit
+                usageData != null &&
+                usageData.limits.projects != null &&
+                usageData.usage.projectsUsed >= usageData.limits.projects
+              }
+              onFileSelected={(file) => {
+                setUploadError("");
+                setFileDurationMinutes(undefined);
+
+                // Check project count limit immediately
+                if (
+                  usageData?.limits.projects != null &&
+                  usageData.usage.projectsUsed >= usageData.limits.projects
+                ) {
+                  setUploadError(
+                    `You've used all ${usageData.limits.projects} projects this month on the ${usageData.tier === "starter" ? "Free" : usageData.tier} plan.`
+                  );
+                  return false; // cancel upload
+                }
+
+                // Read video duration from browser metadata before upload starts
+                const video = document.createElement("video");
+                video.preload = "metadata";
+                video.onloadedmetadata = () => {
+                  URL.revokeObjectURL(video.src);
+                  if (!isFinite(video.duration)) return;
+
+                  const durationMins = Math.ceil(video.duration / 60);
+                  setFileDurationMinutes(durationMins);
+
+                  // Check minute limit upfront — block before wasting bandwidth
+                  if (usageData) {
+                    const remaining = usageData.limits.minutes - usageData.usage.minutesUsed;
+                    if (durationMins > remaining) {
+                      setUploadError(
+                        remaining <= 0
+                          ? `You've used all ${usageData.limits.minutes} video minutes this month. Upgrade or wait until next month.`
+                          : `This video is ~${durationMins} min but you only have ${remaining} min left this month. Upgrade for more.`
+                      );
+                    }
+                  }
+                };
+                video.src = URL.createObjectURL(file);
+              }}
+            />
+            {uploadError && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold">{uploadError}</p>
+                  <a href="/dashboard/billing" className="text-xs font-bold underline mt-0.5 inline-block">
+                    Upgrade plan →
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="bg-white border border-border rounded-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3 mb-1">

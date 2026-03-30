@@ -6,6 +6,7 @@ import r2 from "@convex-dev/r2/convex.config.js";
 import aggregate from "@convex-dev/aggregate/convex.config.js";
 import tenants from "@djpanda/convex-tenants/convex.config";
 import authz from "@djpanda/convex-authz/convex.config";
+import creem from "@mmailaender/convex-creem/convex.config";
 
 const app = defineApp();
 app.use(workflow);
@@ -16,6 +17,7 @@ app.use(aggregate, { name: "projectsAggregate" }); // counts/sums clips per user
 app.use(aggregate, { name: "scheduledAggregate" }); // counts published posts per user/platform
 // Multi-tenant team/workspace management (authz is a sibling, not a child of tenants)
 app.use(tenants);
+app.use(creem);
 app.use(authz);
 
 export default app;

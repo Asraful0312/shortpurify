@@ -10,11 +10,13 @@ import { api } from "@/convex/_generated/api";
  * Mount inside the dashboard layout so it fires once after Clerk loads the user,
  * creating or updating their row in the Convex `users` table.
  * On first login (isNew = true), auto-creates a personal workspace via convex-tenants.
+ * Also calls syncMembership for each org to keep the workspaceMembers shadow table in sync.
  */
 export function SyncUser() {
   const { user, isLoaded } = useUser();
   const upsertUser = useMutation(api.users.upsertUser);
   const createOrganization = useMutation(api.tenants.createOrganization);
+  const syncMembership = useMutation(api.workspaceMembers.syncMembership);
   const orgs = useQuery(api.tenants.listOrganizations, {});
 
   useEffect(() => {
@@ -35,6 +37,17 @@ export function SyncUser() {
 
     const workspaceName = user.fullName ? `${user.fullName}'s Workspace` : "My Workspace";
     createOrganization({ name: workspaceName }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, user?.id, orgs]);
+
+  // Sync membership rows for all orgs so server-side auth checks work
+  useEffect(() => {
+    if (!isLoaded || !user || orgs === undefined || orgs.length === 0) return;
+
+    for (const org of orgs) {
+      const role = (org as { role?: string }).role ?? "member";
+      syncMembership({ workspaceId: org._id, role }).catch(console.error);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, user?.id, orgs]);
 

@@ -105,6 +105,8 @@ export const getAuthUrl = action({
   args: {},
   handler: async (ctx): Promise<{ authUrl: string }> => {
     const user = await requireUser(ctx);
+    const check = await ctx.runQuery(internal.usage.canConnectPlatform, { userId: user._id, platform: "tiktok" });
+    if (!check.allowed) throw new ConvexError(check.reason);
     const clientKey = process.env.TIKTOK_CLIENT_KEY;
     if (!clientKey) throw new   ConvexError("TIKTOK_CLIENT_KEY not configured");
 

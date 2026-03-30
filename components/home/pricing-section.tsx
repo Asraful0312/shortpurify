@@ -102,9 +102,13 @@ function PricingSection() {
             </button>
             <span className={cn("text-lg font-bold transition-colors flex items-center gap-2", isYearly ? "text-foreground" : "text-muted-foreground")}>
               Yearly{" "}
-              <span className="text-xs bg-[#A8E6A1] text-green-950 px-2 py-0.5 rounded-full font-extrabold border border-green-300 shadow-sm">
+              <motion.span 
+                animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-xs bg-[#A8E6A1] text-green-950 px-2 py-0.5 rounded-full font-extrabold border border-green-300 shadow-sm"
+              >
                 Save 20%
-              </span>
+              </motion.span>
             </span>
           </div>
         </div>
@@ -113,12 +117,22 @@ function PricingSection() {
           {plans.map((plan, i) => (
             <div
               key={i}
-              className={`rounded-[2rem] p-8 w-full transition-all duration-300 relative ${
+              className={`rounded-[2.5rem] p-8 w-full transition-all duration-500 relative group/card ${
                 plan.highlighted
-                  ? "bg-primary text-primary-foreground shadow-2xl scale-100 md:scale-105 border-transparent z-10"
-                  : "bg-white text-foreground border border-border shadow-sm hover:shadow-xl hover:-translate-y-1"
+                  ? "bg-primary text-primary-foreground shadow-[0_20px_50px_rgba(var(--primary),0.3)] scale-100 md:scale-105 border-transparent z-10"
+                  : "bg-white text-foreground border border-border shadow-sm hover:shadow-2xl hover:-translate-y-1"
               }`}
             >
+              {plan.highlighted && (
+                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
+                  <motion.div 
+                    animate={{ x: ["-100%", "100%"] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                    className="absolute top-0 left-0 w-2/3 h-full bg-linear-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg]"
+                  />
+                  <div className="absolute inset-0 bg-linear-to-tr from-white/5 to-transparent pointer-events-none" />
+                </div>
+              )}
               {plan.highlighted && (
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-bold shadow-md">
                   Most Popular

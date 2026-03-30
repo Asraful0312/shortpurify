@@ -12,15 +12,17 @@ const Node = React.forwardRef<
   { className?: string; children?: React.ReactNode }
 >(({ className, children }, ref) => {
   return (
-    <div
+    <motion.div
       ref={ref}
+      initial={{ scale: 1 }}
+      whileHover={{ scale: 1.1 }}
       className={cn(
-        "z-10 flex size-14 items-center justify-center rounded-full border-2 border-border/50 bg-white p-3 shadow-lg transition-transform hover:scale-110 duration-300",
+        "z-10 flex size-14 items-center justify-center rounded-full border-2 border-border/50 bg-white p-3 shadow-lg transition-all duration-300",
         className,
       )}
     >
       {children}
-    </div>
+    </motion.div>
   );
 });
 Node.displayName = "Node";
@@ -36,10 +38,10 @@ export default function AutomatedWorkflowsSection() {
   const div7Ref = useRef<HTMLDivElement>(null);
 
   const benefits = [
-    "Connect YouTube Shorts, TikTok, X, Bluesky & Threads",
-    "Publish to all platforms in one click from the Publish Hub",
-    "Schedule posts days or weeks in advance",
-    "Team workspaces collaborate with your whole team",
+    { title: "Direct Social Integration", text: "Connect YouTube, TikTok, X, Bluesky & Threads in one place." },
+    { title: "One-Click Publishing", text: "Post to every social platform simultaneously from the Publish Hub." },
+    { title: "Smart Scheduling", text: "Queue up your viral clips days or weeks in advance." },
+    { title: "Team Collaboration", text: "Invite editors and managers to collaborate in shared workspaces." },
   ];
 
   return (
@@ -81,8 +83,14 @@ export default function AutomatedWorkflowsSection() {
 
                   {/* Center AI Node */}
                   <div className="flex flex-col justify-center">
-                    <Node ref={div4Ref} className="size-20 border-primary shadow-primary/30 shadow-xl bg-white border-2">
-                      <Image src="/logo-small.png" alt="logo" width={44} height={44} />
+                    <Node ref={div4Ref} className="size-20 border-primary shadow-[0_0_30px_rgba(var(--primary),0.3)] bg-white border-2 relative">
+                      <motion.div 
+                         initial={{ scale: 0.8, opacity: 0.5 }}
+                         animate={{ scale: 1.2, opacity: 0 }}
+                         transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
+                         className="absolute inset-0 rounded-full bg-primary/20"
+                      />
+                      <Image src="/logo-small.png" alt="logo" width={44} height={44} className="relative z-10" />
                     </Node>
                   </div>
 
@@ -101,12 +109,12 @@ export default function AutomatedWorkflowsSection() {
                 </div>
 
                 {/* Flowing Beams */}
-                <AnimatedBeam containerRef={containerRef} fromRef={div1Ref} toRef={div4Ref} curvature={-50} pathColor="#000000" gradientStartColor="#ff0000" gradientStopColor="#000" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div2Ref} toRef={div4Ref} pathColor="#000000" gradientStartColor="#1e3a2b" gradientStopColor="#000" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div3Ref} toRef={div4Ref} curvature={50} pathColor="#000000" gradientStartColor="#000" gradientStopColor="#000" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div5Ref} curvature={50} pathColor="#000000" gradientStartColor="#000" gradientStopColor="#ff0000" delay={0.5} />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#000000" gradientStartColor="#000" gradientStopColor="#000" delay={0.5} />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div7Ref} curvature={-30} pathColor="#000000" gradientStartColor="#000" gradientStopColor="#0085ff" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div1Ref} toRef={div4Ref} curvature={-50} pathColor="#FF0000/20" gradientStartColor="#FF0000" gradientStopColor="#FF0000" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div2Ref} toRef={div4Ref} pathColor="#3b82f6/20" gradientStartColor="#3b82f6" gradientStopColor="#3b82f6" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div3Ref} toRef={div4Ref} curvature={50} pathColor="#69C9D0/20" gradientStartColor="#69C9D0" gradientStopColor="#ee1d52" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div5Ref} curvature={50} pathColor="#FF0000/20" gradientStartColor="#FF0000" gradientStopColor="#FF0000" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#000000/20" gradientStartColor="#000000" gradientStopColor="#1DA1F2" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div7Ref} curvature={-30} pathColor="#0085FF/20" gradientStartColor="#0085FF" gradientStopColor="#0085FF" delay={0.5} />
               </div>
             </div>
           </div>
@@ -122,13 +130,16 @@ export default function AutomatedWorkflowsSection() {
             <p className="text-lg text-muted-foreground mb-8">
               Stop copying clips between apps. ShortPurify's Publish Hub connects all your social accounts so you can post everywhere or schedule in advance without leaving the dashboard.
             </p>
-            <ul className="space-y-5 mb-10">
+            <ul className="grid grid-cols-1 gap-6 mb-10">
               {benefits.map((benefit, i) => (
-                <li key={i} className="flex gap-4 items-center">
-                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent shrink-0">
-                    <CheckCircle2 size={16} />
+                <li key={i} className="flex gap-5 items-start bg-white/50 p-4 rounded-2xl border border-transparent transition-all hover:bg-white hover:border-border hover:shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <CheckCircle2 size={18} />
                   </div>
-                  <span className="font-semibold text-foreground text-lg">{benefit}</span>
+                  <div>
+                    <h5 className="font-bold text-foreground text-lg mb-1">{benefit.title}</h5>
+                    <p className="text-muted-foreground text-sm leading-relaxed">{benefit.text}</p>
+                  </div>
                 </li>
               ))}
             </ul>

@@ -45,11 +45,9 @@ function Navbar() {
                 Sign in
               </button>
             </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="cursor-pointer bg-black text-white hover:bg-black/90 px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-md">
+            <Link href="/contact" className="cursor-pointer bg-black text-white hover:bg-black/90 px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-md">
                 Contact
-              </button>
-            </SignUpButton>
+            </Link>
           </Unauthenticated>
         </div>
 
@@ -90,11 +88,9 @@ function Navbar() {
                   Sign in
                 </button>
               </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="w-full text-center bg-black text-white hover:bg-black/90 px-5 py-3 rounded-full text-base font-semibold transition-all shadow-md">
+              <Link href="/contact" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-center bg-black text-white hover:bg-black/90 px-5 py-3 rounded-full text-base font-semibold transition-all shadow-md text-center">
                   Contact
-                </button>
-              </SignUpButton>
+              </Link>
              </Unauthenticated>
           </div>
         </div>

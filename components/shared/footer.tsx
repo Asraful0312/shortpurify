@@ -16,7 +16,7 @@ function Footer() {
         <div className="flex gap-8 text-sm font-medium text-muted-foreground">
           <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>
           <Link href="/terms" className="hover:text-primary transition-colors">Terms</Link>
-          <Link href="#" className="hover:text-primary transition-colors">Contact</Link>
+          <Link href="/contact" className="hover:text-primary transition-colors">Contact</Link>
         </div>
       </div>
     </footer>

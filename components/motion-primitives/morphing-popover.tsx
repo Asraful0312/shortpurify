@@ -16,8 +16,9 @@ import {
   Transition,
   Variants,
 } from 'motion/react';
-import useClickOutside from '@/hooks/useClickOutside';
+
 import { cn } from '@/lib/utils';
+import useClickOutside from './useClickOutside';
 
 const TRANSITION = {
   type: 'spring',
@@ -69,7 +70,7 @@ function usePopoverLogic({
 
 export type MorphingPopoverProps = {
   children: React.ReactNode;
-  transition?: Transition;
+  transition?: any;
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -179,7 +180,7 @@ function MorphingPopoverContent({
     );
 
   const ref = useRef<HTMLDivElement>(null);
-  useClickOutside(ref, context.close);
+  useClickOutside(ref as any, context.close);
 
   useEffect(() => {
     if (!context.isOpen) return;

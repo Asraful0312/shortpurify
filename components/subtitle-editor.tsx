@@ -22,7 +22,7 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
     onChange({ ...settings, [key]: value });
 
   return (
-    <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-4 w-64 shadow-2xl text-white">
+    <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-3.5 w-64 shadow-2xl text-white">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <span className="font-bold text-sm tracking-wide">Subtitle Style</span>
@@ -34,24 +34,23 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
         </button>
       </div>
 
-      {/* Enable toggle */}
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
         <span className="text-xs font-semibold text-white/70">Show Subtitles</span>
         <button
           onClick={() => set("enabled", !settings.enabled)}
-          className={`relative w-10 h-5 rounded-full transition-colors ${
+          className={`relative w-[38px] h-[20px] rounded-full transition-colors shrink-0 ${
             settings.enabled ? "bg-primary" : "bg-white/20"
           }`}
         >
           <span
-            className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-              settings.enabled ? "translate-x-5" : "translate-x-0.5"
+            className={`absolute top-[2px] w-[16px] h-[16px] bg-white rounded-full transition-all duration-200 shadow ${
+              settings.enabled ? "left-[20px]" : "left-[2px]"
             }`}
           />
         </button>
       </div>
 
-      <div className={`space-y-4 ${!settings.enabled ? "opacity-40 pointer-events-none" : ""}`}>
+      <div className={`space-y-3.5 ${!settings.enabled ? "opacity-40 pointer-events-none" : ""}`}>
         {/* Font family */}
         <div>
           <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">

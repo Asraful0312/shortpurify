@@ -8,14 +8,27 @@ const contactSchema = z.object({
   email: z.string().email("Invalid email address"),
   subject: z.string().min(5, "Subject must be at least 5 characters"),
   message: z.string().min(10, "Message must be at least 10 characters"),
+  turnstileToken: z.string().min(1, "CAPTCHA token required"),
 });
 
 export async function sendContactEmail(formData: z.infer<typeof contactSchema>) {
   try {
-    // Validate again on the server
     const validatedData = contactSchema.parse(formData);
+    const { name, email, subject, message, turnstileToken } = validatedData;
 
-    const { name, email, subject, message } = validatedData;
+    // Verify Turnstile token server-side before doing anything
+    const secret = process.env.TURNSTILE_SECRET_KEY;
+    if (!secret) throw new Error("TURNSTILE_SECRET_KEY not configured");
+
+    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret, response: turnstileToken }),
+    });
+    const verifyData = await verifyRes.json() as { success: boolean };
+    if (!verifyData.success) {
+      return { success: false, error: "CAPTCHA verification failed. Please try again." };
+    }
 
     await resend.emails.send({
       from: "ShortPurify Contact <contact@shortpurify.com>",

@@ -12,24 +12,39 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/contact",
   "/sign-in(.*)",
-  "/clip(.*)",
   "/sign-up(.*)",
+  "/clip(.*)",          
   "/api/uploadthing(.*)",
   "/api/webhooks(.*)",
+]);
+
+// Add all your dashboard/private routes here
+const isProtectedRoute = createRouteMatcher([
+  "/dashboard(.*)",      // this makes /dashboard, /dashboard/anything private
+  // Add more if needed, e.g.:
+  // "/settings(.*)",
+  // "/profile(.*)",
+  // "/admin(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
-  // Logged-in user hitting the homepage → send to dashboard
+  // Logged-in user hitting the homepage → redirect to dashboard
   if (userId && req.nextUrl.pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // Any non-public route → require auth (auto-redirects to /sign-in)
-  if (!isPublicRoute(req)) {
+  // If the route is protected, require authentication
+  // (this will automatically redirect unauthenticated users to /sign-in)
+  if (isProtectedRoute(req)) {
     await auth.protect();
   }
+
+  // Optional: You can also keep the old logic for extra safety
+  // if (!isPublicRoute(req)) {
+  //   await auth.protect();
+  // }
 });
 
 export const config = {

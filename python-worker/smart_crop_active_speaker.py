@@ -480,15 +480,6 @@ class ActiveSpeakerDetector:
         hosts) and discounts objects near the horizontal center (mics, props, logos).
         This prevents the crop from locking onto a central mic stand instead of a face.
         """
-        # Estimate frame width from visible boxes across all tracks
-        all_boxes = [b for t in tracks for b in t.boxes if b is not None]
-        if all_boxes:
-            frame_cx_estimate = np.median([b.cx for b in all_boxes])
-            frame_w_estimate = max(b.x2 for b in all_boxes)
-        else:
-            frame_cx_estimate = 0.0
-            frame_w_estimate = 1.0
-
         for track in tracks:
             visible = [b for b in track.boxes if b is not None]
             if not visible:
@@ -496,13 +487,10 @@ class ActiveSpeakerDetector:
             mean_area = sum(b.area() for b in visible) / len(visible)
             visibility = len(visible) / max(n_frames, 1)
 
-            # Off-center bonus: faces far from the horizontal center score higher.
-            # A face at the edge gets 2.0×, a face dead-center gets 0.5×.
-            mean_cx = np.mean([b.cx for b in visible])
-            center_dist = abs(mean_cx - frame_cx_estimate) / max(frame_w_estimate * 0.5, 1.0)
-            off_center_bonus = 0.5 + 1.5 * min(center_dist, 1.0)
-
-            track.speaking_score = mean_area * visibility * off_center_bonus
+            # Score by largest, most consistently visible face.
+            # No off-center bonus — it caused wrong-person tracking when the
+            # speaker is centered (common in interviews, tutorials, podcasts).
+            track.speaking_score = mean_area * visibility
 
         LOG.debug(
             "Heuristic scores (with off-center bonus): %s",

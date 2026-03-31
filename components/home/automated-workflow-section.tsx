@@ -109,12 +109,12 @@ export default function AutomatedWorkflowsSection() {
                 </div>
 
                 {/* Flowing Beams */}
-                <AnimatedBeam containerRef={containerRef} fromRef={div1Ref} toRef={div4Ref} curvature={-50} pathColor="#FF0000/20" gradientStartColor="#FF0000" gradientStopColor="#FF0000" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div2Ref} toRef={div4Ref} pathColor="#3b82f6/20" gradientStartColor="#3b82f6" gradientStopColor="#3b82f6" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div3Ref} toRef={div4Ref} curvature={50} pathColor="#69C9D0/20" gradientStartColor="#69C9D0" gradientStopColor="#ee1d52" />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div5Ref} curvature={50} pathColor="#FF0000/20" gradientStartColor="#FF0000" gradientStopColor="#FF0000" delay={0.5} />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#000000/20" gradientStartColor="#000000" gradientStopColor="#1DA1F2" delay={0.5} />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div7Ref} curvature={-30} pathColor="#0085FF/20" gradientStartColor="#0085FF" gradientStopColor="#0085FF" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div1Ref} toRef={div4Ref} curvature={-50} pathColor="#FF0000" gradientStartColor="#FF0000" gradientStopColor="#FF0000" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div2Ref} toRef={div4Ref} pathColor="#3b82f6" gradientStartColor="#3b82f6" gradientStopColor="#3b82f6" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div3Ref} toRef={div4Ref} curvature={50} pathColor="#69C9D0" gradientStartColor="#69C9D0" gradientStopColor="#ee1d52" />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div5Ref} curvature={50} pathColor="#FF0000" gradientStartColor="#FF0000" gradientStopColor="#FF0000" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#000000" gradientStartColor="#000000" gradientStopColor="#1DA1F2" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div7Ref} curvature={-30} pathColor="#0085FF" gradientStartColor="#0085FF" gradientStopColor="#0085FF" delay={0.5} />
               </div>
             </div>
           </div>

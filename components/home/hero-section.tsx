@@ -201,8 +201,9 @@ export default function HeroSection() {
               loop
               muted
               playsInline
+              preload="auto"
               controls={false}
-              className="absolute inset-0 z-0 w-full h-full object-cover bg-transparent pointer-events-none"
+              className="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
             >
               <source src="/video/demoshort.mp4" type="video/mp4" />
             </video>

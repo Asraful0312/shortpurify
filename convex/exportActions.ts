@@ -51,7 +51,7 @@ export const exportWithSubtitles = action({
     ),
     settings: SETTINGS_VALIDATOR,
   },
-  handler: async (ctx, { outputId, clipKey, clipTitle, subtitleWords, settings }) => {
+  handler: async (ctx, { outputId, clipKey, subtitleWords, settings }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Unauthorized");
 
@@ -61,30 +61,8 @@ export const exportWithSubtitles = action({
 
     const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
 
-    // Settings hash — first 16 hex chars of SHA-256, enough for uniqueness
-    const settingsHash = createHash("sha256")
-      .update(JSON.stringify(settings))
-      .digest("hex")
-      .slice(0, 16);
-
-    if (outputId) {
-      const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
-      if (output?.exportKey === exportKey && output?.exportSettingsHash === settingsHash) {
-        // Cache hit — same settings, same file — skip Modal entirely
-        const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
-        return { downloadUrl };
-      }
-    }
-
-
-    // Signed GET URL so Modal can download the clip
-    const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 });
-
-    // Presigned PUT URL for the export output (deterministic key → overwrites old export)
-    const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
-
-    // Watermark is only burned for free-plan users.
-    // entityId = workspaceId if this output belongs to a workspace project, otherwise userId.
+    // Resolve watermark status BEFORE cache check — plan upgrades must produce a
+    // different hash so the old watermarked file is never served to a paid user.
     let watermark = "shortpurify.com";
     if (outputId) {
       const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
@@ -99,7 +77,6 @@ export const exportWithSubtitles = action({
         if (paid) watermark = "";
       }
     } else {
-      // No outputId — fall back to the authenticated user's plan
       const user = await ctx.runQuery(internal.users.getUserByClerkId, {
         clerkId: identity.subject,
       });
@@ -108,6 +85,27 @@ export const exportWithSubtitles = action({
         if (paid) watermark = "";
       }
     }
+
+    // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render
+    const settingsHash = createHash("sha256")
+      .update(JSON.stringify({ ...settings, watermark }))
+      .digest("hex")
+      .slice(0, 16);
+
+    if (outputId) {
+      const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+      if (output?.exportKey === exportKey && output?.exportSettingsHash === settingsHash) {
+        // Cache hit — same settings AND same watermark status — skip Modal entirely
+        const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
+        return { downloadUrl };
+      }
+    }
+
+    // Signed GET URL so Modal can download the clip
+    const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 });
+
+    // Presigned PUT URL for the export output (deterministic key → overwrites old export)
+    const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
 
     const resp = await fetch(workerUrl, {
       method: "POST",
@@ -172,10 +170,22 @@ export const ensureExported = internalAction({
 
     if (subtitleWords.length === 0) return null;
 
-    const exportKey     = `exports/${output.clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
-    const settingsHash  = createHash("sha256").update(JSON.stringify(settings)).digest("hex").slice(0, 16);
+    const exportKey = `exports/${output.clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
 
-    // Cache hit — already exported with the same settings
+    // Resolve watermark BEFORE cache check so plan upgrades invalidate the cached watermarked file
+    const paid = await ctx.runQuery(internal.usage.isPaidPlan, {
+      workspaceId: project.workspaceId ?? undefined,
+      fallbackEntityId: project.userId,
+    });
+    const watermark = paid ? "" : "shortpurify.com";
+
+    // Hash includes watermark — upgrading from Starter to Pro yields a different hash → cache miss
+    const settingsHash = createHash("sha256")
+      .update(JSON.stringify({ ...settings, watermark }))
+      .digest("hex")
+      .slice(0, 16);
+
+    // Cache hit — same settings AND same watermark status
     if (output.exportKey === exportKey && output.exportSettingsHash === settingsHash) {
       return exportKey;
     }
@@ -185,15 +195,8 @@ export const ensureExported = internalAction({
     const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
     if (!workerUrl) return null; // skip silently if worker not configured
 
-    const clipUrl              = await r2.getUrl(output.clipKey, { expiresIn: 60 * 60 });
-    const { url: uploadUrl }   = await r2.generateUploadUrl(exportKey);
-
-    // Check plan — no watermark for paid workspaces/users (cascades to owner's subscription)
-    const paid = await ctx.runQuery(internal.usage.isPaidPlan, {
-      workspaceId: project.workspaceId ?? undefined,
-      fallbackEntityId: project.userId,
-    });
-    const watermark = paid ? "" : "shortpurify.com";
+    const clipUrl            = await r2.getUrl(output.clipKey, { expiresIn: 60 * 60 });
+    const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
 
     const resp = await fetch(workerUrl, {
       method: "POST",

@@ -223,24 +223,39 @@ export const createProjectFromYouTube = action({
       throw new ConvexError("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables.");
     }
 
+    // Generate a presigned R2 upload URL so the worker can store the downloaded video
+    const ytKey = `yt-imports/${videoId}-${Date.now()}.mp4`;
+    const { url: uploadUrl } = await r2.generateUploadUrl(ytKey);
+
     const extractUrl = workerUrl.replace("process-video", "extract-youtube-info");
     const res = await fetch(extractUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ youtubeUrl, workerSecret }),
+      body: JSON.stringify({ youtubeUrl, workerSecret, uploadUrl }),
     });
 
     if (!res.ok) throw new ConvexError(`Worker returned HTTP ${res.status}`);
 
     const data = await res.json() as {
       ok?: boolean;
+      uploaded?: boolean;
       playbackUrl?: string;
       title?: string;
       durationSeconds?: number;
       error?: string;
     };
-    if (!data.ok || !data.playbackUrl) {
+    if (!data.ok) {
       throw new ConvexError(data.error ?? "Failed to extract video playback URL.");
+    }
+
+    // Prefer the R2-stored high-quality version; fall back to direct playback URL
+    let videoUrl: string;
+    if (data.uploaded) {
+      videoUrl = await r2.getUrl(ytKey, { expiresIn: 60 * 60 * 24 });
+    } else if (data.playbackUrl) {
+      videoUrl = data.playbackUrl;
+    } else {
+      throw new ConvexError("No video URL returned from worker.");
     }
 
     const videoTitle = title?.trim() || data.title || "YouTube Import";
@@ -266,7 +281,7 @@ export const createProjectFromYouTube = action({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const projectId = await ctx.runMutation((internal as any).projects.createProjectAndStart, {
       title: videoTitle,
-      originalUrl: data.playbackUrl,
+      originalUrl: videoUrl,
       enabledPlatforms: enabledPlatforms ?? [],
       cropMode: cropMode ?? "smart_crop",
       workspaceId,

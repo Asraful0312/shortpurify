@@ -13,6 +13,7 @@
 import { internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { Id } from "./_generated/dataModel";
 import { scheduledAggregate } from "./aggregates";
 
@@ -229,6 +230,115 @@ export const getScheduledPosts = query({
 export const getPostById = internalQuery({
   args: { scheduledPostId: v.id("scheduledPosts") },
   handler: async (ctx, { scheduledPostId }) => ctx.db.get(scheduledPostId),
+});
+
+/** Paginated list of the current user's scheduled posts, newest first. */
+export const getScheduledPostsPaginated = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return { page: [], isDone: true, continueCursor: "" };
+
+    const result = await ctx.db
+      .query("scheduledPosts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map((p) => ({
+        id: p._id,
+        outputId: p.outputId,
+        platform: p.platform,
+        accountId: p.accountId,
+        accountName: p.accountName,
+        accountPicture: p.accountPicture,
+        clipTitle: p.clipTitle,
+        caption: p.caption,
+        scheduledAt: p.scheduledAt,
+        status: p.status,
+        postId: p.postId,
+        error: p.error,
+        createdAt: p.createdAt,
+      })),
+    };
+  },
+});
+
+/** Delete a single scheduled post. Cancels the scheduler job if still pending. */
+export const deleteScheduledPost = mutation({
+  args: { scheduledPostId: v.id("scheduledPosts") },
+  handler: async (ctx, { scheduledPostId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new ConvexError("User not found");
+
+    const post = await ctx.db.get(scheduledPostId);
+    if (!post || post.userId !== user._id) throw new ConvexError("Not found");
+
+    if (post.status === "pending" && post.convexJobId) {
+      try {
+        await ctx.scheduler.cancel(post.convexJobId as unknown as Id<"_scheduled_functions">);
+      } catch {}
+    }
+
+    await scheduledAggregate.delete(ctx, post);
+    await ctx.db.delete(scheduledPostId);
+  },
+});
+
+/** Kick off deletion of all scheduled posts for the current user. */
+export const deleteAllScheduledPosts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Unauthorized");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new ConvexError("User not found");
+
+    await ctx.scheduler.runAfter(0, internal.scheduledPublish._deletePostsBatch, { userId: user._id });
+  },
+});
+
+/** Internal: delete posts in batches, scheduling itself to continue if needed. */
+export const _deletePostsBatch = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const batch = await ctx.db
+      .query("scheduledPosts")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(50);
+
+    for (const post of batch) {
+      if (post.status === "pending" && post.convexJobId) {
+        try {
+          await ctx.scheduler.cancel(post.convexJobId as unknown as Id<"_scheduled_functions">);
+        } catch {}
+      }
+      await scheduledAggregate.delete(ctx, post);
+      await ctx.db.delete(post._id);
+    }
+
+    if (batch.length === 50) {
+      await ctx.scheduler.runAfter(0, internal.scheduledPublish._deletePostsBatch, { userId });
+    }
+  },
 });
 
 export const updatePost = internalMutation({

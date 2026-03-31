@@ -2,34 +2,53 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Plus, Video, Sparkles, Clapperboard, Send, Zap } from "lucide-react";
+import { Plus, Video, Sparkles, Clapperboard, Send, Zap, Loader2 } from "lucide-react";
 import { ProjectCard } from "@/components/project-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { useWorkspace } from "@/components/workspace-context";
 
+const PAGE_SIZE = 12;
+
 export default function DashboardPage() {
   const { activeOrgId, activeOrg, isLoading: workspaceLoading } = useWorkspace();
 
-  // Personal projects — always fetched so we have them ready
-  const personalProjects = useQuery(api.projects.listUserProjects);
+  const isPersonalView = !activeOrgId;
 
-  // Workspace projects — only fetched when in a non-personal workspace
-  const workspaceProjects = useQuery(
-    api.projects.listWorkspaceProjects,
+  const {
+    results: personalResults,
+    status: personalStatus,
+    loadMore: loadMorePersonal,
+  } = usePaginatedQuery(
+    api.projects.listUserProjectsPaginated,
+    {},
+    { initialNumItems: PAGE_SIZE },
+  );
+
+  const {
+    results: workspaceResults,
+    status: workspaceStatus,
+    loadMore: loadMoreWorkspace,
+  } = usePaginatedQuery(
+    api.projects.listWorkspaceProjectsPaginated,
     activeOrgId ? { workspaceId: activeOrgId } : "skip",
+    { initialNumItems: PAGE_SIZE },
   );
 
   const workspaceId = activeOrgId ?? undefined;
   const aggregateStats = useQuery(api.analytics.getDashboardStats, { workspaceId });
-
-  const isPersonalView = !activeOrgId;
-  const projects = isPersonalView ? personalProjects : workspaceProjects;
-  const isLoading = workspaceLoading || projects === undefined;
-
   const usageData = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
 
-  const totalProjects = aggregateStats?.totalProjects ?? projects?.length ?? 0;
+  const projects = isPersonalView ? personalResults : workspaceResults;
+  const status = isPersonalView ? personalStatus : workspaceStatus;
+  const loadMore = isPersonalView ? loadMorePersonal : loadMoreWorkspace;
+
+  const isLoading = workspaceLoading || status === "LoadingFirstPage";
+  const isLoadingMore = status === "LoadingMore";
+  const canLoadMore = status === "CanLoadMore";
+
+  const totalProjects = aggregateStats?.totalProjects ?? projects.length ?? 0;
   const stats = {
     totalProjects,
     clipsGenerated: aggregateStats?.clipsGenerated ?? 0,
@@ -106,7 +125,7 @@ export default function DashboardPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && projects!.length === 0 && (
+      {!isLoading && projects.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border/60 rounded-[2rem] bg-white/50 p-10 text-center min-h-[400px]">
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-6 shadow-sm">
             <Video size={32} />
@@ -128,16 +147,16 @@ export default function DashboardPage() {
       )}
 
       {/* Projects grid */}
-      {!isLoading && projects!.length > 0 && (
+      {!isLoading && projects.length > 0 && (
         <>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-lg">Recent Projects</h2>
             <span className="text-sm text-muted-foreground font-medium">
-              {projects!.length} project{projects!.length !== 1 ? "s" : ""}
+              {projects.length} project{projects.length !== 1 ? "s" : ""}{canLoadMore || isLoadingMore ? "+" : ""}
             </span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {projects!.map((project) => (
+            {projects.map((project) => (
               <ProjectCard
                 key={project._id}
                 project={{
@@ -151,6 +170,27 @@ export default function DashboardPage() {
               />
             ))}
           </div>
+
+          {/* Load more */}
+          {(canLoadMore || isLoadingMore) && (
+            <div className="flex justify-center mt-8">
+              <button
+                type="button"
+                onClick={() => loadMore(PAGE_SIZE)}
+                disabled={isLoadingMore}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-border bg-white hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-semibold shadow-sm"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  "Load more"
+                )}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

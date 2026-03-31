@@ -88,7 +88,7 @@ function Navbar() {
                   Sign in
                 </button>
               </SignInButton>
-              <Link href="/contact" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-center bg-black text-white hover:bg-black/90 px-5 py-3 rounded-full text-base font-semibold transition-all shadow-md text-center">
+              <Link href="/contact" onClick={() => setIsMobileMenuOpen(false)} className="w-full bg-black text-white hover:bg-black/90 px-5 py-3 rounded-full text-base font-semibold transition-all shadow-md text-center">
                   Contact
               </Link>
              </Unauthenticated>

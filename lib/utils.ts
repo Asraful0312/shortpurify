@@ -21,3 +21,97 @@ export function friendlyError(err: unknown, fallback = "Something went wrong"): 
   // If there's no envelope prefix at all, return the raw message
   return raw.trim() || fallback;
 }
+
+export const PIPELINE_STEPS = [
+  {
+    key: "Transcribing audio…",
+    label: "Transcription",
+    description: "AssemblyAI speech-to-text with timestamps",
+  },
+  {
+    key: "Generating clip ideas with Claude AI…",
+    label: "AI Analysis",
+    description: "Claude extracts viral moments & captions",
+  },
+  {
+    key: "Processing clips (AI crop + FFmpeg)…",
+    label: "Smart Clips",
+    description: "AI face-tracking crop & FFmpeg encoding",
+  },
+];
+
+
+
+export function getProcessingSteps(processingStep?: string) {
+  const currentIdx = PIPELINE_STEPS.findIndex((s) => s.key === processingStep);
+  return PIPELINE_STEPS.map((s, i) => ({
+    label: s.label,
+    description: s.description,
+    status: (
+      i < currentIdx ? "complete" : i === currentIdx ? "in_progress" : "pending"
+    ) as "complete" | "in_progress" | "pending",
+  }));
+}
+
+
+export function formatDuration(startTime?: number, endTime?: number): string {
+  if (startTime === undefined || endTime === undefined) return "-";
+  const secs = Math.round(endTime - startTime);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Format milliseconds → MM:SS */
+export function msToTimestamp(ms: number): string {
+  const totalSecs = Math.floor(ms / 1000);
+  const m = Math.floor(totalSecs / 60);
+  const s = totalSecs % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Format seconds → MM:SS */
+export function secsToTimestamp(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function timeAgo(createdAt: number): string {
+  const diff = Math.floor((Date.now() - createdAt) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+
+
+export type TranscriptWord = { text: string; start: number; end: number; speaker?: string };
+export type ClipRef = { title: string; startTime: number; endTime: number; viralScore: number };
+
+
+/** Group words array into ~blockSizeSecs second blocks */
+export function groupWordsIntoBlocks(
+  words: TranscriptWord[],
+  blockSizeSecs: number,
+): { startMs: number; words: TranscriptWord[] }[] {
+  if (words.length === 0) return [];
+  const blocks: { startMs: number; words: TranscriptWord[] }[] = [];
+  let current: TranscriptWord[] = [];
+  let blockStart = words[0]?.start ?? 0;
+
+  for (const word of words) {
+    current.push(word);
+    const elapsed = (word.end - blockStart) / 1000;
+    if (elapsed >= blockSizeSecs) {
+      blocks.push({ startMs: blockStart, words: current });
+      current = [];
+      blockStart = word.end;
+    }
+  }
+  if (current.length > 0) {
+    blocks.push({ startMs: blockStart, words: current });
+  }
+  return blocks;
+}

@@ -63,7 +63,7 @@ export function ProcessingStatus({ steps = DEFAULT_STEPS }: ProcessingStatusProp
               />
             )}
 
-            <div className="shrink-0 mt-0.5">{stepIcon(step.status)}</div>
+            <div className="shrink-0 mt-0.5 bg-white size-5 rounded-full">{stepIcon(step.status)}</div>
             <div className={cn("pb-6", i === steps.length - 1 && "pb-0")}>
               <p
                 className={cn(

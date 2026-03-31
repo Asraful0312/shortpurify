@@ -1,111 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useQuery, useAction, useMutation } from "convex/react";
+import { ProcessingStatus } from "@/components/dashboard/processing-status";
+import DeleteProjectDialog from "@/components/dashboard/project/delete-project-dialog";
+import MultiPlatformCaptionCard from "@/components/dashboard/project/multi-platform-caption-card";
+import TranscriptViewer from "@/components/dashboard/project/transcript-viewer";
+import { OutputPreview } from "@/components/output-preview";
+import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWorkspace } from "@/components/workspace-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { downloadAllAsZip } from "@/lib/download";
+import { formatDuration, friendlyError, getProcessingSteps, timeAgo } from "@/lib/utils";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  AlertCircle,
   ArrowLeft,
+  Check,
   Clock,
   DownloadCloud,
-  AlertCircle,
-  Copy,
-  Check,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Loader2,
-  X,
-  Trash2,
   Pencil,
+  Trash2,
+  X
 } from "lucide-react";
-import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
-import { downloadAllAsZip } from "@/lib/download";
-import { friendlyError } from "@/lib/utils";
-import { OutputPreview } from "@/components/output-preview";
-import { ProcessingStatus } from "@/components/dashboard/processing-status";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { useWorkspace } from "@/components/workspace-context";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 
-// ── Pipeline steps ─────────────────────────────────────────────────────────────
 
-const PIPELINE_STEPS = [
-  {
-    key: "Transcribing audio…",
-    label: "Transcription",
-    description: "AssemblyAI speech-to-text with timestamps",
-  },
-  {
-    key: "Generating clip ideas with Claude AI…",
-    label: "AI Analysis",
-    description: "Claude extracts viral moments & captions",
-  },
-  {
-    key: "Processing clips (AI crop + FFmpeg)…",
-    label: "Smart Clips",
-    description: "AI face-tracking crop & FFmpeg encoding",
-  },
-];
-
-function getProcessingSteps(processingStep?: string) {
-  const currentIdx = PIPELINE_STEPS.findIndex((s) => s.key === processingStep);
-  return PIPELINE_STEPS.map((s, i) => ({
-    label: s.label,
-    description: s.description,
-    status: (
-      i < currentIdx ? "complete" : i === currentIdx ? "in_progress" : "pending"
-    ) as "complete" | "in_progress" | "pending",
-  }));
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDuration(startTime?: number, endTime?: number): string {
-  if (startTime === undefined || endTime === undefined) return "-";
-  const secs = Math.round(endTime - startTime);
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/** Format milliseconds → MM:SS */
-function msToTimestamp(ms: number): string {
-  const totalSecs = Math.floor(ms / 1000);
-  const m = Math.floor(totalSecs / 60);
-  const s = totalSecs % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/** Format seconds → MM:SS */
-function secsToTimestamp(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = Math.floor(secs % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function timeAgo(createdAt: number): string {
-  const diff = Math.floor((Date.now() - createdAt) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
-
-const PLATFORM_LABELS: Record<string, string> = {
-  tiktok: "TikTok",
-  instagram: "Instagram",
-  youtube: "YouTube Shorts",
-  x: "X / Twitter",
-  threads: "Threads",
-  linkedin: "LinkedIn",
-  snapchat: "Snapchat",
-  blog: "Blog",
-};
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailsPage() {
   const params = useParams();
@@ -154,7 +79,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
-  // ── Loading ──
+ 
   if (project === undefined) {
     return (
       <div className="p-6 md:p-10 max-w-7xl mx-auto">
@@ -171,7 +96,7 @@ export default function ProjectDetailsPage() {
     );
   }
 
-  // ── Not found ──
+
   if (project === null) {
     return (
       <div className="p-6 md:p-10 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -483,7 +408,7 @@ export default function ProjectDetailsPage() {
 
           {/* Captions — all platforms per clip */}
           <TabsContent value="captions">
-            <div className="flex flex-col gap-6 max-w-3xl">
+            <div className="flex flex-col gap-6 w-full">
               {outputs?.map((clip) => (
                 <MultiPlatformCaptionCard
                   key={clip._id}
@@ -541,386 +466,3 @@ export default function ProjectDetailsPage() {
   );
 }
 
-
-function DeleteProjectDialog({
-  projectTitle,
-  clipCount,
-  onConfirm,
-  onClose,
-}: {
-  projectTitle: string;
-  clipCount: number;
-  onConfirm: () => Promise<void>;
-  onClose: () => void;
-}) {
-  const [typed, setTyped] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const confirmed = typed === projectTitle;
-
-  const handleDelete = async () => {
-    if (!confirmed || deleting) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await onConfirm();
-    } catch (e) {
-      setError(friendlyError(e));
-      setDeleting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-300 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md border border-border flex flex-col gap-0 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-6 pb-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
-              <Trash2 size={18} className="text-red-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-extrabold text-foreground">Delete Project</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">This action cannot be undone.</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={deleting}
-            className="p-2 rounded-xl hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-40 shrink-0"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* What gets deleted */}
-        <div className="mx-6 mb-5 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 space-y-1.5">
-          <p className="text-sm font-bold text-red-800">The following will be permanently deleted:</p>
-          <ul className="text-sm text-red-700 space-y-1">
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-              <p>Project <span className="font-semibold">&ldquo;{projectTitle}&rdquo;</span></p>
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-              {clipCount} clip{clipCount !== 1 ? "s" : ""} and all associated video files
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-              All scheduled posts for this project
-            </li>
-            <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-              Transcript, captions, and subtitle settings
-            </li>
-          </ul>
-        </div>
-
-        {/* Type-to-confirm */}
-        <div className="px-6 pb-5 space-y-2">
-          <label className="text-sm font-bold text-foreground">
-            Type <span className="font-mono bg-secondary px-1.5 py-0.5 rounded text-red-700">{projectTitle}</span> to confirm
-          </label>
-          <input
-            type="text"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleDelete()}
-            disabled={deleting}
-            placeholder={projectTitle}
-            autoFocus
-            className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-400/40 bg-white disabled:opacity-50 placeholder:text-muted-foreground/40 mt-4"
-          />
-          {error && (
-            <p className="text-xs text-red-600 font-medium flex items-center gap-1">
-              <AlertCircle size={12} /> {error}
-            </p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="px-6 pb-6 flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={deleting}
-            className="flex-1 py-2.5 rounded-xl border border-border font-semibold text-sm hover:bg-secondary transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={!confirmed || deleting}
-            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {deleting ? (
-              <><Loader2 size={15} className="animate-spin" /> Deleting…</>
-            ) : (
-              <><Trash2 size={15} /> Delete Forever</>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Multi-platform Caption Card ───────────────────────────────────────────────
-
-function MultiPlatformCaptionCard({
-  title,
-  platform,
-  captions,
-  viralScore,
-  startTime,
-  endTime,
-}: {
-  title: string;
-  platform: string;
-  captions: Record<string, string>;
-  viralScore: number;
-  startTime?: number;
-  endTime?: number;
-}) {
-  const platformKeys = Object.keys(captions);
-  const [activePlatform, setActivePlatform] = useState(
-    captions[platform] ? platform : platformKeys[0],
-  );
-  const [copied, setCopied] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>(captions);
-
-  const copy = () => {
-    navigator.clipboard.writeText(values[activePlatform] ?? "");
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="bg-white border border-border rounded-2xl p-5 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-bold text-sm">{title}</p>
-          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-            {viralScore}/100
-          </span>
-          {startTime !== undefined && endTime !== undefined && (
-            <span className="text-xs font-mono bg-secondary text-muted-foreground px-2 py-0.5 rounded-full border border-border">
-              {secsToTimestamp(startTime)} - {secsToTimestamp(endTime)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setEditing((e) => !e)}
-            className="text-xs font-semibold text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-secondary transition-colors"
-          >
-            {editing ? "Done" : "Edit"}
-          </button>
-          <button
-            onClick={copy}
-            className="text-xs font-bold text-primary px-3 py-1 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/20 flex items-center gap-1"
-          >
-            {copied ? <Check size={12} /> : <Copy size={12} />}
-            {copied ? "Copied!" : "Copy"}
-          </button>
-        </div>
-      </div>
-
-      {/* Platform tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {platformKeys.map((p) => (
-          <button
-            key={p}
-            onClick={() => setActivePlatform(p)}
-            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors ${
-              activePlatform === p
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary text-foreground border-border hover:border-primary/40"
-            }`}
-          >
-            {PLATFORM_LABELS[p] ?? p}
-          </button>
-        ))}
-      </div>
-
-      {/* Caption text */}
-      {editing ? (
-        <textarea
-          value={values[activePlatform] ?? ""}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, [activePlatform]: e.target.value }))
-          }
-          rows={4}
-          className="w-full text-sm border border-border rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
-      ) : (
-        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-          {values[activePlatform] ?? "No caption for this platform."}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ── Transcript Viewer ─────────────────────────────────────────────────────────
-
-type TranscriptWord = { text: string; start: number; end: number; speaker?: string };
-type ClipRef = { title: string; startTime: number; endTime: number; viralScore: number };
-
-function TranscriptViewer({
-  text,
-  words,
-  clips,
-}: {
-  text: string;
-  words: TranscriptWord[];
-  clips: ClipRef[];
-}) {
-  const [mode, setMode] = useState<"clean" | "timestamped">("clean");
-  const [copied, setCopied] = useState(false);
-
-  const copyAll = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Group words into ~10-second blocks for timestamped view
-  const blocks = groupWordsIntoBlocks(words, 10);
-
-  return (
-    <div className="max-w-3xl">
-      {/* Controls */}
-      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setMode("clean")}
-            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
-              mode === "clean"
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-white border-border hover:bg-secondary"
-            }`}
-          >
-            Clean Text
-          </button>
-          <button
-            onClick={() => setMode("timestamped")}
-            className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ${
-              mode === "timestamped"
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-white border-border hover:bg-secondary"
-            }`}
-          >
-            With Timestamps
-          </button>
-        </div>
-        <button
-          onClick={copyAll}
-          className="text-xs font-bold text-primary px-3 py-1.5 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors border border-primary/20 flex items-center gap-1.5"
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied!" : "Copy Full Transcript"}
-        </button>
-      </div>
-
-      {/* Clip timestamps quick-reference */}
-      {clips.length > 0 && (
-        <div className="mb-5 bg-amber-50 border border-amber-200 rounded-2xl p-4">
-          <p className="text-xs font-extrabold uppercase tracking-wider text-amber-700 mb-3">
-            AI Identified Viral Clips
-          </p>
-          <div className="flex flex-col gap-2">
-            {clips.map((c, i) => (
-              <div key={i} className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-lg border border-amber-200 font-bold shrink-0">
-                  {secsToTimestamp(c.startTime)} - {secsToTimestamp(c.endTime)}
-                </span>
-                <span className="text-sm font-semibold text-foreground">{c.title}</span>
-                <span className="text-xs text-amber-600 font-bold ml-auto">
-                  {c.viralScore}/100
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Transcript content */}
-      <div className="bg-white border border-border rounded-2xl p-6 shadow-sm">
-        {mode === "clean" ? (
-          <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-            {text}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {blocks.map((block, i) => (
-              <TimestampBlock key={i} block={block} clips={clips} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function TimestampBlock({
-  block,
-  clips,
-}: {
-  block: { startMs: number; words: TranscriptWord[] };
-  clips: ClipRef[];
-}) {
-  // Check if this block overlaps with any clip window
-  const blockStartSec = block.startMs / 1000;
-  const blockEndSec = block.words.length > 0
-    ? (block.words[block.words.length - 1].end) / 1000
-    : blockStartSec + 10;
-
-  const overlappingClip = clips.find(
-    (c) => c.startTime < blockEndSec && c.endTime > blockStartSec,
-  );
-
-  return (
-    <div
-      className={`flex gap-3 ${overlappingClip ? "bg-amber-50 -mx-2 px-2 py-1 rounded-xl border border-amber-200/60" : ""}`}
-    >
-      <span className="font-mono text-xs text-muted-foreground shrink-0 pt-0.5 w-10 text-right">
-        {msToTimestamp(block.startMs)}
-      </span>
-      <p className="text-sm leading-relaxed text-foreground flex-1">
-        {block.words.map((w) => w.text).join(" ")}
-        {overlappingClip && (
-          <span className="ml-2 text-[10px] font-extrabold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full border border-amber-200">
-            Clip: {overlappingClip.title}
-          </span>
-        )}
-      </p>
-    </div>
-  );
-}
-
-/** Group words array into ~blockSizeSecs second blocks */
-function groupWordsIntoBlocks(
-  words: TranscriptWord[],
-  blockSizeSecs: number,
-): { startMs: number; words: TranscriptWord[] }[] {
-  if (words.length === 0) return [];
-  const blocks: { startMs: number; words: TranscriptWord[] }[] = [];
-  let current: TranscriptWord[] = [];
-  let blockStart = words[0]?.start ?? 0;
-
-  for (const word of words) {
-    current.push(word);
-    const elapsed = (word.end - blockStart) / 1000;
-    if (elapsed >= blockSizeSecs) {
-      blocks.push({ startMs: blockStart, words: current });
-      current = [];
-      blockStart = word.end;
-    }
-  }
-  if (current.length > 0) {
-    blocks.push({ startMs: blockStart, words: current });
-  }
-  return blocks;
-}

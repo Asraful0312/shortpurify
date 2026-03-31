@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
@@ -165,6 +166,50 @@ export const listWorkspaceProjects = query({
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .order("desc")
       .collect();
+  },
+});
+
+/** Paginated list of the current user's projects, newest first. */
+export const listUserProjectsPaginated = query({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return { page: [], isDone: true, continueCursor: "" };
+
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .paginate(args.paginationOpts);
+  },
+});
+
+/** Paginated list of workspace projects, newest first. */
+export const listWorkspaceProjectsPaginated = query({
+  args: { workspaceId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { page: [], isDone: true, continueCursor: "" };
+
+    const callerMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_clerk_workspace", (q) =>
+        q.eq("clerkId", identity.subject).eq("workspaceId", args.workspaceId)
+      )
+      .unique();
+    if (!callerMembership) return { page: [], isDone: true, continueCursor: "" };
+
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .order("desc")
+      .paginate(args.paginationOpts);
   },
 });
 

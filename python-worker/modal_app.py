@@ -215,8 +215,8 @@ def process_video(body: dict) -> dict:
     secrets=[modal.Secret.from_name("shortpurify-secrets")],
     volumes={MODEL_DIR: volume},
     cpu=2.0,
-    memory=2048,
-    timeout=300,
+    memory=4096,
+    timeout=600,
 )
 @modal.fastapi_endpoint(method="POST")
 def extract_youtube_info(body: dict) -> dict:
@@ -224,8 +224,16 @@ def extract_youtube_info(body: dict) -> dict:
     POST body (JSON):
       youtubeUrl     str
       workerSecret   str
+      uploadUrl      str  — presigned R2 PUT URL (optional, if provided video is downloaded + uploaded)
 
-    Returns: { ok, title, playbackUrl, error? }
+    Returns: { ok, title, r2Key?, playbackUrl?, durationSeconds?, error? }
+
+    If uploadUrl is provided:
+      - Downloads the best available quality (up to 1080p) using yt-dlp + ffmpeg merge
+      - Uploads the merged MP4 to R2 via the presigned URL
+      - Returns r2Key so the caller can generate a signed serving URL
+
+    Falls back to returning a direct playbackUrl if upload fails or uploadUrl not provided.
     """
     if not _verify_secret(body.get("workerSecret", "")):
         return {"ok": False, "error": "Unauthorized"}
@@ -234,72 +242,118 @@ def extract_youtube_info(body: dict) -> dict:
     if not video_url:
         return {"ok": False, "error": "youtubeUrl is required"}
 
-    import yt_dlp
+    upload_url: str = body.get("uploadUrl", "")
 
-    ydl_opts = {
+    import yt_dlp
+    import tempfile, os
+
+    cookies_path = '/models/cookies.txt' if Path('/models/cookies.txt').exists() else None
+
+    # ── Step 1: extract metadata ────────────────────────────────────────────────
+    meta_opts = {
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'cookiefile': '/models/cookies.txt',
     }
+    if cookies_path:
+        meta_opts['cookiefile'] = cookies_path
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(meta_opts) as ydl:
             v_info = ydl.extract_info(video_url, download=False)
             if not v_info:
                 return {"ok": False, "error": "yt-dlp returned no info"}
 
-            res_title = v_info.get("title", "YouTube Video")
-            all_fmts = v_info.get("formats", []) or []
+        res_title = v_info.get("title", "YouTube Video")
+        duration_s = v_info.get("duration")
 
-            # 1. Direct HTTPS streams ONLY (avoid .m3u8 manifests for AssemblyAI)
-            playable = [
-                fmt for fmt in all_fmts
-                if fmt.get("url")
-                and not fmt.get("protocol", "").startswith("m3u8")
-                and "manifest/hls_playlist" not in fmt.get("url", "")
-            ]
+    except Exception as e:
+        import traceback
+        logging.error(f"yt-dlp meta error: {e}\n{traceback.format_exc()}")
+        return {"ok": False, "error": f"YouTube Error: {e}"}
 
-            # 2. Prefer muxed (video + audio) mp4/webm with reasonable resolution
-            muxed = [
-                f for f in playable
-                if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("height", 0) <= 1080
-            ]
+    # ── Step 2: if uploadUrl provided, download best quality and upload to R2 ───
+    if upload_url:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "video.mp4")
+            dl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                # Best video up to 1080p merged with best audio, output as mp4
+                'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/best[height<=1080]/best',
+                'merge_output_format': 'mp4',
+                'outtmpl': out_path,
+                'postprocessors': [{
+                    'key': 'FFmpegVideoConvertor',
+                    'preferedformat': 'mp4',
+                }],
+            }
+            if cookies_path:
+                dl_opts['cookiefile'] = cookies_path
 
-            duration_s = v_info.get("duration")  # seconds (int or float), None if unknown
+            try:
+                with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                    ydl.download([video_url])
 
-            if muxed:
-                # Pick the best resolution muxed stream
-                best = sorted(muxed, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
-                return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
+                # yt-dlp may append .mp4 extension
+                if not os.path.exists(out_path):
+                    candidates = [f for f in os.listdir(tmpdir) if f.endswith('.mp4')]
+                    if candidates:
+                        out_path = os.path.join(tmpdir, candidates[0])
 
-            # 3. Fallback to best video-only direct stream (transcription still works on these)
-            video_only = [
-                f for f in playable
-                if f.get("vcodec") != "none" and f.get("height", 0) <= 1080
-            ]
-            if video_only:
-                best = sorted(video_only, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
-                return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
+                if os.path.exists(out_path):
+                    _upload_to_r2(upload_url, out_path)
+                    logging.info("YouTube video downloaded and uploaded to R2: %s", out_path)
+                    return {"ok": True, "title": res_title, "uploaded": True, "durationSeconds": duration_s}
+                else:
+                    logging.warning("Downloaded file not found, falling back to playback URL")
+            except Exception as e:
+                import traceback
+                logging.error(f"yt-dlp download error: {e}\n{traceback.format_exc()}")
+                # Fall through to playback URL fallback
 
-            # 4. Fallback to ANY direct playable stream
-            if playable:
-                return {"ok": True, "title": res_title, "playbackUrl": playable[-1]["url"], "durationSeconds": duration_s}
+    # ── Step 3: fallback — return a direct playback URL ─────────────────────────
+    try:
+        all_fmts = v_info.get("formats", []) or []
 
-            # 5. Last resort: If we filtered everything, take anything with a URL (even HLS)
-            raw_fmts = [f for f in all_fmts if f.get("url")]
-            if raw_fmts:
-                 return {"ok": True, "title": res_title, "playbackUrl": raw_fmts[-1]["url"], "durationSeconds": duration_s}
+        # Direct HTTPS streams only (avoid .m3u8 manifests)
+        playable = [
+            fmt for fmt in all_fmts
+            if fmt.get("url")
+            and not fmt.get("protocol", "").startswith("m3u8")
+            and "manifest/hls_playlist" not in fmt.get("url", "")
+        ]
 
-            if v_info.get("url"):
-                 return {"ok": True, "title": res_title, "playbackUrl": v_info["url"], "durationSeconds": duration_s}
+        # Prefer muxed streams
+        muxed = [
+            f for f in playable
+            if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("height", 0) <= 1080
+        ]
+        if muxed:
+            best = sorted(muxed, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
+            return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
 
-            return {"ok": False, "error": "No direct playback URLs found for this video"}
+        video_only = [f for f in playable if f.get("vcodec") != "none" and f.get("height", 0) <= 1080]
+        if video_only:
+            best = sorted(video_only, key=lambda f: (f.get("height", 0), f.get("tbr", 0) or 0), reverse=True)[0]
+            return {"ok": True, "title": res_title, "playbackUrl": best["url"], "durationSeconds": duration_s}
+
+        if playable:
+            return {"ok": True, "title": res_title, "playbackUrl": playable[-1]["url"], "durationSeconds": duration_s}
+
+        raw_fmts = [f for f in all_fmts if f.get("url")]
+        if raw_fmts:
+            return {"ok": True, "title": res_title, "playbackUrl": raw_fmts[-1]["url"], "durationSeconds": duration_s}
+
+        if v_info.get("url"):
+            return {"ok": True, "title": res_title, "playbackUrl": v_info["url"], "durationSeconds": duration_s}
+
+        return {"ok": False, "error": "No playback URL available"}
 
     except Exception as e:
         import traceback
         err_msg = str(e)
-        logging.error(f"yt-dlp extract error: {err_msg}\n{traceback.format_exc()}")
+        logging.error(f"yt-dlp fallback error: {err_msg}\n{traceback.format_exc()}")
         return {"ok": False, "error": f"YouTube Error: {err_msg}"}
 
 

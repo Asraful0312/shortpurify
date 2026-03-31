@@ -221,7 +221,7 @@ function FullscreenPlayer({
       className="fixed inset-0 z-9999 bg-black sm:bg-[#0f0f0f] flex items-center justify-center sm:p-8 animate-in fade-in duration-200"
      
     >
-      <div className="flex flex-row items-end justify-center w-full h-full max-w-8xl relative gap-8">
+      <div className="flex flex-row items-end justify-center w-full h-full max-w-8xl relative gap-8 pb-8">
         {/* Close */}
         <button
           onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -232,7 +232,7 @@ function FullscreenPlayer({
 
         {/* Video Box */}
         <div
-          className="relative h-full sm:h-100vh sm:aspect-9/16 sm:max-h-[85vh] w-full sm:w-auto bg-black sm:rounded-3xl overflow-hidden border border-white/5"
+          className="relative h-full sm:h-100vh sm:aspect-9/16 sm:max-h-[85vh] w-full sm:w-auto bg-black sm:rounded-3xl transition-all duration-300 overflow-hidden border border-white/5"
           onClick={(e) => e.stopPropagation()}
         >
           <div ref={containerRef} className="relative w-full h-full group/player">
@@ -358,7 +358,7 @@ function FullscreenPlayer({
         </div>
 
         {/* Desktop sidebar */}
-        <div className="hidden sm:flex flex-col gap-6 items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="hidden sm:flex flex-col gap-4 items-center" onClick={(e) => e.stopPropagation()}>
           {hasSubtitles && isAdmin && (
             <ActionButton icon={<Wand2 size={22} />} label="Edit" onClick={toggleSubtitleEditor} />
           )}
@@ -375,18 +375,17 @@ function FullscreenPlayer({
             small
             onClick={(e) => { e.stopPropagation(); handleDownload(e); }}
           />
-
-          {/* Subtitle editor panel */}
-          {showSubtitleEditor && hasSubtitles && isAdmin && (
-            <div className="mt-2">
-              <SubtitleEditor
-                settings={subtitleSettings}
-                onChange={handleSubtitleSettingsChange}
-                onClose={() => setShowSubtitleEditor(false)}
-              />
-            </div>
-          )}
         </div>
+        {/* Subtitle editor panel — now on the right of buttons */}
+        {showSubtitleEditor && hasSubtitles && isAdmin && (
+          <div className="hidden sm:block animate-in slide-in-from-left-4 duration-300" onClick={(e) => e.stopPropagation()}>
+            <SubtitleEditor
+              settings={subtitleSettings}
+              onChange={handleSubtitleSettingsChange}
+              onClose={() => setShowSubtitleEditor(false)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Mobile subtitle editor — bottom sheet */}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Save, Trash2, AlertTriangle, Building2, UserCircle, ExternalLink, Loader2 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-context";
@@ -80,6 +80,7 @@ function ConfirmDialog({
 
 export default function SettingsPage() {
   const { user } = useUser();
+  const { openUserProfile } = useClerk();
   const { activeOrgId, activeOrg, isOwner } = useWorkspace();
   const router = useRouter();
 
@@ -164,14 +165,12 @@ export default function SettingsPage() {
         <p className="text-xs text-muted-foreground">
           Your name, email, password, and profile picture are managed through your Clerk account.
         </p>
-        <a
-          href="https://accounts.clerk.dev/user"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => openUserProfile()}
           className="self-start flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-sm font-bold transition-colors"
         >
           <ExternalLink size={14} /> Manage Profile
-        </a>
+        </button>
       </div>
 
       {/* Workspace name */}

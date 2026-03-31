@@ -6,7 +6,7 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-context";
 import SingleVideoUploader from "@/components/upload-dropzone";
-import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers, Play, X } from "lucide-react";
 import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
 
@@ -37,6 +37,7 @@ export default function UploadPage() {
     ALL_PLATFORMS.map((p) => p.id),
   );
   const [cropMode, setCropMode] = useState<"smart_crop" | "blur_background">("smart_crop");
+  const [previewMode, setPreviewMode] = useState<"smart_crop" | "blur_background" | null>(null);
 
   // YouTube-specific state
   const [youtubeUrl, setLucideYoutubeUrl] = useState("");
@@ -200,19 +201,19 @@ export default function UploadPage() {
       {/* Crop mode selector */}
       <div className="relative z-10 w-full max-w-2xl mb-4">
         <p className="text-sm font-bold text-foreground mb-2">Video Format</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           {([
             {
               value: "smart_crop",
               icon: <Crop size={18} />,
               label: "Smart Crop",
-              desc: "AI follows the speaker — best for talking-head content",
+              desc: "AI follows the speaker best for talking-head content",
             },
             {
               value: "blur_background",
               icon: <Layers size={18} />,
               label: "Blur Background",
-              desc: "Full frame centered on blurred background — nothing gets cut",
+              desc: "Full frame centered on blurred background nothing gets cut",
             },
           ] as const).map((opt) => (
             <button
@@ -220,7 +221,7 @@ export default function UploadPage() {
               type="button"
               onClick={() => setCropMode(opt.value)}
               className={cn(
-                "flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-left transition-all",
+                "relative flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-left transition-all",
                 cropMode === opt.value
                   ? "border-primary bg-primary/5"
                   : "border-border bg-white hover:border-primary/30",
@@ -231,9 +232,19 @@ export default function UploadPage() {
               </span>
               <span className="font-bold text-sm">{opt.label}</span>
               <span className="text-xs text-muted-foreground leading-snug">{opt.desc}</span>
+              <span
+                role="button"
+                onClick={(e) => { e.stopPropagation(); setPreviewMode(opt.value); }}
+                className="absolute top-2.5 right-2.5 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors bg-secondary hover:bg-primary/10 px-2 py-1 rounded-full"
+              >
+                <Play size={9} className="fill-current" />
+                Preview
+              </span>
             </button>
           ))}
         </div>
+
+ 
       </div>
 
       {/* Tab content */}
@@ -349,11 +360,49 @@ export default function UploadPage() {
             </button>
 
             <p className="text-center text-xs text-muted-foreground">
-              Works with videos, Shorts, and unlisted videos. The video is processed directly — nothing is stored on our servers.
+              Works with videos, Shorts, and unlisted videos. The video is processed directly nothing is stored on our servers.
             </p>
           </div>
         )}
+
       </div>
+
+      {/* Video preview modal */}
+      {previewMode && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setPreviewMode(null)}
+        >
+          <div
+            className="relative rounded-2xl overflow-hidden bg-black shadow-2xl w-full max-w-[320px] aspect-9/16"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <video
+              key={previewMode}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            >
+              <source src={previewMode === "smart_crop" ? "/video/smart-crop-demo.mp4" : "/video/blur-background-demo.mp4"} type="video/mp4" />
+            </video>
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                {previewMode === "smart_crop" ? "Smart Crop" : "Blur Background"} Example
+              </span>
+            </div>
+            <button
+              onClick={() => setPreviewMode(null)}
+              className="absolute top-3 right-3 flex items-center justify-center w-7 h-7 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-black/80 transition-colors"
+            >
+              <X size={14} />
+            </button>
+            <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent pointer-events-none" />
+          </div>
+        </div>
+      )}
 
       {/* Decorative blurs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">

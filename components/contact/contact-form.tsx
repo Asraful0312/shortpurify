@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Loader2, Send } from "lucide-react";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +23,7 @@ type ContactValues = z.infer<typeof contactSchema>;
 
 export function ContactForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const {
@@ -34,14 +36,20 @@ export function ContactForm() {
   });
 
   const onSubmit = async (data: ContactValues) => {
+    if (!turnstileToken) {
+      setStatus({ type: "error", message: "Please complete the CAPTCHA verification." });
+      return;
+    }
+
     setIsSubmitting(true);
     setStatus(null);
 
     try {
-      const result = await sendContactEmail(data);
+      const result = await sendContactEmail({ ...data, turnstileToken });
       if (result.success) {
         setStatus({ type: "success", message: "Message sent successfully! We'll get back to you soon." });
         reset();
+        setTurnstileToken(null);
       } else {
         setStatus({ type: "error", message: result.error || "Failed to send message." });
       }
@@ -58,9 +66,9 @@ export function ContactForm() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold text-foreground ml-1">Full Name</label>
-            <Input 
-              {...register("name")} 
-              placeholder="Alex Johnson" 
+            <Input
+              {...register("name")}
+              placeholder="Alex Johnson"
               className={cn("rounded-2xl border-border/50", errors.name && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.name && <p className="text-[11px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
@@ -68,10 +76,10 @@ export function ContactForm() {
 
           <div className="space-y-2 text-left">
             <label className="text-sm font-bold text-foreground ml-1">Email Address</label>
-            <Input 
-              {...register("email")} 
-              type="email" 
-              placeholder="alex@example.com" 
+            <Input
+              {...register("email")}
+              type="email"
+              placeholder="alex@example.com"
               className={cn("rounded-2xl border-border/50", errors.email && "border-red-500 focus-visible:ring-red-500")}
             />
             {errors.email && <p className="text-[11px] font-bold text-red-500 ml-1">{errors.email.message}</p>}
@@ -80,9 +88,9 @@ export function ContactForm() {
 
         <div className="space-y-2 text-left">
           <label className="text-sm font-bold text-foreground ml-1">Subject</label>
-          <Input 
-            {...register("subject")} 
-            placeholder="How can we help?" 
+          <Input
+            {...register("subject")}
+            placeholder="How can we help?"
             className={cn("rounded-2xl border-border/50", errors.subject && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.subject && <p className="text-[11px] font-bold text-red-500 ml-1">{errors.subject.message}</p>}
@@ -90,12 +98,21 @@ export function ContactForm() {
 
         <div className="space-y-2 text-left">
           <label className="text-sm font-bold text-foreground ml-1">Message</label>
-          <Textarea 
-            {...register("message")} 
-            placeholder="Tell us more about your inquiry..." 
+          <Textarea
+            {...register("message")}
+            placeholder="Tell us more about your inquiry..."
             className={cn("rounded-2xl border-border/50 min-h-[150px]", errors.message && "border-red-500 focus-visible:ring-red-500")}
           />
           {errors.message && <p className="text-[11px] font-bold text-red-500 ml-1">{errors.message.message}</p>}
+        </div>
+
+        <div className="flex justify-center">
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => setTurnstileToken(null)}
+          />
         </div>
 
         {status && (
@@ -107,10 +124,10 @@ export function ContactForm() {
           </div>
         )}
 
-        <Button 
-          type="submit" 
-          disabled={isSubmitting}
-          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-7 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] cursor-pointer"
+        <Button
+          type="submit"
+          disabled={isSubmitting || !turnstileToken}
+          className="w-full bg-primary hover:bg-primary/95 text-primary-foreground py-7 rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>

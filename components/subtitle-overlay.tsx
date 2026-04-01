@@ -469,7 +469,7 @@ function KaraokeTemplate({ settings, displayGroups, activeWord }: TemplateProps)
       style={{ fontFamily: settings.fontFamily }}
     >
       {displayGroups.map((group, gi) => (
-        <div key={gi} className="flex flex-wrap justify-center gap-x-2 gap-y-1 w-full text-center">
+        <div key={gi} className="flex flex-wrap justify-center items-center gap-x-2 gap-y-1 w-full text-center">
           {group.map((word, wi) => {
             const isActive = word === activeWord;
             return (

@@ -715,8 +715,13 @@ def _render_subtitle_frames(
                 stroke = max(1, int(font_size_px // 20))
                 
                 fnt_to_use = big_fnt if is_act else sfnt
-                # Optional visual pop-up offset for active bigger font
-                y_offset = -int((K_SCALE - 1.0) * font_size_px * sc * 0.7) if is_act else 0
+                
+                # Perfect vertical center by balancing height offset
+                if is_act:
+                    big_top, big_bottom = get_text_bounds(draw, big_fnt, sc * K_SCALE)
+                    y_offset = int(((std_bottom - std_top) - (big_bottom - big_top)) / 2)
+                else:
+                    y_offset = 0
                 
                 if sfnt:
                     shadow_draw.text((x_int + cp_x, text_y + y_offset + int(2 * scale_factor)), wt, font=fnt_to_use, fill=(0, 0, 0, 255), anchor="la")

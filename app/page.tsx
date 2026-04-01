@@ -19,7 +19,7 @@ export default function Home() {
         <FeaturesSection />
         <AutomatedWorkflowsSection />
         <HowItWorksSection />
-        <SocialProofSection />
+        {/* <SocialProofSection /> */}
         <PricingSection />
         <CTASection />
       </main>

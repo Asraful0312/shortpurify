@@ -25,9 +25,9 @@ function Navbar() {
           <Link href="#features" className="hover:text-black transition-colors">Products</Link>
           <Link href="#workflows" className="hover:text-black transition-colors">Workflows</Link>
           <Link href="#how-it-works" className="hover:text-black transition-colors">Solutions</Link>
-          <Link href="#testimonials" className="hover:text-black transition-colors flex gap-2 items-center">
+          {/* <Link href="#testimonials" className="hover:text-black transition-colors flex gap-2 items-center">
             Testimonials <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-md">NEW</span>
-          </Link>
+          </Link> */}
           <Link href="#pricing" className="hover:text-black transition-colors">Pricing</Link>
         </nav>
 
@@ -66,9 +66,9 @@ function Navbar() {
           <nav className="flex flex-col gap-4 text-lg font-semibold text-foreground">
             <Link href="#features" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
             <Link href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)}>Solutions</Link>
-            <Link href="#testimonials" className="flex items-center justify-between" onClick={() => setIsMobileMenuOpen(false)}>
+            {/* <Link href="#testimonials" className="flex items-center justify-between" onClick={() => setIsMobileMenuOpen(false)}>
               Testimonials <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-md">NEW</span>
-            </Link>
+            </Link> */}
             <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>Pricing</Link>
             <Link href="#workflows" onClick={() => setIsMobileMenuOpen(false)}>Workflows</Link>
           </nav>

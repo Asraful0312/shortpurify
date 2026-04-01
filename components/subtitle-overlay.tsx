@@ -5,17 +5,97 @@ import type { SubtitleWord } from "@/lib/types";
 
 export type { SubtitleWord };
 
+export type SubtitleTemplate = "classic" | "bold" | "neon" | "cinematic" | "minimal";
+
 export interface SubtitleSettings {
   enabled: boolean;
   x: number;           // 0–100 % from left (center anchor)
   y: number;           // 0–100 % from top  (center anchor)
   fontSize: number;    // px
   fontFamily: string;
-  textColor: string;   // non-highlighted word color
-  highlightColor: string; // highlighted word text color
-  highlightBg: string;    // highlighted word background
+  textColor: string;
+  highlightColor: string;
+  highlightBg: string;
   wordsPerLine: number;
+  template: SubtitleTemplate;
 }
+
+// ── Template presets ──────────────────────────────────────────────────────────
+
+export interface TemplatePreset {
+  id: SubtitleTemplate;
+  label: string;
+  description: string;
+  defaults: Omit<SubtitleSettings, "enabled" | "x" | "y" | "wordsPerLine">;
+}
+
+export const SUBTITLE_TEMPLATES: TemplatePreset[] = [
+  {
+    id: "classic",
+    label: "Classic",
+    description: "Yellow pill highlight, drop shadow",
+    defaults: {
+      template: "classic",
+      fontSize: 26,
+      fontFamily: "Inter, sans-serif",
+      textColor: "#ffffff",
+      highlightColor: "#000000",
+      highlightBg: "#facc15",
+    },
+  },
+  {
+    id: "bold",
+    label: "Bold",
+    description: "Chunky stroke, active word turns yellow",
+    defaults: {
+      template: "bold",
+      fontSize: 32,
+      fontFamily: "Impact, sans-serif",
+      textColor: "#ffffff",
+      highlightColor: "#facc15",
+      highlightBg: "#000000", // unused visually, kept for schema compat
+    },
+  },
+  {
+    id: "neon",
+    label: "Neon",
+    description: "Glowing text on dark strip",
+    defaults: {
+      template: "neon",
+      fontSize: 26,
+      fontFamily: "Inter, sans-serif",
+      textColor: "#22d3ee",
+      highlightColor: "#ffffff",
+      highlightBg: "#22d3ee", // used as glow colour
+    },
+  },
+  {
+    id: "cinematic",
+    label: "Cinematic",
+    description: "Full-width dark bar, accent word",
+    defaults: {
+      template: "cinematic",
+      fontSize: 26,
+      fontFamily: "Inter, sans-serif",
+      textColor: "#ffffff",
+      highlightColor: "#facc15",
+      highlightBg: "#000000", // bar colour (with alpha applied in renderer)
+    },
+  },
+  {
+    id: "minimal",
+    label: "Minimal",
+    description: "Clean text, underline on active word",
+    defaults: {
+      template: "minimal",
+      fontSize: 24,
+      fontFamily: "Inter, sans-serif",
+      textColor: "#ffffff",
+      highlightColor: "#facc15",
+      highlightBg: "#facc15", // underline colour
+    },
+  },
+];
 
 export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {
   enabled: true,
@@ -27,8 +107,10 @@ export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {
   highlightColor: "#000000",
   highlightBg: "#facc15",
   wordsPerLine: 3,
+  template: "classic",
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function groupWords(words: SubtitleWord[], size: number): SubtitleWord[][] {
   const groups: SubtitleWord[][] = [];
@@ -40,11 +122,7 @@ export function groupWords(words: SubtitleWord[], size: number): SubtitleWord[][
 
 const LONG_PAUSE_MS = 800;
 
-/** Used by the server-side ASS burn — kept for compatibility. */
-export function findCurrentGroup(
-  groups: SubtitleWord[][],
-  currentTimeMs: number,
-): number {
+export function findCurrentGroup(groups: SubtitleWord[][], currentTimeMs: number): number {
   if (groups.length === 0) return -1;
   for (let i = 0; i < groups.length; i++) {
     const first = groups[i][0];
@@ -63,6 +141,8 @@ export function findCurrentGroup(
   }
   return -1;
 }
+
+// ── SubtitleOverlay ───────────────────────────────────────────────────────────
 
 interface SubtitleOverlayProps {
   words: SubtitleWord[];
@@ -85,21 +165,16 @@ export function SubtitleOverlay({
 
   if (!settings.enabled || words.length === 0) return null;
 
-  // Only words whose start time has been reached (the speaker has said them)
   const spokenWords = words.filter((w) => w.startMs <= currentTimeMs);
   if (spokenWords.length === 0) return null;
 
   const lastSpoken = spokenWords[spokenWords.length - 1];
-
-  // The word being spoken RIGHT NOW (if any)
   const activeWord = words.find(
     (w) => currentTimeMs >= w.startMs && currentTimeMs <= w.endMs,
   ) ?? null;
 
-  // Hide during a long speech pause — nothing new has started, last word ended a while ago
   if (!activeWord && currentTimeMs - lastSpoken.endMs > LONG_PAUSE_MS) return null;
 
-  // Group all spoken words and keep only the last 2 rows
   const allGroups = groupWords(spokenWords, settings.wordsPerLine);
   const displayGroups = allGroups.slice(-2);
 
@@ -125,6 +200,8 @@ export function SubtitleOverlay({
 
   const handlePointerUp = () => { draggingRef.current = false; };
 
+  const template = settings.template ?? "classic";
+
   return (
     <div
       className={`absolute z-30 transform -translate-x-1/2 -translate-y-1/2 w-max max-w-[90%] flex flex-col items-center ${
@@ -140,34 +217,228 @@ export function SubtitleOverlay({
           drag to reposition
         </div>
       )}
-      <div
-        className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
-        style={{ fontFamily: settings.fontFamily }}
-      >
-        {displayGroups.map((group, gi) => (
-          <div key={gi} className="flex flex-wrap justify-center gap-x-1.5 gap-y-1 w-full text-center">
-            {group.map((word, wi) => {
-              const isActive = word === activeWord;
-              return (
-                <span
-                  key={`${gi}-${wi}`}
-                  className="px-1.5 py-0.5 rounded font-black leading-tight wrap-break-word max-w-full"
-                  style={{
-                    fontSize: `${settings.fontSize}px`,
-                    color: isActive ? settings.highlightColor : settings.textColor,
-                    backgroundColor: isActive ? settings.highlightBg : "transparent",
-                    textShadow: isActive
-                      ? "none"
-                      : "0 1px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.7)",
-                  }}
-                >
-                  {word.text}
-                </span>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+
+      {template === "classic" && (
+        <ClassicTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+      {template === "bold" && (
+        <BoldTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+      {template === "neon" && (
+        <NeonTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+      {template === "cinematic" && (
+        <CinematicTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+      {template === "minimal" && (
+        <MinimalTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+    </div>
+  );
+}
+
+// ── Shared template props ─────────────────────────────────────────────────────
+
+interface TemplateProps {
+  settings: SubtitleSettings;
+  displayGroups: SubtitleWord[][];
+  activeWord: SubtitleWord | null;
+}
+
+// ── 1. Classic ────────────────────────────────────────────────────────────────
+
+function ClassicTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
+  return (
+    <div
+      className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
+      style={{ fontFamily: settings.fontFamily }}
+    >
+      {displayGroups.map((group, gi) => (
+        <div key={gi} className="flex flex-wrap justify-center gap-x-1.5 gap-y-1 w-full text-center">
+          {group.map((word, wi) => {
+            const isActive = word === activeWord;
+            return (
+              <span
+                key={`${gi}-${wi}`}
+                className="px-1.5 py-0.5 rounded font-black leading-tight"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  color: isActive ? settings.highlightColor : settings.textColor,
+                  backgroundColor: isActive ? settings.highlightBg : "transparent",
+                  textShadow: isActive
+                    ? "none"
+                    : "0 1px 6px rgba(0,0,0,0.9), 0 0 12px rgba(0,0,0,0.7)",
+                }}
+              >
+                {word.text}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 2. Bold ───────────────────────────────────────────────────────────────────
+
+function BoldTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
+  return (
+    <div
+      className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
+      style={{ fontFamily: settings.fontFamily }}
+    >
+      {displayGroups.map((group, gi) => (
+        <div key={gi} className="flex flex-wrap justify-center gap-x-2 gap-y-1 w-full text-center">
+          {group.map((word, wi) => {
+            const isActive = word === activeWord;
+            return (
+              <span
+                key={`${gi}-${wi}`}
+                className="font-black leading-tight uppercase tracking-wide"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  color: isActive ? settings.highlightColor : settings.textColor,
+                  // Thick stroke via multiple text-shadows
+                  textShadow: [
+                    "-3px -3px 0 #000",
+                    " 3px -3px 0 #000",
+                    "-3px  3px 0 #000",
+                    " 3px  3px 0 #000",
+                    "-3px  0   0 #000",
+                    " 3px  0   0 #000",
+                    " 0   -3px 0 #000",
+                    " 0    3px 0 #000",
+                  ].join(", "),
+                }}
+              >
+                {word.text}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 3. Neon ───────────────────────────────────────────────────────────────────
+
+function NeonTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
+  const glowColor = settings.highlightBg; // repurposed as glow colour
+  return (
+    <div
+      className="flex flex-col items-center gap-y-1 select-none w-full"
+      style={{ fontFamily: settings.fontFamily }}
+    >
+      {displayGroups.map((group, gi) => (
+        <div
+          key={gi}
+          className="flex flex-wrap justify-center gap-x-2 gap-y-1 w-full text-center px-3 py-1 rounded-lg"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+        >
+          {group.map((word, wi) => {
+            const isActive = word === activeWord;
+            return (
+              <span
+                key={`${gi}-${wi}`}
+                className="font-black leading-tight transition-all duration-100"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  color: isActive ? settings.highlightColor : settings.textColor,
+                  textShadow: isActive
+                    ? `0 0 8px ${glowColor}, 0 0 16px ${glowColor}, 0 0 30px ${glowColor}`
+                    : `0 0 6px ${settings.textColor}55`,
+                }}
+              >
+                {word.text}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 4. Cinematic ──────────────────────────────────────────────────────────────
+
+function CinematicTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
+  return (
+    <div
+      className="flex flex-col items-center gap-y-0 select-none w-full"
+      style={{ fontFamily: settings.fontFamily }}
+    >
+      {displayGroups.map((group, gi) => (
+        <div
+          key={gi}
+          className="flex flex-wrap justify-center gap-x-2 gap-y-0.5 w-screen max-w-none text-center px-4 py-1.5"
+          style={{ backgroundColor: "rgba(0,0,0,0.70)", width: "100vw", maxWidth: "400px" }}
+        >
+          {group.map((word, wi) => {
+            const isActive = word === activeWord;
+            return (
+              <span
+                key={`${gi}-${wi}`}
+                className="font-bold leading-tight"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  color: isActive ? settings.highlightColor : settings.textColor,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {word.text}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── 5. Minimal ────────────────────────────────────────────────────────────────
+
+function MinimalTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
+  return (
+    <div
+      className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
+      style={{ fontFamily: settings.fontFamily }}
+    >
+      {displayGroups.map((group, gi) => (
+        <div key={gi} className="flex flex-wrap justify-center gap-x-2 gap-y-1 w-full text-center">
+          {group.map((word, wi) => {
+            const isActive = word === activeWord;
+            return (
+              <span
+                key={`${gi}-${wi}`}
+                className="font-semibold leading-tight"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  color: isActive ? settings.highlightColor : settings.textColor,
+                  textShadow: [
+                    "-1px -1px 0 rgba(0,0,0,0.85)",
+                    " 1px -1px 0 rgba(0,0,0,0.85)",
+                    "-1px  1px 0 rgba(0,0,0,0.85)",
+                    " 1px  1px 0 rgba(0,0,0,0.85)",
+                    "-1px  0   0 rgba(0,0,0,0.85)",
+                    " 1px  0   0 rgba(0,0,0,0.85)",
+                    " 0   -1px 0 rgba(0,0,0,0.85)",
+                    " 0    1px 0 rgba(0,0,0,0.85)",
+                    " 0 3px 10px rgba(0,0,0,1)"
+                  ].join(", "),
+                  borderBottom: isActive
+                    ? `3px solid ${settings.highlightBg}`
+                    : "3px solid transparent",
+                  paddingBottom: "1px",
+                }}
+              >
+                {word.text}
+              </span>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }

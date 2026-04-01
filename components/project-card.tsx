@@ -81,7 +81,7 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
               <TextShimmer>Uploading...</TextShimmer>
           </div>
             ) :  config.text === "Ready" ?(
-                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-100 text-green-700 border-green-200")}>
+                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-700 text-white border-green-800")}>
             <CheckCircle2 size={12} />
             Ready
           </div>

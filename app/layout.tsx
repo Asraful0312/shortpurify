@@ -4,6 +4,7 @@ import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import HotJar from "@/components/hotjar";
+import CookieConsentBanner from "@/components/cookie-consent";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -41,7 +42,8 @@ export default function RootLayout({
           signUpFallbackRedirectUrl="/dashboard"
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
-          <HotJar/>
+          <HotJar />
+          <CookieConsentBanner />
         </ClerkProvider>
       </body>
     </html>

@@ -568,25 +568,40 @@ def _render_subtitle_frames(
                 radius=int(6 * scale_factor), fill=(0, 0, 0, 140),
             )
 
-        # Pass 2 — colored glow composited directly into img (above strip, below sharp text)
-        glow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        glow_d     = ImageDraw.Draw(glow_layer)
+        # Pass 2 — colored glow composited directly into img
+        # Initialize with (R, G, B, 0) to prevent dark fringing when blurring transparent pixels
+        glow_r, glow_g, glow_b, _ = glow_rgba
+        text_r, text_g, text_b, _ = text_rgba
+        
+        act_layer = Image.new("RGBA", (vid_w, vid_h), (glow_r, glow_g, glow_b, 0))
+        act_d = ImageDraw.Draw(act_layer)
+        
+        inact_layer = Image.new("RGBA", (vid_w, vid_h), (text_r, text_g, text_b, 0))
+        inact_d = ImageDraw.Draw(inact_layer)
+
         for (chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y) in row_layouts:
             x_cur = center_x - total_w / 2
             for col_idx, cw in enumerate(chunk):
                 if sfnt:
                     if cw is active_word:
-                        glow_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=glow_rgba, anchor="la")
+                        stroke_w = max(1, int(font_size_px // 12))
+                        draw_outlined_text(act_d, (int(x_cur) + cp_x, text_y), cw["text"], sfnt, glow_rgba, stroke_w, glow_rgba)
                     else:
-                        inactive_glow = (text_rgba[0], text_rgba[1], text_rgba[2], 85)
-                        glow_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=inactive_glow, anchor="la")
+                        in_glow_rgba = (text_r, text_g, text_b, 180)
+                        inact_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=in_glow_rgba, anchor="la")
                 x_cur += spans[col_idx] + cg_x
-        g1 = glow_layer.filter(ImageFilter.GaussianBlur(int(6  * scale_factor)))
-        g2 = glow_layer.filter(ImageFilter.GaussianBlur(int(14 * scale_factor)))
-        g3 = glow_layer.filter(ImageFilter.GaussianBlur(int(24 * scale_factor)))
-        img.alpha_composite(g3)
-        img.alpha_composite(g2)
-        img.alpha_composite(g1)
+                
+        ac_g1 = act_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+        ac_g2 = act_layer.filter(ImageFilter.GaussianBlur(int(10 * scale_factor)))
+        ac_g3 = act_layer.filter(ImageFilter.GaussianBlur(int(24 * scale_factor)))
+
+        in_g1 = inact_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+
+        img.alpha_composite(in_g1)
+        img.alpha_composite(ac_g3)
+        img.alpha_composite(ac_g2)
+        img.alpha_composite(ac_g2)
+        img.alpha_composite(ac_g1)
 
         # Pass 3 — sharp text drawn on top of glow
         for (chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y) in row_layouts:

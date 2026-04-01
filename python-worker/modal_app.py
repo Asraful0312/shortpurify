@@ -584,22 +584,21 @@ def _render_subtitle_frames(
             for col_idx, cw in enumerate(chunk):
                 if sfnt:
                     if cw is active_word:
-                        stroke_w = max(1, int(font_size_px // 12))
-                        draw_outlined_text(act_d, (int(x_cur) + cp_x, text_y), cw["text"], sfnt, glow_rgba, stroke_w, glow_rgba)
+                        glow_base = (glow_r, glow_g, glow_b, 180)
+                        act_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=glow_base, anchor="la")
                     else:
-                        in_glow_rgba = (text_r, text_g, text_b, 180)
+                        in_glow_rgba = (text_r, text_g, text_b, 100)
                         inact_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=in_glow_rgba, anchor="la")
                 x_cur += spans[col_idx] + cg_x
                 
-        ac_g1 = act_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
-        ac_g2 = act_layer.filter(ImageFilter.GaussianBlur(int(10 * scale_factor)))
-        ac_g3 = act_layer.filter(ImageFilter.GaussianBlur(int(24 * scale_factor)))
+        ac_g1 = act_layer.filter(ImageFilter.GaussianBlur(int(3 * scale_factor)))
+        ac_g2 = act_layer.filter(ImageFilter.GaussianBlur(int(6 * scale_factor)))
+        ac_g3 = act_layer.filter(ImageFilter.GaussianBlur(int(12 * scale_factor)))
 
-        in_g1 = inact_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+        in_g1 = inact_layer.filter(ImageFilter.GaussianBlur(int(3 * scale_factor)))
 
         img.alpha_composite(in_g1)
         img.alpha_composite(ac_g3)
-        img.alpha_composite(ac_g2)
         img.alpha_composite(ac_g2)
         img.alpha_composite(ac_g1)
 

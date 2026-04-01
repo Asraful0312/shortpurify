@@ -90,7 +90,7 @@ export const exportWithSubtitles = action({
 
     // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark, v: "3" }))
+      .update(JSON.stringify({ ...settings, watermark, v: "4" }))
       .digest("hex")
       .slice(0, 16);
 
@@ -183,7 +183,7 @@ export const ensureExported = internalAction({
 
     // Hash includes watermark — upgrading from Starter to Pro yields a different hash → cache miss
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark, v: "3" }))
+      .update(JSON.stringify({ ...settings, watermark, v: "4" }))
       .digest("hex")
       .slice(0, 16);
 

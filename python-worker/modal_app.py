@@ -526,12 +526,6 @@ def _render_subtitle_frames(
                         draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=text_rgba, anchor="la")
                 x_cur += span_w + cg_x
 
-    def render_bold(_img, draw, _shadow_draw, display_chunks, num_rows, active_word):
-        stroke_w = max(3, int(font_size_px // 7))
-        for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
-            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
-            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
             x_cur   = center_x - total_w / 2
             for col_idx, cw in enumerate(chunk):
@@ -685,73 +679,58 @@ def _render_subtitle_frames(
                     draw_outlined_text(draw, (x_int + cp_x, text_y), wt, sfnt, fill, stroke, (0, 0, 0, 255))
                 x_cur += span_w + cg_x
 
-    def render_deep_diver(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
-        for chunk in display_chunks:
-            for cw in chunk:
-                cw["text"] = cw["text"].lower()
-                
-        pill_pad_x = int(6 * scale_factor)
-        pill_pad_y = int(2 * scale_factor)
-        pill_rad   = int(8 * scale_factor)
-        for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
-            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
-            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
-            text_y  = int(row_cy - (std_bottom + std_top) / 2)
-            x_cur   = center_x - total_w / 2
-            for col_idx, cw in enumerate(chunk):
-                span_w = spans[col_idx]
-                x_int  = int(x_cur)
-                is_act = (cw is active_word)
-                wt     = cw["text"]
-                fill   = hl_text_rgba if is_act else text_rgba
-                if sfnt:
-                    if is_act:
-                        box = [
-                            x_int + cp_x - pill_pad_x, 
-                            text_y + std_top - pill_pad_y,
-                            x_int + cp_x + int(span_w) - cp_x + pill_pad_x, 
-                            text_y + std_bottom + pill_pad_y
-                        ]
-                        draw.rounded_rectangle(box, radius=pill_rad, fill=hl_bg_rgba)
-                    else:
-                        shadow_draw.text((x_int + cp_x, text_y + int(1 * scale_factor)), wt, font=sfnt, fill=(0, 0, 0, 204), anchor="la")
-                    draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=fill, anchor="la")
-                x_cur += span_w + cg_x
 
     def render_karaoke(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+        K_SCALE = 1.15
         for chunk in display_chunks:
             for cw in chunk:
                 cw["text"] = cw["text"].upper()
                 
         for row_idx, chunk in enumerate(display_chunks):
             sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            
+            b_sc = sc * K_SCALE
+            big_fnt = scale_font(font_obj, int(font_size_px * b_sc))
+            
+            new_spans = []
+            for col_idx, cw in enumerate(chunk):
+                if cw is active_word:
+                    new_spans.append(measure(cw["text"], big_fnt) + 2 * cp_x)
+                else:
+                    new_spans.append(spans[col_idx])
+            new_total = sum(new_spans) + cg_x * max(0, len(chunk) - 1)
+            
             row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
-            x_cur   = center_x - total_w / 2
+            
+            x_cur   = center_x - new_total / 2
+            
             for col_idx, cw in enumerate(chunk):
-                span_w = spans[col_idx]
+                span_w = new_spans[col_idx]
                 x_int  = int(x_cur)
                 is_act = (cw is active_word)
                 wt     = cw["text"]
                 fill   = hl_text_rgba if is_act else text_rgba
                 stroke = max(1, int(font_size_px // 20))
+                
+                fnt_to_use = big_fnt if is_act else sfnt
+                # Optional visual pop-up offset for active bigger font
+                y_offset = -int((K_SCALE - 1.0) * font_size_px * sc * 0.7) if is_act else 0
+                
                 if sfnt:
-                    shadow_draw.text((x_int + cp_x, text_y + int(2 * scale_factor)), wt, font=sfnt, fill=(0, 0, 0, 255), anchor="la")
-                    draw_outlined_text(draw, (x_int + cp_x, text_y), wt, sfnt, fill, stroke, (0, 0, 0, 216))
+                    shadow_draw.text((x_int + cp_x, text_y + y_offset + int(2 * scale_factor)), wt, font=fnt_to_use, fill=(0, 0, 0, 255), anchor="la")
+                    draw_outlined_text(draw, (x_int + cp_x, text_y + y_offset), wt, fnt_to_use, fill, stroke, (0, 0, 0, 216))
                 x_cur += span_w + cg_x
 
     # ── main loop ────────────────────────────────────────────────────────────
 
     RENDER_FNS = {
         "classic":   render_classic,
-        "bold":      render_bold,
         "neon":      render_neon,
         "cinematic": render_cinematic,
         "minimal":   render_minimal,
         "beasty":    render_beasty,
-        "deep-diver":render_deep_diver,
         "karaoke":   render_karaoke,
     }
     render_fn = RENDER_FNS.get(template, render_classic)

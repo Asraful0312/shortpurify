@@ -5,7 +5,7 @@ import type { SubtitleWord } from "@/lib/types";
 
 export type { SubtitleWord };
 
-export type SubtitleTemplate = "classic" | "bold" | "neon" | "cinematic" | "minimal" | "beasty" | "deep-diver" | "karaoke";
+export type SubtitleTemplate = "classic" | "neon" | "cinematic" | "minimal" | "beasty" | "karaoke";
 
 export interface SubtitleSettings {
   enabled: boolean;
@@ -41,19 +41,6 @@ export const SUBTITLE_TEMPLATES: TemplatePreset[] = [
       textColor: "#ffffff",
       highlightColor: "#000000",
       highlightBg: "#facc15",
-    },
-  },
-  {
-    id: "bold",
-    label: "Bold",
-    description: "Chunky stroke, active word turns yellow",
-    defaults: {
-      template: "bold",
-      fontSize: 32,
-      fontFamily: "Impact, sans-serif",
-      textColor: "#ffffff",
-      highlightColor: "#facc15",
-      highlightBg: "#000000", // unused visually, kept for schema compat
     },
   },
   {
@@ -106,19 +93,6 @@ export const SUBTITLE_TEMPLATES: TemplatePreset[] = [
       textColor: "#ffffff",
       highlightColor: "#4ade80",
       highlightBg: "#000000",
-    },
-  },
-  {
-    id: "deep-diver",
-    label: "Deep Diver",
-    description: "White capsule on active word",
-    defaults: {
-      template: "deep-diver",
-      fontSize: 26,
-      fontFamily: "Inter, sans-serif",
-      textColor: "#ffffff",
-      highlightColor: "#000000",
-      highlightBg: "#ffffff",
     },
   },
   {
@@ -260,9 +234,6 @@ export function SubtitleOverlay({
       {template === "classic" && (
         <ClassicTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
       )}
-      {template === "bold" && (
-        <BoldTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
-      )}
       {template === "neon" && (
         <NeonTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
       )}
@@ -274,9 +245,6 @@ export function SubtitleOverlay({
       )}
       {template === "beasty" && (
         <BeastyTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
-      )}
-      {template === "deep-diver" && (
-        <DeepDiverTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
       )}
       {template === "karaoke" && (
         <KaraokeTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
@@ -328,47 +296,6 @@ function ClassicTemplate({ settings, displayGroups, activeWord }: TemplateProps)
   );
 }
 
-// ── 2. Bold ───────────────────────────────────────────────────────────────────
-
-function BoldTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
-  return (
-    <div
-      className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
-      style={{ fontFamily: settings.fontFamily }}
-    >
-      {displayGroups.map((group, gi) => (
-        <div key={gi} className="flex flex-wrap justify-center gap-x-2 gap-y-1 w-full text-center">
-          {group.map((word, wi) => {
-            const isActive = word === activeWord;
-            return (
-              <span
-                key={`${gi}-${wi}`}
-                className="font-black leading-tight uppercase tracking-wide"
-                style={{
-                  fontSize: `${settings.fontSize}px`,
-                  color: isActive ? settings.highlightColor : settings.textColor,
-                  // Thick stroke via multiple text-shadows
-                  textShadow: [
-                    "-3px -3px 0 #000",
-                    " 3px -3px 0 #000",
-                    "-3px  3px 0 #000",
-                    " 3px  3px 0 #000",
-                    "-3px  0   0 #000",
-                    " 3px  0   0 #000",
-                    " 0   -3px 0 #000",
-                    " 0    3px 0 #000",
-                  ].join(", "),
-                }}
-              >
-                {word.text}
-              </span>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // ── 3. Neon ───────────────────────────────────────────────────────────────────
 
@@ -533,39 +460,6 @@ function BeastyTemplate({ settings, displayGroups, activeWord }: TemplateProps) 
   );
 }
 
-// ── 7. Deep Diver ─────────────────────────────────────────────────────────────
-
-function DeepDiverTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
-  return (
-    <div
-      className="flex flex-col items-center gap-y-1 select-none px-2 w-full"
-      style={{ fontFamily: settings.fontFamily }}
-    >
-      {displayGroups.map((group, gi) => (
-        <div key={gi} className="flex flex-wrap justify-center gap-x-1.5 gap-y-1 w-full text-center">
-          {group.map((word, wi) => {
-            const isActive = word === activeWord;
-            return (
-              <span
-                key={`${gi}-${wi}`}
-                className="px-2 py-0.5 rounded font-black leading-tight lowercase"
-                style={{
-                  fontSize: `${settings.fontSize}px`,
-                  color: isActive ? settings.highlightColor : settings.textColor,
-                  backgroundColor: isActive ? settings.highlightBg : "transparent",
-                  textShadow: isActive ? "none" : "0 1px 4px rgba(0,0,0,0.8)",
-                }}
-              >
-                {word.text}
-              </span>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ── 8. Karaoke ────────────────────────────────────────────────────────────────
 
 function KaraokeTemplate({ settings, displayGroups, activeWord }: TemplateProps) {
@@ -581,9 +475,9 @@ function KaraokeTemplate({ settings, displayGroups, activeWord }: TemplateProps)
             return (
               <span
                 key={`${gi}-${wi}`}
-                className="font-black leading-tight uppercase"
+                className="font-black leading-tight uppercase transition-all duration-75"
                 style={{
-                  fontSize: `${settings.fontSize}px`,
+                  fontSize: isActive ? `${settings.fontSize * 1.15}px` : `${settings.fontSize}px`,
                   color: isActive ? settings.highlightColor : settings.textColor,
                   textShadow: [
                     "-1px -1px 0 rgba(0,0,0,0.85)",

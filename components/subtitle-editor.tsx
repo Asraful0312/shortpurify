@@ -40,12 +40,10 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
   // Which colour labels make sense per template
   const colorLabels: Record<SubtitleTemplate, { text: string; hl: string; bg: string }> = {
     classic:      { text: "Text",       hl: "Highlight Text", bg: "Highlight BG" },
-    bold:         { text: "Text",       hl: "Active Word",    bg: "— (unused)" },
     neon:         { text: "Text",       hl: "Active Word",    bg: "Glow Colour" },
     cinematic:    { text: "Text",       hl: "Active Word",    bg: "— (unused)" },
     minimal:      { text: "Text",       hl: "Active Word",    bg: "Underline" },
     beasty:       { text: "Text",       hl: "Active Word",    bg: "— (unused)" },
-    "deep-diver": { text: "Text",       hl: "Active Text",    bg: "Pill Box" },
     karaoke:      { text: "Inactive",   hl: "Active Word",    bg: "— (unused)" },
   };
   const labels = colorLabels[template];
@@ -161,7 +159,7 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
               <ColorRow label={labels.text} value={settings.textColor}      onChange={(v) => set("textColor", v)} />
               <ColorRow label={labels.hl}   value={settings.highlightColor} onChange={(v) => set("highlightColor", v)} />
               {/* Hide bg colour row for templates that don't use it */}
-              {template !== "bold" && template !== "cinematic" && (
+              {template !== "beasty" && template !== "cinematic" && template !== "karaoke" && (
                 <ColorRow label={labels.bg} value={settings.highlightBg} onChange={(v) => set("highlightBg", v)} />
               )}
             </div>
@@ -197,14 +195,6 @@ function TemplateThumb({
       </div>
     );
   }
-  if (id === "bold") {
-    return (
-      <div className="flex gap-0.5 items-center h-4">
-        <span className={base} style={{ color: col, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>HI</span>
-        <span className={base} style={{ color: hl, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>THERE</span>
-      </div>
-    );
-  }
   if (id === "neon") {
     return (
       <div className="flex gap-0.5 items-center h-4 px-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
@@ -226,6 +216,22 @@ function TemplateThumb({
       <div className="flex gap-0.5 items-center h-4">
         <span className={base} style={{ color: col, textShadow: "0 1px 3px #000" }}>HI</span>
         <span className={base} style={{ color: hl, borderBottom: `1px solid ${bg}`, textShadow: "0 1px 3px #000" }}>THERE</span>
+      </div>
+    );
+  }
+  if (id === "beasty") {
+    return (
+      <div className="flex gap-0.5 items-center h-4">
+        <span className={base} style={{ color: col, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>HI</span>
+        <span className={base} style={{ color: hl, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>THERE</span>
+      </div>
+    );
+  }
+  if (id === "karaoke") {
+    return (
+      <div className="flex gap-0.5 items-center h-4">
+        <span className={base} style={{ color: col, textShadow: "0 1px 1px #000" }}>HI</span>
+        <span className={base} style={{ color: hl, textShadow: "0 1px 1px #000", fontSize: "8px" }}>THERE</span>
       </div>
     );
   }

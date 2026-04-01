@@ -90,7 +90,7 @@ export const exportWithSubtitles = action({
 
     // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark, v: "4" }))
+      .update(JSON.stringify({ ...settings, watermark, v: "5" }))
       .digest("hex")
       .slice(0, 16);
 

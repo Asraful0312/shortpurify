@@ -67,10 +67,10 @@ export default function ContactPage() {
               </div>
 
               {/* FAQ Small Note */}
-              <div className="px-8 flex flex-col gap-2">
+              {/* <div className="px-8 flex flex-col gap-2">
                  <h4 className="font-bold text-black">Looking for help?</h4>
                  <p className="text-sm text-muted-foreground">Check out our <span className="text-primary font-semibold hover:underline cursor-pointer">Help Center</span> for tutorials and common issues.</p>
-              </div>
+              </div> */}
             </div>
 
             {/* Main Contact Form */}

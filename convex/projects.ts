@@ -255,6 +255,7 @@ export const saveSubtitleSettings = mutation({
       highlightColor: v.string(),
       highlightBg: v.string(),
       wordsPerLine: v.number(),
+      template: v.optional(v.string()),
     }),
   },
   handler: async (ctx, { projectId, settings }) => {

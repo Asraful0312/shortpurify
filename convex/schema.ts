@@ -61,6 +61,7 @@ export default defineSchema({
       highlightColor: v.string(),
       highlightBg: v.string(),
       wordsPerLine: v.number(),
+      template: v.optional(v.string()),
     })),
     createdAt: v.number(),
   })

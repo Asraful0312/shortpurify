@@ -27,6 +27,7 @@ const DEFAULT_SUBTITLE_SETTINGS = {
   highlightColor: "#000000",
   highlightBg: "#facc15",
   wordsPerLine: 3,
+  template: "classic",
 };
 
 const SETTINGS_VALIDATOR = v.object({
@@ -39,6 +40,7 @@ const SETTINGS_VALIDATOR = v.object({
   highlightColor: v.string(),
   highlightBg: v.string(),
   wordsPerLine: v.number(),
+  template: v.optional(v.string()),
 });
 
 export const exportWithSubtitles = action({
@@ -88,7 +90,7 @@ export const exportWithSubtitles = action({
 
     // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark }))
+      .update(JSON.stringify({ ...settings, watermark, v: "2" }))
       .digest("hex")
       .slice(0, 16);
 
@@ -181,7 +183,7 @@ export const ensureExported = internalAction({
 
     // Hash includes watermark — upgrading from Starter to Pro yields a different hash → cache miss
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark }))
+      .update(JSON.stringify({ ...settings, watermark, v: "2" }))
       .digest("hex")
       .slice(0, 16);
 

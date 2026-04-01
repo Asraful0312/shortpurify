@@ -396,19 +396,18 @@ def _render_subtitle_frames(
 ) -> list:
     """
     Render one transparent RGBA PNG per word-event using Pillow.
-    Each PNG shows the karaoke state at the moment word[wi] is active:
-      - all words spoken so far (last 2 rows), white text + black outline
-      - the active word: yellow background box + black text
+    Supports 5 templates: classic | bold | neon | cinematic | minimal
     Returns [(ev_start_s, ev_end_s, png_path), ...]
-    Gaps (long-pause windows) are NOT included; caller inserts blank frames.
     """
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
     LONG_PAUSE_MS  = 800
+    template       = settings.get("template", "classic") or "classic"
     font_size_px   = max(20, int(int(settings.get("fontSize", 26)) * vid_w / 390))
     words_per_line = int(settings.get("wordsPerLine", 3))
     center_x       = float(settings.get("x",  50)) / 100.0 * vid_w
     center_y       = float(settings.get("y",  78)) / 100.0 * vid_h
+    scale_factor   = vid_w / 390.0
 
     def parse_rgba(css: str, alpha: int = 255):
         h = css.lstrip("#")
@@ -417,18 +416,16 @@ def _render_subtitle_frames(
     text_rgba    = parse_rgba(settings.get("textColor",      "#ffffff"))
     hl_text_rgba = parse_rgba(settings.get("highlightColor", "#000000"))
     hl_bg_rgba   = parse_rgba(settings.get("highlightBg",    "#facc15"))
-    outline_rgba = (0, 0, 0, 220)
 
     font_family = settings.get("fontFamily", "Inter")
-    font_path = _find_font(font_family)
-    
+    font_path   = _find_font(font_family)
+
     font_obj = None
     if font_path:
         try:
             font_obj = ImageFont.truetype(font_path, font_size_px)
         except Exception:
             pass
-            
     if not font_obj:
         for p in _FONT_PATHS:
             try:
@@ -438,22 +435,10 @@ def _render_subtitle_frames(
                 pass
 
     LINE_HEIGHT = int(font_size_px * 1.4)
-    if font_obj:
-        try:
-            l, t, r, b = font_obj.getbbox("A")
-            GLYPH_H = b - t
-        except:
-            GLYPH_H = int(font_size_px * 0.9)
-    else:
-        GLYPH_H = int(font_size_px * 0.9)
-        
-    BORDER_W    = max(2, font_size_px // 10)
-    
-    scale_factor = vid_w / 390.0
-    pad_x = int(font_size_px * 0.2)
-    pad_y = int(font_size_px * 0.12)
-    gap_x = int(font_size_px * 0.2)
-    c_radius = int(font_size_px * 0.15)
+    pad_x       = int(font_size_px * 0.2)
+    pad_y       = int(font_size_px * 0.12)
+    gap_x       = int(font_size_px * 0.2)
+    c_radius    = int(font_size_px * 0.15)
 
     def measure(text: str, fnt) -> float:
         if fnt:
@@ -463,24 +448,225 @@ def _render_subtitle_frames(
                 pass
         return len(text) * font_size_px * 0.55
 
-    def draw_outlined(draw, xy, text, font, fill, outline):
+    def get_text_bounds(draw, fnt, scale=1.0):
+        if fnt:
+            try:
+                bb = draw.textbbox((0, 0), "Ay|", font=fnt, anchor="la")
+                return bb[1], bb[3]
+            except Exception:
+                pass
+        return int(-font_size_px * 0.8 * scale), int(font_size_px * 0.2 * scale)
+
+    def scale_font(base_fnt, new_size):
+        if font_path:
+            try:
+                return ImageFont.truetype(font_path, max(10, new_size))
+            except Exception:
+                pass
+        if _FONT_PATHS:
+            try:
+                return ImageFont.truetype(_FONT_PATHS[0], max(10, new_size))
+            except Exception:
+                pass
+        return base_fnt
+
+    def draw_outlined_text(draw, xy, text, fnt, fill, stroke_w, stroke_rgba=(0, 0, 0, 220)):
         ox, oy = xy
-        for dx in range(-BORDER_W, BORDER_W + 1):
-            for dy in range(-BORDER_W, BORDER_W + 1):
+        for dx in range(-stroke_w, stroke_w + 1):
+            for dy in range(-stroke_w, stroke_w + 1):
                 if dx == 0 and dy == 0:
                     continue
-                draw.text((ox + dx, oy + dy), text, font=font, fill=outline)
-        draw.text(xy, text, font=font, fill=fill)
+                draw.text((ox + dx, oy + dy), text, font=fnt, fill=stroke_rgba)
+        draw.text(xy, text, font=fnt, fill=fill)
+
+    # ── shared layout helper ─────────────────────────────────────────────────
+
+    def layout_row(chunk, base_fnt):
+        """Return (scaled_font, scale, span_widths, total_w, c_pad_x, c_pad_y, c_gap_x, rad)"""
+        w_sum = sum(measure(cw["text"], base_fnt) + 2 * pad_x for cw in chunk)
+        tw    = w_sum + gap_x * max(0, len(chunk) - 1)
+        sc    = 1.0
+        sfnt  = base_fnt
+        max_w = vid_w * 0.85
+        if tw > max_w:
+            sc   = max_w / tw
+            sfnt = scale_font(base_fnt, int(font_size_px * sc))
+        cp_x = int(pad_x * sc)
+        cp_y = int(pad_y * sc)
+        cg_x = int(gap_x * sc)
+        rad  = int(c_radius * sc)
+        spans = [measure(cw["text"], sfnt) + 2 * cp_x for cw in chunk]
+        total = sum(spans) + cg_x * max(0, len(chunk) - 1)
+        return sfnt, sc, spans, total, cp_x, cp_y, cg_x, rad
+
+    # ── per-template render functions ────────────────────────────────────────
+
+    def render_classic(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+        for row_idx, chunk in enumerate(display_chunks):
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y  = int(row_cy - (std_bottom + std_top) / 2)
+            x_cur   = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                span_w  = spans[col_idx]
+                x_int   = int(x_cur)
+                is_act  = (cw is active_word)
+                wt      = cw["text"]
+                if is_act:
+                    draw.rounded_rectangle(
+                        [x_int, text_y + std_top - cp_y, x_int + int(span_w), text_y + std_bottom + cp_y],
+                        radius=rad, fill=hl_bg_rgba,
+                    )
+                    if sfnt:
+                        draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=hl_text_rgba, anchor="la")
+                else:
+                    if sfnt:
+                        shadow_draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=(0, 0, 0, 255), anchor="la")
+                        draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=text_rgba, anchor="la")
+                x_cur += span_w + cg_x
+
+    def render_bold(_img, draw, _shadow_draw, display_chunks, num_rows, active_word):
+        stroke_w = max(3, int(font_size_px // 7))
+        for row_idx, chunk in enumerate(display_chunks):
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y  = int(row_cy - (std_bottom + std_top) / 2)
+            x_cur   = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                span_w = spans[col_idx]
+                x_int  = int(x_cur)
+                is_act = (cw is active_word)
+                wt     = cw["text"].upper()
+                fill   = hl_text_rgba if is_act else text_rgba
+                if sfnt:
+                    draw_outlined_text(draw, (x_int + cp_x, text_y), wt, sfnt, fill, stroke_w, (0, 0, 0, 255))
+                x_cur += span_w + cg_x
+
+    def render_neon(img, draw, _shadow_draw, display_chunks, num_rows, active_word):
+        # highlightBg is repurposed as the glow colour for this template
+        glow_rgba = hl_bg_rgba
+        bar_pad_x = int(14 * scale_factor)
+        bar_pad_y = int(5 * scale_factor)
+
+        # Pre-compute layout so we can do 3 ordered passes (strip → glow → text)
+        row_layouts = []
+        for row_idx, chunk in enumerate(display_chunks):
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            row_cy = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y = int(row_cy - (std_bottom + std_top) / 2)
+            row_layouts.append((chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y))
+
+        # Pass 1 — dark strip background per row
+        for (chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y) in row_layouts:
+            row_left  = int(center_x - total_w / 2 - bar_pad_x)
+            row_right = int(center_x + total_w / 2 + bar_pad_x)
+            draw.rounded_rectangle(
+                [row_left, text_y + std_top - bar_pad_y, row_right, text_y + std_bottom + bar_pad_y],
+                radius=int(6 * scale_factor), fill=(0, 0, 0, 140),
+            )
+
+        # Pass 2 — colored glow composited directly into img (above strip, below sharp text)
+        glow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+        glow_d     = ImageDraw.Draw(glow_layer)
+        for (chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y) in row_layouts:
+            x_cur = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                if sfnt:
+                    if cw is active_word:
+                        glow_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=glow_rgba, anchor="la")
+                    else:
+                        inactive_glow = (text_rgba[0], text_rgba[1], text_rgba[2], 85)
+                        glow_d.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=inactive_glow, anchor="la")
+                x_cur += spans[col_idx] + cg_x
+        g1 = glow_layer.filter(ImageFilter.GaussianBlur(int(6  * scale_factor)))
+        g2 = glow_layer.filter(ImageFilter.GaussianBlur(int(14 * scale_factor)))
+        g3 = glow_layer.filter(ImageFilter.GaussianBlur(int(24 * scale_factor)))
+        img.alpha_composite(g3)
+        img.alpha_composite(g2)
+        img.alpha_composite(g1)
+
+        # Pass 3 — sharp text drawn on top of glow
+        for (chunk, sfnt, spans, total_w, cp_x, cp_y, cg_x, std_top, std_bottom, text_y) in row_layouts:
+            x_cur = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                if sfnt:
+                    fill = hl_text_rgba if cw is active_word else text_rgba
+                    draw.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=fill, anchor="la")
+                x_cur += spans[col_idx] + cg_x
+
+    def render_cinematic(_img, draw, _shadow_draw, display_chunks, num_rows, active_word):
+        bar_h    = int(LINE_HEIGHT * 1.3)
+        bar_pad  = int(4 * scale_factor)
+        total_bar_h = bar_h * num_rows + bar_pad * (num_rows - 1)
+        bar_top  = int(center_y - total_bar_h / 2)
+        # Full-width dark bar across all rows
+        draw.rectangle([0, bar_top - bar_pad, vid_w, bar_top + total_bar_h + bar_pad],
+                       fill=(0, 0, 0, 178))
+        for row_idx, chunk in enumerate(display_chunks):
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            row_cy  = bar_top + bar_h * row_idx + bar_h // 2
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y  = int(row_cy - (std_bottom + std_top) / 2)
+            x_cur   = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                span_w = spans[col_idx]
+                x_int  = int(x_cur)
+                is_act = (cw is active_word)
+                wt     = cw["text"]
+                fill   = hl_text_rgba if is_act else text_rgba
+                if sfnt:
+                    draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=fill, anchor="la")
+                x_cur += span_w + cg_x
+
+    def render_minimal(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+        uline_rgba = hl_bg_rgba  # underline uses highlightBg
+        uline_w    = max(2, int(3 * scale_factor))
+        for row_idx, chunk in enumerate(display_chunks):
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y  = int(row_cy - (std_bottom + std_top) / 2)
+            x_cur   = center_x - total_w / 2
+            for col_idx, cw in enumerate(chunk):
+                span_w = spans[col_idx]
+                x_int  = int(x_cur)
+                is_act = (cw is active_word)
+                wt     = cw["text"]
+                fill   = hl_text_rgba if is_act else text_rgba
+                stroke = max(1, int(font_size_px // 18))
+                if sfnt:
+                    shadow_draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=(0, 0, 0, 200), anchor="la")
+                    draw_outlined_text(draw, (x_int + cp_x, text_y), wt, sfnt, fill, stroke, (0, 0, 0, 140))
+                if is_act:
+                    uline_y = text_y + std_bottom + int(2 * scale_factor)
+                    draw.rectangle([x_int + cp_x, uline_y,
+                                    x_int + int(span_w) - cp_x, uline_y + uline_w],
+                                   fill=uline_rgba)
+                x_cur += span_w + cg_x
+
+    # ── main loop ────────────────────────────────────────────────────────────
+
+    RENDER_FNS = {
+        "classic":   render_classic,
+        "bold":      render_bold,
+        "neon":      render_neon,
+        "cinematic": render_cinematic,
+        "minimal":   render_minimal,
+    }
+    render_fn = RENDER_FNS.get(template, render_classic)
 
     n = len(subtitle_words)
     frames = []
 
     for wi in range(n):
-        word = subtitle_words[wi]
+        word        = subtitle_words[wi]
         ev_start_ms = word["startMs"]
 
         if wi + 1 < n:
-            gap = subtitle_words[wi + 1]["startMs"] - word["endMs"]
+            gap       = subtitle_words[wi + 1]["startMs"] - word["endMs"]
             ev_end_ms = (
                 subtitle_words[wi + 1]["startMs"]
                 if gap <= LONG_PAUSE_MS
@@ -497,88 +683,25 @@ def _render_subtitle_frames(
         display_chunks = all_chunks[-2:]
         num_rows       = len(display_chunks)
 
-        img  = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
+        img          = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+        draw         = ImageDraw.Draw(img)
         shadow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        shadow_draw = ImageDraw.Draw(shadow_layer)
+        shadow_draw  = ImageDraw.Draw(shadow_layer)
 
-        for row_idx, chunk in enumerate(display_chunks):
-            row_cy   = (
-                center_y
-                if num_rows == 1
-                else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
-            )
-            
-            w_sum = sum(measure(cw["text"], font_obj) + 2 * pad_x for cw in chunk)
-            tw = w_sum + gap_x * max(0, len(chunk) - 1)
-            
-            scaled_font = font_obj
-            scale = 1.0
-            max_w = vid_w * 0.85
-            if tw > max_w:
-                scale = max_w / tw
-                new_size = max(10, int(font_size_px * scale))
-                if font_path:
-                    try:
-                        scaled_font = ImageFont.truetype(font_path, new_size)
-                    except:
-                        try:
-                            scaled_font = ImageFont.truetype(_FONT_PATHS[0], new_size)
-                        except:
-                            scaled_font = font_obj
+        render_fn(img, draw, shadow_draw, display_chunks, num_rows, word)
 
-            c_pad_x = int(pad_x * scale)
-            c_pad_y = int(pad_y * scale)
-            c_gap_x = int(gap_x * scale)
-            rad = int(c_radius * scale)
-            
-            span_widths = [measure(cw["text"], scaled_font) + 2 * c_pad_x for cw in chunk]
-            total_w = sum(span_widths) + c_gap_x * max(0, len(chunk) - 1)
-            x_cursor = center_x - total_w / 2
-            
-            if scaled_font:
-                try:
-                    bb = draw.textbbox((0, 0), "Ay|", font=scaled_font, anchor="la")
-                    std_top, std_bottom = bb[1], bb[3]
-                except:
-                    std_top, std_bottom = int(-font_size_px * 0.8 * scale), int(font_size_px * 0.2 * scale)
-            else:
-                std_top, std_bottom = int(-font_size_px * 0.8 * scale), int(font_size_px * 0.2 * scale)
-                
-            text_y = int(row_cy - (std_bottom + std_top) / 2)
-
-            for col_idx, cw in enumerate(chunk):
-                span_w  = span_widths[col_idx]
-                x_int = int(x_cursor)
-                is_active = (cw is word)
-                
-                word_text = cw["text"]
-
-                if is_active:
-                    draw.rounded_rectangle(
-                        [x_int, text_y + std_top - c_pad_y,
-                         x_int + int(span_w), text_y + std_bottom + c_pad_y],
-                        radius=rad,
-                        fill=hl_bg_rgba,
-                    )
-                    if scaled_font:
-                        draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=hl_text_rgba, anchor="la")
-                else:
-                    if scaled_font:
-                        # Draw shadow layer
-                        shadow_draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=(0,0,0,255), anchor="la")
-                        # Actual text
-                        draw.text((x_int + c_pad_x, text_y), word_text, font=scaled_font, fill=text_rgba, anchor="la")
-
-                x_cursor += span_w + c_gap_x
-
-        blur1 = shadow_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
-        blur2 = shadow_layer.filter(ImageFilter.GaussianBlur(int(8 * scale_factor)))
-        
-        final_img = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        final_img.alpha_composite(blur2)
-        final_img.alpha_composite(blur1)
-        final_img.alpha_composite(img)
+        # Composite shadow/glow
+        # Neon manages its own glow internally (composited directly into img),
+        # so no shadow_layer processing is needed for that template.
+        if template == "neon":
+            final_img = img
+        else:
+            blur1 = shadow_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+            blur2 = shadow_layer.filter(ImageFilter.GaussianBlur(int(8 * scale_factor)))
+            final_img = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+            final_img.alpha_composite(blur2)
+            final_img.alpha_composite(blur1)
+            final_img.alpha_composite(img)
 
         png_path = f"{tmpdir}/frame_{wi:05d}.png"
         final_img.save(png_path, "PNG")

@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { ReactNode } from "react";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";

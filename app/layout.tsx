@@ -17,10 +17,65 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShortPurify AI Short-Form Clip Generator",
-  description: "Turn long-form videos into viral short clips with AI.",
+  metadataBase: new URL("https://shortpurify.com"),
+  title: {
+    default: "ShortPurify – AI Short-Form Clip Generator",
+    template: "%s | ShortPurify",
+  },
+  description:
+    "Turn long-form videos into viral short clips with AI. Auto-generate captions, smart crop for 9:16, and publish directly to TikTok, Instagram Reels, YouTube Shorts and more.",
+  keywords: [
+    "AI video clips",
+    "short-form video",
+    "clip generator",
+    "TikTok clips",
+    "YouTube Shorts",
+    "Instagram Reels",
+    "AI video editing",
+    "video to clips",
+    "auto captions",
+    "viral clips",
+  ],
+  authors: [{ name: "ShortPurify" }],
+  creator: "ShortPurify",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    siteName: "ShortPurify",
+    title: "ShortPurify – AI Short-Form Clip Generator",
+    description:
+      "Turn long-form videos into viral short clips with AI. Auto-generate captions, smart crop for 9:16, and publish directly to TikTok, Instagram Reels, YouTube Shorts and more.",
+    url: "https://shortpurify.com",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "ShortPurify – AI Short-Form Clip Generator",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ShortPurify – AI Short-Form Clip Generator",
+    description:
+      "Turn long-form videos into viral short clips with AI. Auto-generate captions and publish to TikTok, Instagram, YouTube Shorts and more.",
+    images: ["/og-image.png"],
+  },
   icons: {
-    icon: "/logo-small.png",
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
   },
 };
 

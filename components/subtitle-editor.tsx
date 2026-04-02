@@ -3,6 +3,7 @@
 import { SubtitleSettings, SubtitleTemplate, SUBTITLE_TEMPLATES } from "./subtitle-overlay";
 import { X, Type, AlignCenter, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 const FONT_OPTIONS = [
   { label: "Inter",       value: "Inter, sans-serif" },
@@ -19,6 +20,15 @@ interface SubtitleEditorProps {
 }
 
 export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorProps) {
+  const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPreviewActiveIndex((prev) => (prev === 0 ? 1 : 0));
+    }, 800);
+    return () => clearInterval(interval);
+  }, []);
+
   const set = <K extends keyof SubtitleSettings>(key: K, value: SubtitleSettings[K]) =>
     onChange({ ...settings, [key]: value });
 
@@ -82,7 +92,7 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
           <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2 block">
             Template
           </label>
-          <div className="grid grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {SUBTITLE_TEMPLATES.map((t) => (
               <button
                 key={t.id}
@@ -90,14 +100,22 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
                 onClick={() => applyTemplate(t.id)}
                 title={t.description}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all",
+                  "flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all min-h-[64px] justify-center",
                   template === t.id
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-white/10 bg-white/5 text-white/60 hover:border-white/30 hover:text-white/90",
+                    ? "border-primary/50 bg-primary/20 text-white"
+                    : "border-white/10 bg-white/5 text-white/50 hover:border-white/30 hover:text-white/90",
                 )}
               >
-                <TemplateThumb id={t.id} active={template === t.id} settings={settings} />
-                <span className="text-[9px] font-bold leading-none">{t.label}</span>
+                <TemplateThumb 
+                  id={t.id} 
+                  active={template === t.id} 
+                  settings={settings} 
+                  previewIndex={previewActiveIndex}
+                />
+                <span className={cn(
+                  "text-[9px] font-bold leading-none transition-colors",
+                  template === t.id ? "text-white" : "text-white/60"
+                )}>{t.label}</span>
               </button>
             ))}
           </div>
@@ -170,75 +188,141 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
   );
 }
 
-// ── Tiny template thumbnail ───────────────────────────────────────────────────
-
 function TemplateThumb({
   id,
   active,
   settings,
+  previewIndex,
 }: {
   id: SubtitleTemplate;
   active: boolean;
   settings: SubtitleSettings;
+  previewIndex: number;
 }) {
   const hl = active ? settings.highlightColor : "#facc15";
   const bg = active ? settings.highlightBg : "#facc15";
   const col = active ? settings.textColor : "#ffffff";
 
-  const base = "text-[7px] font-black leading-none";
+  const base = "text-[7px] font-black leading-none transition-all duration-300";
 
   if (id === "classic") {
     return (
       <div className="flex gap-0.5 items-center h-4">
-        <span className={base} style={{ color: col, textShadow: "0 1px 3px #000" }}>HI</span>
-        <span className={`${base} px-0.5 rounded`} style={{ color: "#000", backgroundColor: bg }}>THERE</span>
+        <span 
+          className={cn(base, "px-0.5 rounded")} 
+          style={{ 
+            color: previewIndex === 0 ? "#000000" : col, 
+            backgroundColor: previewIndex === 0 ? bg : "transparent",
+            textShadow: previewIndex === 0 ? "none" : "0 1px 3px #000" 
+          }}
+        >HI</span>
+        <span 
+          className={cn(base, "px-0.5 rounded")} 
+          style={{ 
+            color: previewIndex === 1 ? "#000000" : col, 
+            backgroundColor: previewIndex === 1 ? bg : "transparent",
+            textShadow: previewIndex === 1 ? "none" : "0 1px 3px #000" 
+          }}
+        >THERE</span>
       </div>
     );
   }
   if (id === "neon") {
+    const glowColor = active ? settings.highlightBg : "#22d3ee";
     return (
-      <div className="flex gap-0.5 items-center h-4 px-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-        <span className={base} style={{ color: "#22d3ee", textShadow: "0 0 4px #22d3ee" }}>HI</span>
-        <span className={base} style={{ color: "#fff", textShadow: "0 0 4px #22d3ee" }}>THERE</span>
+      <div className="flex gap-0.5 items-center h-4 px-1 rounded" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 0 ? "#22d3ee" : col, 
+            textShadow: previewIndex === 0 ? `0 0 4px ${glowColor}, 0 0 8px ${glowColor}` : "none" 
+          }}
+        >HI</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 1 ? "#22d3ee" : col, 
+            textShadow: previewIndex === 1 ? `0 0 4px ${glowColor}, 0 0 8px ${glowColor}` : "none" 
+          }}
+        >THERE</span>
       </div>
     );
   }
   if (id === "cinematic") {
     return (
       <div className="flex gap-0.5 items-center h-4 px-1 w-full justify-center" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
-        <span className={base} style={{ color: col }}>HI</span>
-        <span className={base} style={{ color: hl }}>THERE</span>
+        <span className={base} style={{ color: previewIndex === 0 ? hl : col }}>HI</span>
+        <span className={base} style={{ color: previewIndex === 1 ? hl : col }}>THERE</span>
       </div>
     );
   }
   if (id === "minimal") {
     return (
       <div className="flex gap-0.5 items-center h-4">
-        <span className={base} style={{ color: col, textShadow: "0 1px 3px #000" }}>HI</span>
-        <span className={base} style={{ color: hl, borderBottom: `1px solid ${bg}`, textShadow: "0 1px 3px #000" }}>THERE</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 0 ? hl : col,
+            borderBottom: previewIndex === 0 ? `1px solid ${bg}` : "1px solid transparent",
+            textShadow: "0 1px 3px #000"
+          }}
+        >HI</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 1 ? hl : col, 
+            borderBottom: previewIndex === 1 ? `1px solid ${bg}` : "1px solid transparent",
+            textShadow: "0 1px 3px #000"
+          }}
+        >THERE</span>
       </div>
     );
   }
   if (id === "beasty") {
     return (
       <div className="flex gap-0.5 items-center h-4">
-        <span className={base} style={{ color: col, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>HI</span>
-        <span className={base} style={{ color: hl, textShadow: "-1px -1px 0 #000,1px 1px 0 #000" }}>THERE</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 0 ? "#4ade80" : col, 
+            textShadow: "-1px -1px 0 #000,1px 1px 0 #000, 2px 2px 0 #000" 
+          }}
+        >HI</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 1 ? "#4ade80" : col, 
+            textShadow: "-1px -1px 0 #000,1px 1px 0 #000, 2px 2px 0 #000" 
+          }}
+        >THERE</span>
       </div>
     );
   }
   if (id === "karaoke") {
     return (
       <div className="flex gap-0.5 items-center h-4">
-        <span className={base} style={{ color: col, textShadow: "0 1px 1px #000" }}>HI</span>
-        <span className={base} style={{ color: hl, textShadow: "0 1px 1px #000", fontSize: "8px" }}>THERE</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 0 ? "#4ade80" : col, 
+            textShadow: "0 1px 1px #000",
+            fontSize: previewIndex === 0 ? "8px" : "7px"
+          }}
+        >HI</span>
+        <span 
+          className={base} 
+          style={{ 
+            color: previewIndex === 1 ? "#4ade80" : col, 
+            textShadow: "0 1px 1px #000", 
+            fontSize: previewIndex === 1 ? "8px" : "7px" 
+          }}
+        >THERE</span>
       </div>
     );
   }
   return null;
 }
 
-// ── Color row ─────────────────────────────────────────────────────────────────
 
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (

@@ -382,7 +382,7 @@ export default function ProjectDetailsPage() {
                   <OutputPreview
                     key={clip._id}
                     projectId={projectId}
-                    initialSubtitleSettings={project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS}
+                    initialSubtitleSettings={project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS as any}
                     clip={{
                       id: clip._id,
                       title: clip.title,

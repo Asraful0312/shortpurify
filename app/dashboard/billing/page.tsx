@@ -22,12 +22,12 @@ type PlanFeature = { text: string; included: boolean };
  */
 const PRODUCT_IDS = {
   pro: {
-    monthly: "prod_Y9tigUuiNrmSvwHwikJhb",   // TODO: replace with real Creem product ID
-    yearly:  "prod_16zm9hSnU7sIDUiL2xnqta",    // TODO: replace with real Creem product ID
+    monthly: "prod_2XWg0m0jgCJqg0f4HjLvzT",   // TODO: replace with real Creem product ID
+    yearly:  "prod_37OuTfnzhHVjvf5ljEAB8F",    // TODO: replace with real Creem product ID
   },
   agency: {
-    monthly: "prod_6Dzfw7cKFtti6Ok8XSSMkr", // TODO: replace with real Creem product ID
-    yearly:  "prod_4ys826ufB69smQJCq4kD0o",  // TODO: replace with real Creem product ID
+    monthly: "prod_17EgXmdXdpntOArieGAc14", // TODO: replace with real Creem product ID
+    yearly:  "prod_77Pg3SXfh59ALQbNCFDsID",  // TODO: replace with real Creem product ID
   },
 };
 

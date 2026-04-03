@@ -19,10 +19,10 @@ export { PLAN_LIMITS };
 // Creem product ID → plan tier mapping.
 // Update these when you create products in the Creem dashboard.
 const PRODUCT_PLAN_MAP: Record<string, "pro" | "agency"> = {
-  prod_Y9tigUuiNrmSvwHwikJhb: "pro",    // Pro Monthly
-  prod_16zm9hSnU7sIDUiL2xnqta: "pro",   // Pro Yearly
-  prod_6Dzfw7cKFtti6Ok8XSSMkr: "agency", // Agency Monthly
-  prod_4ys826ufB69smQJCq4kD0o: "agency", // Agency Yearly
+  prod_2XWg0m0jgCJqg0f4HjLvzT: "pro",    // Pro Monthly
+  prod_37OuTfnzhHVjvf5ljEAB8F: "pro",    // Pro Yearly
+  prod_17EgXmdXdpntOArieGAc14: "agency", // Agency Monthly
+  prod_77Pg3SXfh59ALQbNCFDsID: "agency", // Agency Yearly
 };
 
 export type PlanTier = "starter" | "pro" | "agency";

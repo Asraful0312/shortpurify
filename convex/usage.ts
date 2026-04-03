@@ -76,7 +76,22 @@ function tierFromProductId(productId: string | null | undefined): PlanTier {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveEntityId(ctx: any, workspaceId: string | undefined, fallbackId: string): Promise<string> {
-  if (!workspaceId) return fallbackId;
+  if (!workspaceId) {
+    // No workspaceId provided — check if the user owns a workspace with an active subscription
+    // (platform actions don't pass workspaceId, so we cascade from userId → owned workspace)
+    const ownedMembership = await ctx.db
+      .query("workspaceMembers")
+      .filter((q: any) => q.and(
+        q.eq(q.field("userId"), fallbackId),
+        q.eq(q.field("role"), "owner")
+      ))
+      .first();
+    if (ownedMembership) {
+      const sub = await creem.subscriptions.getCurrent(ctx, { entityId: ownedMembership.workspaceId }).catch(() => null);
+      if (sub) return ownedMembership.workspaceId;
+    }
+    return fallbackId;
+  }
 
   // 1. Try the workspace's own subscription
   const ownSub = await creem.subscriptions.getCurrent(ctx, { entityId: workspaceId }).catch(() => null);

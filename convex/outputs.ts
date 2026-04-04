@@ -52,15 +52,21 @@ export const savePublishInfo = internalMutation({
   },
 });
 
-/** Persist the export cache key + settings hash after a successful Modal export. */
+/** Persist the export cache key + settings hash after a successful Modal export. Optionally increments burnCount. */
 export const saveExportCache = internalMutation({
   args: {
     outputId: v.id("outputs"),
     exportKey: v.string(),
     exportSettingsHash: v.string(),
+    incrementBurn: v.optional(v.boolean()),
   },
-  handler: async (ctx, { outputId, exportKey, exportSettingsHash }) => {
-    await ctx.db.patch(outputId, { exportKey, exportSettingsHash });
+  handler: async (ctx, { outputId, exportKey, exportSettingsHash, incrementBurn }) => {
+    const output = await ctx.db.get(outputId);
+    await ctx.db.patch(outputId, {
+      exportKey,
+      exportSettingsHash,
+      ...(incrementBurn && { burnCount: (output?.burnCount ?? 0) + 1 }),
+    });
   },
 });
 

@@ -250,10 +250,12 @@ function NavGroup({
   label,
   items,
   pathname,
+  onNavClick,
 }: {
   label?: string;
   items: { name: string; href: string; icon: React.ElementType; badge?: string }[];
   pathname: string;
+  onNavClick?: () => void;
 }) {
   return (
     <div className="mb-2">
@@ -273,6 +275,7 @@ function NavGroup({
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavClick}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all",
                 isActive
@@ -298,7 +301,7 @@ function NavGroup({
   );
 }
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {}) {
   const pathname = usePathname();
   const { isAdmin, isOwner } = useWorkspace();
 
@@ -336,11 +339,11 @@ export function DashboardSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 space-y-4 overflow-y-auto mt-4">
-        <NavGroup items={mainNav} pathname={pathname} />
-        <NavGroup label="Publish" items={publishNav} pathname={pathname} />
-        <NavGroup label="Team" items={teamNav} pathname={pathname} />
+        <NavGroup items={mainNav} pathname={pathname} onNavClick={onNavClick} />
+        <NavGroup label="Publish" items={publishNav} pathname={pathname} onNavClick={onNavClick} />
+        <NavGroup label="Team" items={teamNav} pathname={pathname} onNavClick={onNavClick} />
         {accountNav.length > 0 && (
-          <NavGroup label="Account" items={accountNav} pathname={pathname} />
+          <NavGroup label="Account" items={accountNav} pathname={pathname} onNavClick={onNavClick} />
         )}
       </nav>
 

@@ -22,10 +22,16 @@ export const kickoff = internalAction({
     const enabledPlatforms = project?.enabledPlatforms ?? undefined;
     const cropMode = project?.cropMode ?? "smart_crop";
 
+    // Resolve per-plan clips limit — falls back to 6 if subscription not found
+    const maxClips = await ctx.runQuery(internal.usage.getClipsLimit, {
+      workspaceId: project?.workspaceId ?? undefined,
+      fallbackEntityId: project?.userId as string,
+    });
+
     const workflowId = await workflowManager.start(
       ctx,
       internal.workflow.processVideo,
-      { ...args, enabledPlatforms, cropMode },
+      { ...args, enabledPlatforms, cropMode, maxClips },
     );
     await ctx.runMutation(internal.projects.updateProjectStatus, {
       projectId: args.projectId,
@@ -48,8 +54,9 @@ export const processVideo = workflowManager.define({
     videoUrl: v.string(),
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()),
+    maxClips: v.optional(v.number()),
   },
-  handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode }) => {
+  handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode, maxClips }) => {
     // ── Step 1: Transcription ──────────────────────────────────────────
     await step.runMutation(internal.projects.updateProjectStatus, {
       projectId,
@@ -81,6 +88,7 @@ export const processVideo = workflowManager.define({
       transcriptText: transcript.text,
       videoDuration: transcript.duration,
       enabledPlatforms,
+      maxClips,
     });
 
     // ── Step 3: Smart crop + encode via Python worker ─────────────────

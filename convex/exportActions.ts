@@ -101,6 +101,22 @@ export const exportWithSubtitles = action({
         const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
         return { downloadUrl };
       }
+
+      // Cache miss — check burn limit before calling Modal
+      if (output) {
+        const project = await ctx.runQuery(api.projects.getProject, { projectId: output.projectId });
+        if (project) {
+          const burnLimit = await ctx.runQuery(internal.usage.getBurnLimit, {
+            workspaceId: project.workspaceId ?? undefined,
+            fallbackEntityId: project.userId,
+          });
+          if (burnLimit !== null && (output.burnCount ?? 0) >= burnLimit) {
+            throw new ConvexError(
+              `You've used all ${burnLimit} subtitle re-renders on your plan for this clip. Upgrade to Pro Creator for more.`
+            );
+          }
+        }
+      }
     }
 
     // Signed GET URL so Modal can download the clip
@@ -136,6 +152,7 @@ export const exportWithSubtitles = action({
         outputId,
         exportKey,
         exportSettingsHash: settingsHash,
+        incrementBurn: true,
       });
     }
 

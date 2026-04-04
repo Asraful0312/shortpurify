@@ -39,6 +39,7 @@ export default function ProjectDetailsPage() {
   const [zipDownloading, setZipDownloading] = useState(false);
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 });
   const [zipSubtitleWarning, setZipSubtitleWarning] = useState<string | null>(null);
+  const [zipBurnLimitError, setZipBurnLimitError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   // Rename state
@@ -47,14 +48,17 @@ export default function ProjectDetailsPage() {
   const [renameError, setRenameError] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
 
-  const { myRole } = useWorkspace();
+  const { myRole, activeOrgId } = useWorkspace();
   const canRename = myRole === "owner" || myRole === "admin" || myRole === null; // null = personal workspace
 
   const project = useQuery(api.projects.getProject, { projectId });
   const outputs = useQuery(api.outputs.listProjectOutputs, { projectId });
+  const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const deleteProject = useAction(api.projects.deleteProject);
   const renameProject = useMutation(api.projects.renameProject);
+
+  const canZip = usage?.limits.zipExport ?? false;
 
   function startRename() {
     setRenameValue(project?.title ?? "");
@@ -209,13 +213,22 @@ export default function ProjectDetailsPage() {
         >
           <Trash2 size={15} /> Delete Project
         </button>
-        {isComplete && outputs && outputs.length > 0 && (
+        {isComplete && outputs && outputs.length > 0 && !canZip && (
+          <a
+            href="/dashboard/billing"
+            className="bg-foreground/10 text-foreground font-bold px-6 py-3 rounded-full border border-border transition-all hover:-translate-y-1 hover:shadow-md flex items-center gap-2 shrink-0 text-sm"
+          >
+            <DownloadCloud size={20} /> Download All (.ZIP) — Pro+
+          </a>
+        )}
+        {isComplete && outputs && outputs.length > 0 && canZip && (
           <button
             disabled={zipDownloading}
             onClick={async () => {
               setZipDownloading(true);
               setZipProgress({ done: 0, total: outputs.length });
               setZipSubtitleWarning(null);
+              setZipBurnLimitError(null);
               try {
                 let subtitleFailCount = 0;
                 // Generate subtitle exported URLs concurrently for all clips
@@ -242,6 +255,11 @@ export default function ProjectDetailsPage() {
                         });
                         return { url: downloadUrl, title: o.title };
                       } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        const clean = msg.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/)?.[1]?.trim() ?? msg;
+                        if (clean.includes("re-renders") || clean.includes("Upgrade")) {
+                          throw new Error(clean); // abort entire zip — user must upgrade
+                        }
                         subtitleFailCount++;
                         console.error(`Failed to burn subtitles for "${o.title}":`, err);
                       }
@@ -278,6 +296,11 @@ export default function ProjectDetailsPage() {
                     })),
                   },
                 );
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (msg.includes("re-renders") || msg.includes("Upgrade")) {
+                  setZipBurnLimitError(msg);
+                }
               } finally {
                 setZipDownloading(false);
               }
@@ -297,6 +320,22 @@ export default function ProjectDetailsPage() {
           </button>
         )}
       </div>
+
+      {/* Burn limit error — upgrade required */}
+      {zipBurnLimitError && (
+        <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 max-w-xl">
+          <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">{zipBurnLimitError}</p>
+            <a href="/dashboard/billing" className="text-xs font-bold text-red-700 underline mt-1 inline-block">
+              Upgrade your plan →
+            </a>
+          </div>
+          <button onClick={() => setZipBurnLimitError(null)} className="text-red-400 hover:text-red-600 shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Subtitle burn warning */}
       {zipSubtitleWarning && (

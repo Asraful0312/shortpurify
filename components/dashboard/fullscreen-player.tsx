@@ -44,6 +44,8 @@ function FullscreenPlayer({
   const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [publishToast, setPublishToast] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadWarning, setDownloadWarning] = useState<string | null>(null);
 
   const { isAuthenticated } = useConvexAuth();
   const { isAdmin, activeOrgId } = useWorkspace();
@@ -177,6 +179,8 @@ function FullscreenPlayer({
     e.stopPropagation();
     if (downloading) return;
     setDownloading(true);
+    setDownloadError(null);
+    setDownloadWarning(null);
     try {
       if (subtitleSettings.enabled && (clip.subtitleWords?.length ?? 0) > 0 && clip.clipKey) {
         try {
@@ -189,8 +193,18 @@ function FullscreenPlayer({
           });
           await downloadVideo(downloadUrl, clip.title);
           return;
-        } catch {
-          // BURN_SUBTITLES_URL not configured — fall back to plain download
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const clean = msg.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/)?.[1]?.trim() ?? msg;
+          // Burn limit / plan errors — show message, don't fall back silently
+          if (clean.includes("re-renders") || clean.includes("Upgrade")) {
+            setDownloadError(clean);
+            setTimeout(() => setDownloadError(null), 6000);
+            return;
+          }
+          // Infra error (worker not configured etc.) — fall back to plain download
+          setDownloadWarning("Subtitle export failed — downloading without subtitles.");
+          setTimeout(() => setDownloadWarning(null), 5000);
         }
       }
       await downloadVideo(clip.videoUrl, clip.title);
@@ -425,6 +439,23 @@ function FullscreenPlayer({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-300 flex items-center gap-2 bg-green-600 text-white px-5 py-3 rounded-2xl shadow-xl font-semibold text-sm animate-in slide-in-from-bottom-2">
           <Check size={16} />
           {publishToast}
+        </div>
+      )}
+
+      {downloadWarning && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-300 max-w-sm w-full mx-4 flex items-center gap-3 bg-amber-500 text-white px-5 py-3 rounded-2xl shadow-xl text-sm animate-in slide-in-from-bottom-2">
+          <X size={16} className="shrink-0" />
+          <span>{downloadWarning}</span>
+        </div>
+      )}
+
+      {downloadError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-300 max-w-sm w-full mx-4 flex items-start gap-3 bg-red-600 text-white px-5 py-3 rounded-2xl shadow-xl text-sm animate-in slide-in-from-bottom-2">
+          <X size={16} className="shrink-0 mt-0.5" />
+          <span>
+            {downloadError}{" "}
+            <a href="/dashboard/billing" className="underline font-bold">Upgrade →</a>
+          </span>
         </div>
       )}
     </div>,

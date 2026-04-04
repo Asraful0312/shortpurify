@@ -7,9 +7,13 @@ import { Authenticated, Unauthenticated } from "convex/react";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
 import Image from "next/image";
 import Logo from "./logo";
+import useClickOutside from "../motion-primitives/useClickOutside";
+import { useRef } from "react";
 
 function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+  useClickOutside(ref as any, () => setIsMobileMenuOpen(false));
 
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 animate-in slide-in-from-top-4 duration-700">
@@ -62,7 +66,7 @@ function Navbar() {
 
       {/* Mobile Menu Dropdown */}
       {isMobileMenuOpen && (
-        <div className="absolute top-[calc(100%+12px)] left-4 right-4 bg-white border border-border/60 shadow-xl rounded-3xl p-6 flex flex-col gap-6 md:hidden animate-in fade-in slide-in-from-top-2 origin-top">
+        <div ref={ref} className="absolute top-[calc(100%+12px)] left-4 right-4 bg-white border border-border/60 shadow-xl rounded-3xl p-6 flex flex-col gap-6 md:hidden animate-in fade-in slide-in-from-top-2 origin-top">
           <nav className="flex flex-col gap-4 text-lg font-semibold text-foreground">
             <Link href="#features" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
             <Link href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)}>Solutions</Link>

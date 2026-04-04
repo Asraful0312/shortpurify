@@ -526,18 +526,6 @@ def _render_subtitle_frames(
                         draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=text_rgba, anchor="la")
                 x_cur += span_w + cg_x
 
-            text_y  = int(row_cy - (std_bottom + std_top) / 2)
-            x_cur   = center_x - total_w / 2
-            for col_idx, cw in enumerate(chunk):
-                span_w = spans[col_idx]
-                x_int  = int(x_cur)
-                is_act = (cw is active_word)
-                wt     = cw["text"].upper()
-                fill   = hl_text_rgba if is_act else text_rgba
-                if sfnt:
-                    draw_outlined_text(draw, (x_int + cp_x, text_y), wt, sfnt, fill, stroke_w, (0, 0, 0, 255))
-                x_cur += span_w + cg_x
-
     def render_neon(img, draw, _shadow_draw, display_chunks, num_rows, active_word):
         # highlightBg is repurposed as the glow colour for this template
         glow_rgba = hl_bg_rgba

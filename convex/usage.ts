@@ -43,10 +43,16 @@ const PLAN_LIMITS: Record<PlanTier, {
   scheduledPublishing: boolean;
   /** Max workspaces the user can own (1 = personal only) */
   maxOwnedWorkspaces: number;
+  /** Max AI-generated clips per project */
+  clipsPerProject: number;
+  /** Max subtitle re-renders per clip (Infinity = unlimited) */
+  subtitleBurnsPerClip: number;
+  /** Whether zip bulk-download is available */
+  zipExport: boolean;
 }> = {
-  starter: { projects: 5,        minutes: 60,   platforms: [...STARTER_PLATFORMS], accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1        },
-  pro:     { projects: 30,       minutes: 300,  platforms: null,                   accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1        },
-  agency:  { projects: Infinity, minutes: 1500, platforms: null,                   accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity },
+  starter: { projects: 5,        minutes: 60,   platforms: [...STARTER_PLATFORMS], accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false },
+  pro:     { projects: 30,       minutes: 300,  platforms: null,                   accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true  },
+  agency:  { projects: Infinity, minutes: 1500, platforms: null,                   accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true  },
 };
 
 /** Start of the current calendar month in ms. Billing resets on the 1st. */
@@ -204,6 +210,9 @@ export const getUsage = query({
         minutes: limits.minutes,
         teamMembers: limits.teamMembers === Infinity ? null : limits.teamMembers,
         scheduledPublishing: limits.scheduledPublishing,
+        clipsPerProject: limits.clipsPerProject,
+        subtitleBurnsPerClip: limits.subtitleBurnsPerClip === Infinity ? null : limits.subtitleBurnsPerClip,
+        zipExport: limits.zipExport,
       },
       usage: { projectsUsed, minutesUsed, memberCount },
       resetDate: resetDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
@@ -225,6 +234,29 @@ export const getUsage = query({
  * Pass workspaceId when the project belongs to a workspace; fallbackEntityId = userId otherwise.
  * Cascades to the workspace owner's subscription if the workspace has no direct subscription.
  */
+/** Internal: returns max clips allowed per project for a user/workspace. */
+export const getClipsLimit = internalQuery({
+  args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
+  handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
+    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
+    const tier = tierFromProductId(sub?.productId);
+    return PLAN_LIMITS[tier].clipsPerProject;
+  },
+});
+
+/** Internal: returns max subtitle burns allowed per clip (null = unlimited). */
+export const getBurnLimit = internalQuery({
+  args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
+  handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
+    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
+    const tier = tierFromProductId(sub?.productId);
+    const limit = PLAN_LIMITS[tier].subtitleBurnsPerClip;
+    return limit === Infinity ? null : limit;
+  },
+});
+
 export const isPaidPlan = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {

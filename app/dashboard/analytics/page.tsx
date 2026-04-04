@@ -124,7 +124,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Platform Breakdown */}
         <div className="bg-white border border-border rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-5">

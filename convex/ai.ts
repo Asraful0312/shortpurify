@@ -35,11 +35,12 @@ function buildPrompt(
   transcriptText: string,
   videoDuration: number,
   platforms: string[],
+  maxClips: number,
 ): string {
   const platformList = platforms.map((p) => ` - "${p}": ${PLATFORM_INSTRUCTIONS[p] ?? "short caption"}`).join("\n");
 
   return `
-You are ViralShortGPT, an expert in turning long-form podcasts/videos into viral TikTok/Reels/Shorts clips (15–60 seconds). Your only job is to find the 4–6 MOST shareable, high-engagement moments that will perform best on social media.
+You are ViralShortGPT, an expert in turning long-form podcasts/videos into viral TikTok/Reels/Shorts clips (15–60 seconds). Your only job is to find the ${maxClips <= 3 ? `top ${maxClips}` : `${maxClips} MOST`} shareable, high-engagement moments that will perform best on social media.
 
 Video duration: ${videoDuration.toFixed(0)} seconds
 Full transcript:
@@ -98,10 +99,11 @@ export const generateClipIdeas = internalAction({
     transcriptText: v.string(),
     videoDuration: v.optional(v.number()),
     enabledPlatforms: v.optional(v.array(v.string())),
+    maxClips: v.optional(v.number()),
   },
   handler: async (
     _ctx,
-    { transcriptText, videoDuration = 300, enabledPlatforms },
+    { transcriptText, videoDuration = 300, enabledPlatforms, maxClips = 6 },
   ): Promise<GeneratedClip[]> => {
     const platforms =
       enabledPlatforms && enabledPlatforms.length > 0
@@ -116,7 +118,7 @@ export const generateClipIdeas = internalAction({
       messages: [
         {
           role: "user",
-          content: buildPrompt(transcriptText, videoDuration, platforms),
+          content: buildPrompt(transcriptText, videoDuration, platforms, maxClips),
         },
       ],
     });
@@ -146,7 +148,7 @@ export const generateClipIdeas = internalAction({
 
     const clips: GeneratedClip[] = JSON.parse(match[0]);
 
-    return clips.map((c) => ({
+    return clips.slice(0, maxClips).map((c) => ({
       title: sanitize(c.title),
       startTime: Math.max(0, c.startTime),
       endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 5, c.endTime))),

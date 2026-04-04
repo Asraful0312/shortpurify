@@ -282,6 +282,8 @@ export const createProjectFromYouTube = action({
     const projectId = await ctx.runMutation((internal as any).projects.createProjectAndStart, {
       title: videoTitle,
       originalUrl: videoUrl,
+      // Store ytKey as originalKey so deleteOriginalVideo auto-cleans it after clip generation
+      originalKey: data.uploaded ? ytKey : undefined,
       enabledPlatforms: enabledPlatforms ?? [],
       cropMode: cropMode ?? "smart_crop",
       workspaceId,

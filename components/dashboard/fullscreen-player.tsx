@@ -42,7 +42,7 @@ function FullscreenPlayer({
     initialSubtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
   );
   const [showSubtitleEditor, setShowSubtitleEditor] = useState(false);
-  const [showInfo, setShowInfo] = useState(true);
+  const [showInfo, setShowInfo] = useState(false);
   const [publishToast, setPublishToast] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloadWarning, setDownloadWarning] = useState<string | null>(null);

@@ -22,10 +22,11 @@ import {
   Lock,
   Loader2,
   X,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "./shared/logo";
-import { useWorkspace, type WorkspaceRole } from "./workspace-context";
+import { useWorkspace } from "./workspace-context";
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -303,7 +304,7 @@ function NavGroup({
 
 export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {}) {
   const pathname = usePathname();
-  const { isAdmin, isOwner } = useWorkspace();
+  const { isOwner } = useWorkspace();
 
   const mainNav = [
     { name: "Projects", href: "/dashboard", icon: LayoutDashboard },
@@ -347,8 +348,19 @@ export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {
         )}
       </nav>
 
+      {/* Support */}
+      <div className="mt-auto">
+        <a
+          href="mailto:support@shortpurify.com"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground font-medium transition-all"
+        >
+          <HelpCircle size={18} className="text-muted-foreground" />
+          <span>Help &amp; Support</span>
+        </a>
+      </div>
+
       {/* User Area */}
-      <div className="mt-auto border-t border-border pt-4 px-2 space-y-2">
+      <div className="border-t border-border pt-4 px-2 space-y-2">
         <div className="flex items-center gap-3 px-2 py-2">
           <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
           <div className="flex flex-col">

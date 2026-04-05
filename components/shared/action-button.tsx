@@ -21,7 +21,7 @@ function ActionButton({
       <div
         className={cn(
           size,
-          "rounded-full flex items-center justify-center text-primary transition-colors",
+          "rounded-full flex items-center justify-center text-white transition-colors",
           primary
             ? "bg-primary text-primary-foreground hover:opacity-90"
             : "bg-white/10 border border-white/10 hover:bg-white/20",

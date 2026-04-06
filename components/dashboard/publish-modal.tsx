@@ -68,6 +68,7 @@ export function PublishModal({
 }: PublishModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [platformCaptions, setPlatformCaptions] = useState<Record<string, string>>({});
+  const [youtubeTitle, setYoutubeTitle] = useState(clipTitle ?? "");
   const [accountStatuses, setAccountStatuses] = useState<Record<string, AccountStatus>>({});
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -106,6 +107,7 @@ export function PublishModal({
       }
     }
     setPlatformCaptions(caps);
+    setYoutubeTitle(clipTitle ?? "");
     setAccountStatuses({});
     setIsPublishing(false);
     setIsDone(false);
@@ -156,7 +158,9 @@ export function PublishModal({
               accountId: acc.accountId,
               caption,
               scheduledAt,
-              clipTitle: clipTitle ?? "Short Clip",
+              clipTitle: acc.platform === "youtube"
+                ? (youtubeTitle.trim() || clipTitle || "Short Clip")
+                : (clipTitle ?? "Short Clip"),
             });
             successCount++;
             setAccountStatuses((prev) => ({
@@ -198,7 +202,7 @@ export function PublishModal({
               clipUrl: clipUrl ?? "",
               clipKey,
               caption,
-              title: clipTitle ?? "Short Clip",
+              title: youtubeTitle.trim() || clipTitle || "Short Clip",
             });
             postId = r.videoId;
           } else if (acc.platform === "tiktok") {
@@ -440,21 +444,46 @@ export function PublishModal({
                       </button>
                     </div>
 
-                    {/* Per-platform caption */}
-                    <div className="px-4 py-3 border-b border-border bg-white">
-                      <Textarea
-                        value={platformCaptions[platform] ?? ""}
-                        onChange={(e) =>
-                          setPlatformCaptions((prev) => ({ ...prev, [platform]: e.target.value }))
-                        }
-                        rows={3}
-                        disabled={isPublishing}
-                        placeholder={`Caption for ${meta.name}…`}
-                        className="resize-none text-sm rounded-xl"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1 text-right">
-                        {(platformCaptions[platform] ?? "").length} chars
-                      </p>
+                    {/* Per-platform fields */}
+                    <div className="px-4 py-3 border-b border-border bg-white space-y-2.5">
+                      {platform === "youtube" && (
+                        <div>
+                          <label className="text-xs font-bold text-muted-foreground mb-1 block">
+                            Video Title
+                          </label>
+                          <input
+                            value={youtubeTitle}
+                            onChange={(e) => setYoutubeTitle(e.target.value)}
+                            maxLength={100}
+                            disabled={isPublishing}
+                            placeholder="YouTube video title…"
+                            className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1 text-right">
+                            {youtubeTitle.length}/100
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        {platform === "youtube" && (
+                          <label className="text-xs font-bold text-muted-foreground mb-1 block">
+                            Description
+                          </label>
+                        )}
+                        <Textarea
+                          value={platformCaptions[platform] ?? ""}
+                          onChange={(e) =>
+                            setPlatformCaptions((prev) => ({ ...prev, [platform]: e.target.value }))
+                          }
+                          rows={3}
+                          disabled={isPublishing}
+                          placeholder={`Caption for ${meta.name}…`}
+                          className="resize-none text-sm rounded-xl"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1 text-right">
+                          {(platformCaptions[platform] ?? "").length} chars
+                        </p>
+                      </div>
                     </div>
 
                     {/* Account rows */}

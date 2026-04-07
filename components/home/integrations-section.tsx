@@ -31,9 +31,9 @@ function IntegrationsSection() {
 
         {/* Live platforms */}
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14 mb-6">
-          {live.map(({ src, label, small }) => (
+          {live.map(({ src, label }) => (
             <div key={label} className="flex items-center gap-2 font-bold text-lg opacity-80 hover:opacity-100 transition-opacity">
-              <Image src={src} className={small ? "size-5" : "size-7"} alt={label} width={28} height={28} />
+              <Image src={src} className={"size-7"} alt={label} width={28} height={28} />
               {label}
             </div>
           ))}

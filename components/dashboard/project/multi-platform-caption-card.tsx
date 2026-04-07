@@ -8,7 +8,6 @@ const PLATFORM_LABELS: Record<string, string> = {
   tiktok: "TikTok",
   instagram: "Instagram",
   youtube: "YouTube Shorts",
-  x: "X / Twitter",
   threads: "Threads",
   linkedin: "LinkedIn",
   snapchat: "Snapchat",

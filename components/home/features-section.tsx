@@ -5,7 +5,7 @@ import { CheckCircle2, Share2, TrendingUp, Zap, Video, Link2, Trophy, MousePoint
 import Image from "next/image";
 import { useState, useEffect } from "react";
 
-const icons = ["/icons/tik-tok.png", "/icons/instagram.png", "/icons/youtube.png", "/icons/twitter.png"]
+const icons = ["/icons/tik-tok.png", "/icons/instagram.png", "/icons/youtube.png", "/icons/bluesky-icon.png"]
 
 // --- Viral Hook Detection (Radar) Components ---
 export const Circle = ({ className, idx, ...rest }: any) => {

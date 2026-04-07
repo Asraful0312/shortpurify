@@ -100,7 +100,7 @@ export default function AutomatedWorkflowsSection() {
                       <Image src="/icons/youtube-short.png" alt="YouTube Shorts" width={26} height={26} />
                     </Node>
                     <Node ref={div6Ref}>
-                      <Image src="/icons/twitter.png" alt="X" width={22} height={22} />
+                      <Image src="/icons/tik-tok.png" alt="TikTok" width={22} height={22} />
                     </Node>
                     <Node ref={div7Ref}>
                       <Image src="/icons/bluesky-icon.png" alt="Bluesky" width={26} height={26} />
@@ -113,7 +113,7 @@ export default function AutomatedWorkflowsSection() {
                 <AnimatedBeam containerRef={containerRef} fromRef={div2Ref} toRef={div4Ref} pathColor="#3b82f6" gradientStartColor="#3b82f6" gradientStopColor="#3b82f6" />
                 <AnimatedBeam containerRef={containerRef} fromRef={div3Ref} toRef={div4Ref} curvature={50} pathColor="#69C9D0" gradientStartColor="#69C9D0" gradientStopColor="#ee1d52" />
                 <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div5Ref} curvature={50} pathColor="#FF0000" gradientStartColor="#FF0000" gradientStopColor="#FF0000" delay={0.5} />
-                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#000000" gradientStartColor="#000000" gradientStopColor="#1DA1F2" delay={0.5} />
+                <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div6Ref} pathColor="#69C9D0" gradientStartColor="#69C9D0" gradientStopColor="#ee1d52" delay={0.5} />
                 <AnimatedBeam containerRef={containerRef} fromRef={div4Ref} toRef={div7Ref} curvature={-30} pathColor="#0085FF" gradientStartColor="#0085FF" gradientStopColor="#0085FF" delay={0.5} />
               </div>
             </div>

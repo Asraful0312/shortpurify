@@ -109,15 +109,6 @@ export const executeScheduledPost = internalAction({
           title: post.clipTitle,
         });
         postId = r.videoId;
-      } else if (post.platform === "x") {
-        const r = await ctx.runAction(internal.xActions.publishClipInternal, {
-          userId: post.userId as Id<"users">,
-          outputId: post.outputId as Id<"outputs">,
-          accountId: post.accountId,
-          caption: post.caption,
-          title: post.clipTitle,
-        });
-        postId = r.tweetId;
       } else if (post.platform === "bluesky") {
         const r = await ctx.runAction(internal.blueskyActions.publishClipInternal, {
           userId: post.userId as Id<"users">,

@@ -16,7 +16,6 @@ const STARTER_PLATFORMS = ["youtube", "tiktok"];
 // Platforms that are live vs coming soon
 const PLATFORMS = [
   { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
-  { id: "x",         name: "X / Twitter",     image: "/icons/twitter.png", live: true },
   { id: "bluesky",   name: "Bluesky",         image: "/icons/bluesky-icon.png", live: true },
   { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png", live: true },
   { id: "facebook",  name: "Facebook Pages",  image: "/icons/facebook.png", live: false },
@@ -51,8 +50,6 @@ export default function PublishPage() {
   const disconnectYouTubeChannel = useAction(api.youtubeActions.disconnectChannel);
   const getTikTokAuthUrl = useAction(api.tiktokActions.getAuthUrl);
   const disconnectTikTokAccount = useAction(api.tiktokActions.disconnectAccount);
-  const getXAuthUrl = useAction(api.xActions.getAuthUrl);
-  const disconnectXAccount = useAction(api.xActions.disconnectAccount);
   const getThreadsAuthUrl = useAction(api.threadsActions.getAuthUrl);
   const disconnectThreadsAccount = useAction(api.threadsActions.disconnectAccount);
   const disconnectBlueskyAccount = useAction(api.blueskyActions.disconnectAccount);
@@ -97,9 +94,6 @@ export default function PublishPage() {
       } else if (platformId === "tiktok") {
         const { authUrl } = await getTikTokAuthUrl({});
         window.location.href = authUrl;
-      } else if (platformId === "x") {
-        const { authUrl } = await getXAuthUrl({});
-        window.location.href = authUrl;
       } else if (platformId === "threads") {
         const { authUrl } = await getThreadsAuthUrl({});
         window.location.href = authUrl;
@@ -124,8 +118,6 @@ export default function PublishPage() {
         await disconnectYouTubeChannel({ accountId });
       } else if (platform === "tiktok") {
         await disconnectTikTokAccount({ accountId });
-      } else if (platform === "x") {
-        await disconnectXAccount({ accountId });
       } else if (platform === "threads") {
         await disconnectThreadsAccount({ accountId });
       } else if (platform === "bluesky") {
@@ -194,25 +186,28 @@ export default function PublishPage() {
             const isConnecting = connecting === p.id;
             const allowed = isPlatformAllowed(p.id);
             const atLimit = allowed && accountsPerPlatform !== Infinity && connected.length >= accountsPerPlatform;
+            const maintenance = (p as any).maintenance === true;
 
             return (
                   <div
                     key={p.id}
                     className={cn(
                       "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
-                      (!p.live || !allowed) && "opacity-60",
+                      (!p.live || !allowed || maintenance) && "opacity-60",
                       connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
                     )}
                   >
                     {/* Platform header */}
                     <div className="flex items-center gap-2.5">
-                      <Image className={p.id === "x" ? "size-4" : "size-5"} alt={p.name} src={p.image} width={20} height={20} />
+                      <Image className="size-5" alt={p.name} src={p.image} width={20} height={20} />
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm truncate">{p.name}</p>
                         {isLoading ? (
                           <div className="h-3 w-16 bg-secondary animate-pulse rounded mt-0.5" />
                         ) : !p.live ? (
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coming soon</p>
+                        ) : maintenance ? (
+                          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Temporarily unavailable</p>
                         ) : !allowed ? (
                           <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pro required</p>
                         ) : connected.length > 0 ? (
@@ -268,8 +263,15 @@ export default function PublishPage() {
                       </a>
                     )}
 
+                    {/* Maintenance notice */}
+                    {maintenance && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center font-semibold">
+                        Back soon — under maintenance
+                      </p>
+                    )}
+
                     {/* Connect button — admins/owners only, platform allowed, not at limit */}
-                    {p.live && allowed && isAdmin && !atLimit && (
+                    {p.live && allowed && !maintenance && isAdmin && !atLimit && (
                       <button
                         onClick={() => handleConnect(p.id)}
                         disabled={isConnecting || isLoading}
@@ -287,7 +289,7 @@ export default function PublishPage() {
                     )}
 
                     {/* At account limit */}
-                    {p.live && allowed && isAdmin && atLimit && (
+                    {p.live && allowed && !maintenance && isAdmin && atLimit && (
                       <a
                         href="/dashboard/billing"
                         className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all"

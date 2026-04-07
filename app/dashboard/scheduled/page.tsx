@@ -18,7 +18,6 @@ import {
 
 const PLATFORM_META: Record<string, { name: string; image: string }> = {
   youtube:   { name: "YouTube Shorts",  image: "/icons/youtube-short.png" },
-  x:         { name: "X / Twitter",     image: "/icons/twitter.png" },
   tiktok:    { name: "TikTok",          image: "/icons/tik-tok.png" },
   bluesky:   { name: "Bluesky",         image: "/icons/bluesky-icon.png" },
   facebook:  { name: "Facebook",        image: "/icons/facebook.png" },

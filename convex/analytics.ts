@@ -233,7 +233,7 @@ export const getPublishedByPlatform = query({
     const user = await getAuthUser(ctx);
     if (!user) return [];
 
-    const PLATFORMS = ["youtube", "tiktok", "instagram", "x", "bluesky", "facebook", "linkedin"];
+    const PLATFORMS = ["youtube", "tiktok", "instagram", "bluesky", "facebook", "linkedin"];
 
     if (!workspaceId) {
       // Personal mode — use fast aggregates

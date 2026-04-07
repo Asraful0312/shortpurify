@@ -6,7 +6,6 @@ function IntegrationsSection() {
   const live = [
     { src: "/icons/youtube-short.png", label: "YouTube Shorts" },
     { src: "/icons/tik-tok.png", label: "TikTok" },
-    { src: "/icons/twitter.png", label: "X / Twitter", small: true },
     { src: "/icons/bluesky-icon.png", label: "Bluesky" },
     { src: "/icons/threads.png", label: "Threads" },
   ];

@@ -14,7 +14,6 @@ const ALL_PLATFORMS = [
   { id: "tiktok",    label: "TikTok" },
   { id: "instagram", label: "Instagram Reels" },
   { id: "youtube",   label: "YouTube Shorts" },
-  { id: "x",         label: "X / Twitter" },
   { id: "threads",   label: "Threads" },
   { id: "linkedin",  label: "LinkedIn" },
   { id: "snapchat",  label: "Snapchat" },

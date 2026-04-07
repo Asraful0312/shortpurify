@@ -28,7 +28,6 @@ function SocialProofSection() {
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
              <Image src="/icons/youtube.png" alt="YouTube" width={100} height={30} className="h-6 w-auto object-contain" />
              <Image src="/icons/tik-tok.png" alt="TikTok" width={100} height={30} className="h-7 w-auto object-contain" />
-             <Image src="/icons/twitter.png" alt="X" width={100} height={30} className="h-5 w-auto object-contain" />
              <Image src="/icons/threads.png" alt="Threads" width={100} height={30} className="h-6 w-auto object-contain" />
              <Image src="/icons/bluesky-icon.png" alt="Bluesky" width={100} height={30} className="h-6 w-auto object-contain" />
           </div>

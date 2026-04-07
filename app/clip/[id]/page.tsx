@@ -38,18 +38,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         videos: [{ url: data.videoUrl, type: "video/mp4", width: 720, height: 1280 }]
       },
       twitter: {
-        card: "player",
+        card: "summary_large_image",
         title: data.title,
         description: data.content || data.title,
         images: [data.imageUrl],
-        players: [
-          {
-            playerUrl: clipUrl,
-            streamUrl: data.videoUrl,
-            width: 720,
-            height: 1280
-          }
-        ],
       }
     };
   } catch (e) {

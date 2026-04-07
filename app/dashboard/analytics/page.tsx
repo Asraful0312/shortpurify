@@ -12,7 +12,6 @@ const PLATFORM_META: Record<string, { label: string; color: string }> = {
   youtube:   { label: "YouTube",          color: "bg-red-500" },
   tiktok:    { label: "TikTok",           color: "bg-black" },
   instagram: { label: "Instagram",        color: "bg-gradient-to-br from-purple-500 to-pink-500" },
-  x:         { label: "X / Twitter",      color: "bg-neutral-800" },
   bluesky:   { label: "Bluesky",          color: "bg-sky-500" },
   facebook:  { label: "Facebook",         color: "bg-blue-600" },
   linkedin:  { label: "LinkedIn",         color: "bg-blue-700" },

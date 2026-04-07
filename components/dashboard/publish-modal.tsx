@@ -13,7 +13,6 @@ const PLATFORM_META: Record<string, { name: string; image: string }> = {
   facebook:  { name: "Facebook",        image: "/icons/facebook.png" },
   instagram: { name: "Instagram Reels", image: "/icons/instagram.png" },
   youtube:   { name: "YouTube Shorts",  image: "/icons/youtube.png" },
-  x:         { name: "X / Twitter",     image: "/icons/twitter.png" },
   tiktok:    { name: "TikTok",          image: "/icons/tik-tok.png" },
   linkedin:  { name: "LinkedIn",        image: "/icons/linkedin.png" },
   threads:   { name: "Threads",         image: "/icons/threads.png" },
@@ -77,7 +76,6 @@ export function PublishModal({
 
   const publishYouTube  = useAction(api.youtubeActions.publishClip);
   const publishTikTok   = useAction(api.tiktokActions.publishClip);
-  const publishX        = useAction(api.xActions.publishClip);
   const publishBluesky  = useAction(api.blueskyActions.publishClip);
   const publishFacebook = useAction(api.facebookActions.publishClip);
   const schedulePost    = useMutation(api.scheduledPublish.schedulePost);
@@ -215,16 +213,6 @@ export function PublishModal({
               title: clipTitle ?? "Short Clip",
             });
             postId = r.publishId;
-          } else if (acc.platform === "x") {
-            const r = await publishX({
-              outputId: outputId as Id<"outputs">,
-              accountId: acc.accountId,
-              clipUrl: clipUrl ?? "",
-              clipKey,
-              caption,
-              title: clipTitle ?? "Short Clip",
-            });
-            postId = r.tweetId;
           } else if (acc.platform === "bluesky") {
             const r = await publishBluesky({
               outputId: outputId as Id<"outputs">,
@@ -424,7 +412,7 @@ export function PublishModal({
                   <div key={platform} className="rounded-2xl border border-border overflow-hidden">
                     {/* Platform header */}
                     <div className="flex items-center gap-2.5 px-4 py-2.5 bg-secondary/40">
-                      <Image src={meta.image} alt={meta.name} className={platform === "x" ? "size-3" : ""} width={16} height={16} />
+                      <Image src={meta.image} alt={meta.name} width={16} height={16} />
                       <span className="font-bold text-sm flex-1">{meta.name}</span>
                       {hasAiCaption && (
                         <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">

@@ -11,8 +11,6 @@ import Image from "next/image";
 import { useWorkspace } from "@/components/workspace-context";
 
 /** Platforms available on the Starter (Free) plan. All others require Pro+. */
-const STARTER_PLATFORMS = ["youtube", "tiktok"];
-
 // Platforms that are live vs coming soon
 const PLATFORMS = [
   { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
@@ -37,8 +35,6 @@ export default function PublishPage() {
   const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   const tier = usage?.tier ?? "starter";
   const accountsPerPlatform = tier === "agency" ? Infinity : tier === "pro" ? 3 : 1;
-  const isPlatformAllowed = (platformId: string) =>
-    tier !== "starter" || STARTER_PLATFORMS.includes(platformId);
 
   // Real-time list of connected accounts from Convex
   const accounts = useQuery(api.socialTokens.getAllTokens);
@@ -184,8 +180,7 @@ export default function PublishPage() {
           {PLATFORMS.map((p) => {
             const connected = byPlatform[p.id] ?? [];
             const isConnecting = connecting === p.id;
-            const allowed = isPlatformAllowed(p.id);
-            const atLimit = allowed && accountsPerPlatform !== Infinity && connected.length >= accountsPerPlatform;
+            const atLimit = accountsPerPlatform !== Infinity && connected.length >= accountsPerPlatform;
             const maintenance = (p as any).maintenance === true;
 
             return (
@@ -193,7 +188,7 @@ export default function PublishPage() {
                     key={p.id}
                     className={cn(
                       "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
-                      (!p.live || !allowed || maintenance) && "opacity-60",
+                      (!p.live || maintenance) && "opacity-60",
                       connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
                     )}
                   >
@@ -208,8 +203,6 @@ export default function PublishPage() {
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coming soon</p>
                         ) : maintenance ? (
                           <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Temporarily unavailable</p>
-                        ) : !allowed ? (
-                          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pro required</p>
                         ) : connected.length > 0 ? (
                           <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
                             <CheckCircle2 size={10} />
@@ -219,10 +212,6 @@ export default function PublishPage() {
                           <p className="text-xs text-muted-foreground">Not connected</p>
                         )}
                       </div>
-                      {/* Lock icon for locked platforms */}
-                      {p.live && !allowed && (
-                        <Lock size={13} className="text-amber-500 shrink-0" />
-                      )}
                     </div>
 
                     {/* Connected account chips */}
@@ -253,14 +242,11 @@ export default function PublishPage() {
                       </div>
                     )}
 
-                    {/* Upgrade prompt for locked platforms */}
-                    {p.live && !allowed && (
-                      <a
-                        href="/dashboard/billing"
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all"
-                      >
-                        <Lock size={11} /> Upgrade to Pro
-                      </a>
+                    {/* TikTok public account warning */}
+                    {p.id === "tiktok" && connected.length > 0 && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 font-semibold">
+                        ⚠️ TikTok only allows publishing to <strong>private accounts</strong> via the API. Make sure your TikTok account is set to private before publishing.
+                      </p>
                     )}
 
                     {/* Maintenance notice */}
@@ -270,8 +256,8 @@ export default function PublishPage() {
                       </p>
                     )}
 
-                    {/* Connect button — admins/owners only, platform allowed, not at limit */}
-                    {p.live && allowed && !maintenance && isAdmin && !atLimit && (
+                    {/* Connect button — admins/owners only, not at limit */}
+                    {p.live && !maintenance && isAdmin && !atLimit && (
                       <button
                         onClick={() => handleConnect(p.id)}
                         disabled={isConnecting || isLoading}
@@ -289,7 +275,7 @@ export default function PublishPage() {
                     )}
 
                     {/* At account limit */}
-                    {p.live && allowed && !maintenance && isAdmin && atLimit && (
+                    {p.live && !maintenance && isAdmin && atLimit && (
                       <a
                         href="/dashboard/billing"
                         className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all"
@@ -299,7 +285,7 @@ export default function PublishPage() {
                     )}
 
                     {/* Members: show lock hint instead of connect */}
-                    {p.live && allowed && !isAdmin && connected.length === 0 && (
+                    {p.live && !maintenance && !isAdmin && connected.length === 0 && (
                       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground bg-secondary/60 rounded-xl px-3 py-1.5">
                         <ShieldAlert size={11} /> Admin required to connect
                       </div>

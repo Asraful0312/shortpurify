@@ -27,8 +27,8 @@ const PRODUCT_PLAN_MAP: Record<string, "pro" | "agency"> = {
 
 export type PlanTier = "starter" | "pro" | "agency";
 
-/** Platforms available on the Starter plan. All others require Pro+. */
-export const STARTER_PLATFORMS = ["youtube", "tiktok"] as const;
+/** All platforms are available on all plans. */
+export const STARTER_PLATFORMS = ["youtube", "tiktok"] as const; // kept for reference only
 
 const PLAN_LIMITS: Record<PlanTier, {
   projects: number;
@@ -50,7 +50,7 @@ const PLAN_LIMITS: Record<PlanTier, {
   /** Whether zip bulk-download is available */
   zipExport: boolean;
 }> = {
-  starter: { projects: 5,        minutes: 60,   platforms: [...STARTER_PLATFORMS], accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false },
+  starter: { projects: 5,        minutes: 60,   platforms: null,                   accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false },
   pro:     { projects: 30,       minutes: 300,  platforms: null,                   accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true  },
   agency:  { projects: Infinity, minutes: 1500, platforms: null,                   accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true  },
 };

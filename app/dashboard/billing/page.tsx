@@ -42,7 +42,8 @@ const PLANS = [
     features: [
       { text: "5 projects / month", included: true },
       { text: "60 min of input video / month", included: true },
-      { text: "YouTube Shorts + TikTok only", included: true },
+      { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
+      { text: "1 account per platform", included: true },
       { text: "3 AI clips per project", included: true },
       { text: "3 subtitle re-renders per clip", included: true },
       { text: "Watermark on exports", included: false },
@@ -62,7 +63,7 @@ const PLANS = [
     features: [
       { text: "30 projects / month", included: true },
       { text: "300 min of input video / month", included: true },
-      { text: "All 9 platforms + multi-account", included: true },
+      { text: "All platforms · up to 3 accounts each", included: true },
       { text: "8 AI clips per project", included: true },
       { text: "10 subtitle re-renders per clip", included: true },
       { text: "No watermark — full quality", included: true },
@@ -84,7 +85,7 @@ const PLANS = [
     features: [
       { text: "Unlimited projects", included: true },
       { text: "1,500 min of input video / month", included: true },
-      { text: "All 9 platforms + unlimited accounts", included: true },
+      { text: "All platforms · unlimited accounts", included: true },
       { text: "15 AI clips per project", included: true },
       { text: "Unlimited subtitle re-renders", included: true },
       { text: "Zip download + metadata export", included: true },

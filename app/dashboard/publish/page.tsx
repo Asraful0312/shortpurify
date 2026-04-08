@@ -128,9 +128,9 @@ export default function PublishPage() {
 
   const hasAnyConnected = (accounts?.length ?? 0) > 0;
 
-  // Group by platform
+  // Group by platform — exclude removed platforms (x)
   const byPlatform: Record<string, typeof accounts> = {};
-  for (const acc of accounts ?? []) {
+  for (const acc of (accounts ?? []).filter((a) => a.platform !== "x")) {
     if (!byPlatform[acc.platform]) byPlatform[acc.platform] = [];
     byPlatform[acc.platform]!.push(acc);
   }

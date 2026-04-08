@@ -280,8 +280,18 @@ export const publishClip = action({
     clipKey: v.optional(v.string()),
     caption: v.string(),
     title: v.string(),
+    privacyLevel: v.optional(v.union(
+      v.literal("PUBLIC_TO_EVERYONE"),
+      v.literal("MUTUAL_FOLLOW_FRIENDS"),
+      v.literal("FOLLOWER_OF_CREATOR"),
+      v.literal("SELF_ONLY"),
+    )),
+    disableComment: v.optional(v.boolean()),
+    disableDuet: v.optional(v.boolean()),
+    disableStitch: v.optional(v.boolean()),
+    brandedContent: v.optional(v.boolean()),
   },
-  handler: async (ctx, { outputId, accountId, clipUrl, clipKey, caption, title }) => {
+  handler: async (ctx, { outputId, accountId, clipUrl, clipKey, caption, title, privacyLevel, disableComment, disableDuet, disableStitch, brandedContent }) => {
     const user = await requireUser(ctx);
     const accessToken = await getValidAccessToken(ctx, user._id, accountId);
 
@@ -300,23 +310,18 @@ export const publishClip = action({
     const videoBuffer = await videoRes.arrayBuffer();
     const videoSize = videoBuffer.byteLength;
 
-    // Query creator info to get allowed privacy levels
-    const creatorRes = await fetch(`${TIKTOK_API}/post/publish/creator_info/query/`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-    });
-    const creatorData = await creatorRes.json() as {
-      data?: { privacy_level_options?: string[] };
-      error?: { code: string; message: string };
-    };
-    const allowedPrivacy = creatorData.data?.privacy_level_options ?? [];
-    // Unaudited TikTok apps can only post as SELF_ONLY (private).
-    // After receiving TikTok Direct Post audit approval, change preference to PUBLIC_TO_EVERYONE.
-    const PRIVACY_PREFERENCE = ["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"];
-    const privacyLevel = PRIVACY_PREFERENCE.find(p => allowedPrivacy.includes(p)) ?? allowedPrivacy[0] ?? "SELF_ONLY";
+    // If no privacy level passed, query creator info to get allowed options and pick best available
+    let resolvedPrivacy = privacyLevel ?? "SELF_ONLY";
+    if (!privacyLevel) {
+      const creatorRes = await fetch(`${TIKTOK_API}/post/publish/creator_info/query/`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      });
+      const creatorData = await creatorRes.json() as { data?: { privacy_level_options?: string[] } };
+      const allowedPrivacy = creatorData.data?.privacy_level_options ?? [];
+      const PRIVACY_PREFERENCE = ["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "FOLLOWER_OF_CREATOR", "PUBLIC_TO_EVERYONE"];
+      resolvedPrivacy = PRIVACY_PREFERENCE.find(p => allowedPrivacy.includes(p)) ?? allowedPrivacy[0] ?? "SELF_ONLY";
+    }
 
     // TikTok blocks captions with URLs; Direct Post title max 2200 chars
     const sanitizeCaption = (text: string) =>
@@ -329,6 +334,20 @@ export const publishClip = action({
     const postCaption = sanitizeCaption(caption || title);
 
     // Step 1: Initialize upload (DIRECT_POST — app is approved)
+    const postInfo: Record<string, unknown> = {
+      title: postCaption,
+      post_mode: "DIRECT_POST",
+      privacy_level: resolvedPrivacy,
+      disable_duet: disableDuet ?? false,
+      disable_comment: disableComment ?? false,
+      disable_stitch: disableStitch ?? false,
+      video_cover_timestamp_ms: 1000,
+    };
+    if (brandedContent) {
+      postInfo.brand_content_toggle = true;
+      postInfo.brand_organic_toggle = true;
+    }
+
     const initRes = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
       method: "POST",
       headers: {
@@ -336,15 +355,7 @@ export const publishClip = action({
         "Content-Type": "application/json; charset=UTF-8",
       },
       body: JSON.stringify({
-        post_info: {
-          title: postCaption,
-          post_mode: "DIRECT_POST",
-          privacy_level: privacyLevel,
-          disable_duet: false,
-          disable_comment: false,
-          disable_stitch: false,
-          video_cover_timestamp_ms: 1000,
-        },
+        post_info: postInfo,
         source_info: {
           source: "FILE_UPLOAD",
           video_size: videoSize,

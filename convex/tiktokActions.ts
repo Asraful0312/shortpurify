@@ -311,7 +311,7 @@ export const publishClip = action({
     const videoSize = videoBuffer.byteLength;
 
     // If no privacy level passed, query creator info to get allowed options and pick best available
-    let resolvedPrivacy = privacyLevel ?? "SELF_ONLY";
+    let resolvedPrivacy: string = privacyLevel ?? "SELF_ONLY";
     if (!privacyLevel) {
       const creatorRes = await fetch(`${TIKTOK_API}/post/publish/creator_info/query/`, {
         method: "POST",

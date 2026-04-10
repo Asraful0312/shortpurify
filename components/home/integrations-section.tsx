@@ -37,6 +37,7 @@ function IntegrationsSection() {
               {label}
             </div>
           ))}
+         
         </div>
 
         {/* Coming soon */}

@@ -9,6 +9,7 @@ function Footer() {
       <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
       <Link href="/">
       <Logo/>
+      
       </Link>
         <div className="flex flex-col items-center gap-1 text-center">
           <p className="text-sm font-medium text-muted-foreground">
@@ -26,6 +27,8 @@ function Footer() {
             </a>
             . ShortPurify is an independent product and is not affiliated with Anthropic.
           </p>
+
+           <a href="https://fazier.com/launches/shortpurify.com" target="_blank"><img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=light" width={60} alt="Fazier badge" /></a>
         </div>
         <div className="flex gap-8 text-sm font-medium text-muted-foreground">
           <Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link>

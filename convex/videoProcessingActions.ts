@@ -105,10 +105,27 @@ export const saveClipsToDb = internalAction({
     );
 
     // Process clips in batches of 3 — avoids overwhelming Modal with cold-start requests.
+    // Clips are saved to DB immediately after each batch so they appear in the UI progressively.
     const BATCH_SIZE = 3;
-    const results: { clip: typeof clips[0]; i: number; result: WorkerResponse; clipKey: string; thumbKey: string }[] = [];
+    const totalBatches = Math.ceil(clips.length / BATCH_SIZE);
+    let savedCount = 0;
+    let firstThumbnail: string | undefined;
 
     for (let batchStart = 0; batchStart < clips.length; batchStart += BATCH_SIZE) {
+      const batchNum = Math.floor(batchStart / BATCH_SIZE) + 1;
+
+      const label = cropMode === "blur_background"
+        ? `Processing clips (blur + FFmpeg)… ${savedCount}/${clips.length} done`
+        : `Processing clips (AI crop + FFmpeg)… ${savedCount}/${clips.length} done`;
+
+      await ctx.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "processing",
+        processingStep: totalBatches > 1
+          ? `${label} — batch ${batchNum}/${totalBatches}`
+          : label,
+      });
+
       const batch = clips.slice(batchStart, batchStart + BATCH_SIZE);
       const batchResults = await Promise.all(
         batch.map(async (clip, batchIdx) => {
@@ -138,51 +155,46 @@ export const saveClipsToDb = internalAction({
           }
         }),
       );
-      results.push(...batchResults);
-    }
 
-    let firstThumbnail: string | undefined;
+      // Save each successful clip immediately — makes them appear in the UI as batches complete
+      for (const { clip, i, result, clipKey, thumbKey } of batchResults) {
+        if (!result.ok) {
+          console.error(`Clip ${i} ("${clip.title}") failed: ${result.error}`);
+          continue;
+        }
 
-    for (const { clip, i, result, clipKey, thumbKey } of results) {
-      if (!result.ok) {
-        console.error(`Clip ${i} ("${clip.title}") failed: ${result.error}`);
-        continue;
+        const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 * 24 * 7 });
+        const thumbnailUrl =
+          result.thumbnailUploaded !== false
+            ? await r2.getUrl(thumbKey, { expiresIn: 60 * 60 * 24 * 7 })
+            : undefined;
+
+        await ctx.runMutation(internal.outputs.saveOutput, {
+          projectId,
+          title: clip.title,
+          platform: clip.platform,
+          content: clip.captions[clip.platform] ?? Object.values(clip.captions)[0] ?? "",
+          captions: clip.captions,
+          viralScore: clip.viralScore,
+          clipUrl,
+          clipKey,
+          thumbnailUrl,
+          thumbnailKey: result.thumbnailUploaded !== false ? thumbKey : undefined,
+          startTime: clip.startTime,
+          endTime: clip.endTime,
+        });
+
+        savedCount++;
+
+        if (!firstThumbnail && thumbnailUrl) {
+          firstThumbnail = thumbnailUrl;
+          await ctx.runMutation(internal.projects.updateProjectStatus, {
+            projectId,
+            status: "processing",
+            thumbnailUrl: firstThumbnail,
+          });
+        }
       }
-
-      // Generate 7-day signed serving URLs from the R2 keys.
-      const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 * 24 * 7 });
-      const thumbnailUrl =
-        result.thumbnailUploaded !== false
-          ? await r2.getUrl(thumbKey, { expiresIn: 60 * 60 * 24 * 7 })
-          : undefined;
-
-      await ctx.runMutation(internal.outputs.saveOutput, {
-        projectId,
-        title: clip.title,
-        platform: clip.platform,
-        content: clip.captions[clip.platform] ?? Object.values(clip.captions)[0] ?? "",
-        captions: clip.captions,
-        viralScore: clip.viralScore,
-        clipUrl,
-        clipKey,
-        thumbnailUrl,
-        thumbnailKey: result.thumbnailUploaded !== false ? thumbKey : undefined,
-        startTime: clip.startTime,
-        endTime: clip.endTime,
-      });
-
-      if (!firstThumbnail && thumbnailUrl) {
-        firstThumbnail = thumbnailUrl;
-      }
-    }
-
-    // Set project thumbnail from the first successful clip
-    if (firstThumbnail) {
-      await ctx.runMutation(internal.projects.updateProjectStatus, {
-        projectId,
-        status: "processing",
-        thumbnailUrl: firstThumbnail,
-      });
     }
   },
 });

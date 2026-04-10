@@ -7,7 +7,7 @@ function IntegrationsSection() {
     { src: "/icons/youtube-short.png", label: "YouTube Shorts" },
     { src: "/icons/tik-tok.png", label: "TikTok" },
     { src: "/icons/bluesky-icon.png", label: "Bluesky" },
-    { src: "/icons/threads.png", label: "Threads" },
+    // { src: "/icons/threads.png", label: "Threads" },
   ];
 
   const comingSoon = [

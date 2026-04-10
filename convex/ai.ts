@@ -64,8 +64,10 @@ Rules you MUST follow strictly:
    - High shareability: quotable lines, "this is so true", "tag a friend who..."
 3. Each clip MUST:
    - Start at a natural sentence beginning or strong transition
-   - End at a natural pause/sentence end (NEVER cut mid-sentence or mid-thought)
-   - Be 15–60 seconds max
+   - End at a natural pause/sentence end (NEVER cut mid-sentence or mid-thought — always finish the complete thought)
+   - Be 25–60 seconds. Aim for 35–55 seconds sweet spot. NEVER return a clip under 25s unless the moment is 100% complete and self-contained
+   - Prefer longer clips that tell a complete mini-story over short one-liners
+   - Spread clips across the full video — do NOT cluster multiple clips from the same section
    - Have high viral potential (score 70+)
 4. Return ONLY a valid JSON array of objects. No explanations, no markdown, no extra text.
    Shape:
@@ -74,7 +76,7 @@ Rules you MUST follow strictly:
        "title": "Short, punchy viral hook title (max 60 chars, use hyphen - only, no em/en dash)",
        "startTime": number (float seconds, exact start),
        "endTime": number (float seconds, natural end <= videoDuration),
-       "duration": number (endTime - startTime, must be 15-60),
+       "duration": number (endTime - startTime, must be 25-60, target 35-55),
        "viralScore": integer 0-100 (be harsh — only 80+ for truly viral potential),
        "platform": one best platform from: ${platforms.join(", ")},
        "reason": short internal note why this moment is viral (1 sentence, will not be output),
@@ -151,7 +153,7 @@ export const generateClipIdeas = internalAction({
     return clips.slice(0, maxClips).map((c) => ({
       title: sanitize(c.title),
       startTime: Math.max(0, c.startTime),
-      endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 5, c.endTime))),
+      endTime: Math.min(videoDuration, Math.min(c.startTime + 60, Math.max(c.startTime + 25, c.endTime))),
       viralScore: c.viralScore,
       platform: c.platform,
       // Sanitize + ensure every requested platform has a caption

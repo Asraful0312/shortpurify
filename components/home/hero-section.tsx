@@ -92,7 +92,7 @@ export default function HeroSection() {
           </SignUpButton>
           <button 
             onClick={() => setShowVideo(true)}
-            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm cursor-pointer"
           >
             <PlayCircle size={20} className="text-muted-foreground" />
             See It in Action (2 min demo)

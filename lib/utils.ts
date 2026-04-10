@@ -34,9 +34,9 @@ export const PIPELINE_STEPS = [
     description: "Claude extracts viral moments & captions",
   },
   {
-    key: "Processing clips (AI crop + FFmpeg)…",
+    key: "Processing clips (AI crop)…",
     label: "Smart Clips",
-    description: "AI face-tracking crop & FFmpeg encoding",
+    description: "AI face-tracking crop",
   },
 ];
 

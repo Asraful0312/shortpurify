@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { SignUpButton } from "@clerk/clerk-react";
-import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-type PlanFeature = { text: string; included: boolean };
+type PlanFeature = { text: string; included: boolean; tooltip?: string };
 
 const plans = [
   {
@@ -19,7 +19,7 @@ const plans = [
       { text: "60 min of input video / month", included: true },
       { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
       { text: "3 AI clips per project", included: true },
-      { text: "3 subtitle re-renders per clip", included: true },
+      { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "Smart crop & blur background", included: true },
       { text: "Watermark-free exports", included: false },
       { text: "Zip download", included: false },
@@ -38,7 +38,7 @@ const plans = [
       { text: "300 min of input video / month", included: true },
       { text: "All platforms · up to 3 accounts each", included: true },
       { text: "8 AI clips per project", included: true },
-      { text: "10 subtitle re-renders per clip", included: true },
+      { text: "10 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "No watermark — full quality", included: true },
       { text: "Zip download + metadata export", included: true },
       { text: "Scheduled publishing", included: true },
@@ -58,7 +58,7 @@ const plans = [
       { text: "1,500 min of input video / month", included: true },
       { text: "All platforms · unlimited accounts", included: true },
       { text: "15 AI clips per project", included: true },
-      { text: "Unlimited subtitle re-renders", included: true },
+      { text: "Unlimited subtitle re-renders", included: true, tooltip: "Change subtitle style, font, or position and re-export as many times as you want — no limits." },
       { text: "Zip download + metadata export", included: true },
       { text: "Unlimited team seats + RBAC", included: true },
       { text: "Multiple workspaces", included: true },
@@ -175,6 +175,15 @@ function PricingSection() {
                     <span className={`text-sm font-medium ${!feature.included ? (plan.highlighted ? "text-primary-foreground/40" : "text-muted-foreground/50") : ""}`}>
                       {feature.text}
                     </span>
+                    {feature.tooltip && (
+                      <span className="relative group/tip shrink-0">
+                        <Info size={13} className={`cursor-help transition-colors ${plan.highlighted ? "text-primary-foreground/40 hover:text-primary-foreground/70" : "text-muted-foreground/50 hover:text-muted-foreground"}`} />
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-xl bg-foreground text-background text-[11px] font-medium px-3 py-2 shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 leading-relaxed">
+                          {feature.tooltip}
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+                        </span>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

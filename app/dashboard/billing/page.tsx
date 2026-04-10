@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   CheckCircle2, XCircle, Zap, Crown, Building2,
-  CreditCard, ArrowUpRight, Lock, Loader2, ExternalLink,
+  CreditCard, ArrowUpRight, Lock, Loader2, ExternalLink, Info,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-type PlanFeature = { text: string; included: boolean };
+type PlanFeature = { text: string; included: boolean; tooltip?: string };
 
 /**
  * Creem product IDs — fill these in after creating products in your Creem dashboard.
@@ -45,7 +45,7 @@ const PLANS = [
       { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
       { text: "1 account per platform", included: true },
       { text: "3 AI clips per project", included: true },
-      { text: "3 subtitle re-renders per clip", included: true },
+      { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "Watermark on exports", included: false },
       { text: "Zip download", included: false },
       { text: "Scheduled publishing", included: false },
@@ -65,7 +65,7 @@ const PLANS = [
       { text: "300 min of input video / month", included: true },
       { text: "All platforms · up to 3 accounts each", included: true },
       { text: "8 AI clips per project", included: true },
-      { text: "10 subtitle re-renders per clip", included: true },
+      { text: "10 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "No watermark — full quality", included: true },
       { text: "Zip download + metadata export", included: true },
       { text: "Scheduled publishing", included: true },
@@ -87,7 +87,7 @@ const PLANS = [
       { text: "1,500 min of input video / month", included: true },
       { text: "All platforms · unlimited accounts", included: true },
       { text: "15 AI clips per project", included: true },
-      { text: "Unlimited subtitle re-renders", included: true },
+      { text: "Unlimited subtitle re-renders", included: true, tooltip: "Change subtitle style, font, or position and re-export as many times as you want — no limits." },
       { text: "Zip download + metadata export", included: true },
       { text: "Unlimited team seats + RBAC", included: true },
       { text: "Multiple workspaces", included: true },
@@ -379,6 +379,15 @@ export default function BillingPage() {
                         <XCircle size={15} className="text-muted-foreground/40 mt-0.5 shrink-0" />
                       )}
                       <span className={f.included ? "" : "text-muted-foreground/50"}>{f.text}</span>
+                      {f.tooltip && (
+                        <span className="relative group/tip shrink-0 mt-0.5">
+                          <Info size={13} className="text-muted-foreground/50 hover:text-muted-foreground cursor-help transition-colors" />
+                          <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 rounded-xl bg-foreground text-background text-[11px] font-medium px-3 py-2 shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 leading-relaxed">
+                            {f.tooltip}
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-foreground" />
+                          </span>
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

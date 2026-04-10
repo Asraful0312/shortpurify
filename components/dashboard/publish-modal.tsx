@@ -456,16 +456,15 @@ export function PublishModal({
                               Who can view this video
                             </label>
                             <select
-                              value={tiktokSettings.privacyLevel}
-                              onChange={(e) => setTiktokSettings((p) => ({ ...p, privacyLevel: e.target.value as typeof tiktokSettings.privacyLevel }))}
-                              disabled={isPublishing}
-                              className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60 bg-white"
+                              value="SELF_ONLY"
+                              disabled
+                              className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-secondary/60 text-muted-foreground opacity-80 cursor-not-allowed"
                             >
-                              <option value="PUBLIC_TO_EVERYONE">Everyone</option>
-                              <option value="MUTUAL_FOLLOW_FRIENDS">Friends</option>
-                              <option value="FOLLOWER_OF_CREATOR">Followers</option>
                               <option value="SELF_ONLY">Only me (Private)</option>
                             </select>
+                            <p className="text-[11px] text-amber-700 mt-1.5 font-medium">
+                              Only private posting is available until TikTok approves our app.
+                            </p>
                           </div>
                           {/* Points 2–4: Interaction toggles */}
                           <div className="space-y-2">

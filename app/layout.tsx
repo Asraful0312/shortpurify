@@ -36,8 +36,10 @@ export const metadata: Metadata = {
     "auto captions",
     "viral clips",
   ],
+  applicationName: "ShortPurify",
   authors: [{ name: "ShortPurify" }],
   creator: "ShortPurify",
+  publisher: "ShortPurify",
   robots: {
     index: true,
     follow: true,
@@ -86,6 +88,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "ShortPurify",
+              "url": "https://shortpurify.com",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://shortpurify.com/?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              }
+            }),
+          }}
+        />
+      </head>
       <body
         className={`${outfit.variable} ${geistMono.variable} antialiased`}
       >

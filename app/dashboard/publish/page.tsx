@@ -303,7 +303,7 @@ export default function PublishPage() {
           <div>
             <p className="font-extrabold text-amber-800">No accounts connected yet</p>
             <p className="text-sm text-amber-700 mt-0.5">
-              Click <strong>Connect</strong> on Facebook above to link your Pages and start publishing clips.
+              Click <strong>Connect</strong> on YouTube Shorts above to link your Pages and start publishing clips.
             </p>
           </div>
         </div>

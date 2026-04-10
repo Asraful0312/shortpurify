@@ -38,7 +38,7 @@ export default function AutomatedWorkflowsSection() {
   const div7Ref = useRef<HTMLDivElement>(null);
 
   const benefits = [
-    { title: "Direct Social Integration", text: "Connect YouTube, TikTok, X, Bluesky & Threads in one place." },
+    { title: "Direct Social Integration", text: "Connect YouTube, TikTok & Bluesky in one place." },
     { title: "One-Click Publishing", text: "Post to every social platform simultaneously from the Publish Hub." },
     { title: "Smart Scheduling", text: "Queue up your viral clips days or weeks in advance." },
     { title: "Team Collaboration", text: "Invite editors and managers to collaborate in shared workspaces." },
@@ -90,7 +90,7 @@ export default function AutomatedWorkflowsSection() {
                          transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
                          className="absolute inset-0 rounded-full bg-primary/20"
                       />
-                      <Image src="/logo-small.png" alt="logo" width={44} height={44} className="relative z-10" />
+                      <Image src="/logo.png" alt="logo" width={44} height={44} className="relative z-10" />
                     </Node>
                   </div>
 

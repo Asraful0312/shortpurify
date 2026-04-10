@@ -26,7 +26,7 @@ function IntegrationsSection() {
         className="container mx-auto px-4"
       >
         <p className="text-center text-sm font-bold tracking-widest text-muted-foreground uppercase mb-6">
-          Publish directly to 5 platforms, more coming soon
+          Publish directly to 3 platforms, more coming soon
         </p>
 
         {/* Live platforms */}

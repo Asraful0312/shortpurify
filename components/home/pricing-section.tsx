@@ -157,7 +157,7 @@ function PricingSection() {
                 </div>
                 {isYearly && plan.monthlyPrice !== "$0" ? (
                   <div className={`mt-2 text-[11px] font-semibold uppercase tracking-wider ${plan.highlighted ? "text-primary-foreground/70" : "text-muted-foreground/70"}`}>
-                    Billed annually · 2 months free
+                    Billed annually
                   </div>
                 ) : (
                   <div className="mt-2 text-[11px] opacity-0">placeholder</div>
@@ -205,9 +205,9 @@ function PricingSection() {
         </div>
 
         {/* Bottom note */}
-        <p className="text-center text-sm text-muted-foreground mt-10">
+        {/* <p className="text-center text-sm text-muted-foreground mt-10">
           All paid plans include a <strong>14-day free trial</strong> — no credit card required. Cancel anytime.
-        </p>
+        </p> */}
       </motion.div>
     </section>
   );

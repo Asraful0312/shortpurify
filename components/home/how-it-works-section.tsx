@@ -236,7 +236,7 @@ export default function HowItWorksSection() {
 
   const steps = [
     { step: "01", title: "Paste a YouTube link or upload a video", desc: "Drop a video file or paste any YouTube URL ShortPurify fetches and transcribes it automatically. No downloading needed." },
-    { step: "02", title: "AI finds hooks, crops & captions", desc: "Claude AI scans the transcript, picks the 4–6 highest-viral moments, writes captions for every platform, and smart-crops each clip for mobile." },
+    { step: "02", title: "AI finds hooks, crops & captions", desc: "Claude AI scans the transcript, picks the 3–15 highest-viral moments, writes captions for every platform, and smart-crops each clip for mobile." },
     { step: "03", title: "Review, edit & publish", desc: "Preview clips, tweak subtitles with the built-in editor, then publish directly to your connected accounts or schedule for later." },
   ];
 

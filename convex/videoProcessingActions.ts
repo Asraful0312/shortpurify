@@ -40,26 +40,34 @@ async function callWorker(
     throw new ConvexError("VIDEO_WORKER_URL env var is not set");
   }
 
-  const res = await fetch(workerUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      videoUrl,
-      startTime,
-      endTime,
-      projectId,
-      clipIndex,
-      workerSecret,
-      clipUploadUrl,
-      thumbUploadUrl,
-      cropMode,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8 * 60 * 1000); // 8 min timeout per clip
 
-  if (!res.ok) {
-    throw new ConvexError(`Worker HTTP ${res.status}: ${await res.text()}`);
+  try {
+    const res = await fetch(workerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        videoUrl,
+        startTime,
+        endTime,
+        projectId,
+        clipIndex,
+        workerSecret,
+        clipUploadUrl,
+        thumbUploadUrl,
+        cropMode,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new ConvexError(`Worker HTTP ${res.status}: ${await res.text()}`);
+    }
+    return res.json() as Promise<WorkerResponse>;
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.json() as Promise<WorkerResponse>;
 }
 
 /**
@@ -96,34 +104,42 @@ export const saveClipsToDb = internalAction({
       }),
     );
 
-    // Process all clips in parallel — Modal spins up separate containers.
-    const results = await Promise.all(
-      clips.map(async (clip, i) => {
-        const { clipKey, thumbKey, clipUploadUrl, thumbUploadUrl } = presigned[i];
-        try {
-          const result = await callWorker(
-            videoUrl,
-            clip.startTime,
-            clip.endTime,
-            projectId,
-            i,
-            clipUploadUrl,
-            thumbUploadUrl,
-            cropMode,
-          );
-          return { clip, i, result, clipKey, thumbKey };
-        } catch (err) {
-          console.error(`Worker threw for clip ${i} ("${clip.title}"): ${err}`);
-          return {
-            clip,
-            i,
-            result: { ok: false, error: String(err) } as WorkerResponse,
-            clipKey,
-            thumbKey,
-          };
-        }
-      }),
-    );
+    // Process clips in batches of 3 — avoids overwhelming Modal with cold-start requests.
+    const BATCH_SIZE = 3;
+    const results: { clip: typeof clips[0]; i: number; result: WorkerResponse; clipKey: string; thumbKey: string }[] = [];
+
+    for (let batchStart = 0; batchStart < clips.length; batchStart += BATCH_SIZE) {
+      const batch = clips.slice(batchStart, batchStart + BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (clip, batchIdx) => {
+          const i = batchStart + batchIdx;
+          const { clipKey, thumbKey, clipUploadUrl, thumbUploadUrl } = presigned[i];
+          try {
+            const result = await callWorker(
+              videoUrl,
+              clip.startTime,
+              clip.endTime,
+              projectId,
+              i,
+              clipUploadUrl,
+              thumbUploadUrl,
+              cropMode,
+            );
+            return { clip, i, result, clipKey, thumbKey };
+          } catch (err) {
+            console.error(`Worker threw for clip ${i} ("${clip.title}"): ${err}`);
+            return {
+              clip,
+              i,
+              result: { ok: false, error: String(err) } as WorkerResponse,
+              clipKey,
+              thumbKey,
+            };
+          }
+        }),
+      );
+      results.push(...batchResults);
+    }
 
     let firstThumbnail: string | undefined;
 

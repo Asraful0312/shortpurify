@@ -57,6 +57,7 @@ export const processVideo = workflowManager.define({
     maxClips: v.optional(v.number()),
   },
   handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode, maxClips }) => {
+    try {
     // ── Step 1: Transcription ──────────────────────────────────────────
     await step.runMutation(internal.projects.updateProjectStatus, {
       projectId,
@@ -118,5 +119,14 @@ export const processVideo = workflowManager.define({
     // Delete original video — clips are generated and stored in R2, source is dead weight.
     // No-op for YouTube imports (they have no originalKey).
     await step.runAction(internal.r2Actions.deleteOriginalVideo, { projectId });
+
+    } catch (err) {
+      console.error(`[workflow] processVideo failed for ${projectId}:`, err);
+      await step.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "failed",
+        processingStep: "Processing failed — please try again",
+      });
+    }
   },
 });

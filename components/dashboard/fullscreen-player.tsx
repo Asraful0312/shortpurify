@@ -33,6 +33,7 @@ function FullscreenPlayer({
   const [retryKey, setRetryKey] = useState(0);
   const [videoSrc, setVideoSrc] = useState(clip.videoUrl);
   const [processing, setProcessing] = useState(false);
+  const [buffering, setBuffering] = useState(true);
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -101,6 +102,13 @@ function FullscreenPlayer({
       ref.current.currentTime = clip.startTime;
     }
   };
+
+  const handleCanPlay = () => setBuffering(false);
+  const handleWaiting = () => setBuffering(true);
+  const handlePlaying = () => setBuffering(false);
+
+  // Reset buffering spinner whenever the src reloads (retryKey bump or fresh URL)
+  useEffect(() => { setBuffering(true); }, [retryKey, videoSrc]);
 
   const handleTimeUpdate = () => {
     if (!ref.current) return;
@@ -258,6 +266,9 @@ function FullscreenPlayer({
               preload="auto"
               playsInline
               onLoadedMetadata={handleLoadedMetadata}
+              onCanPlay={handleCanPlay}
+              onWaiting={handleWaiting}
+              onPlaying={handlePlaying}
               onTimeUpdate={handleTimeUpdate}
               onEnded={() => setPlaying(false)}
               onPlay={() => setPlaying(true)}
@@ -276,6 +287,13 @@ function FullscreenPlayer({
                 onSettingsChange={handleSubtitleSettingsChange}
                 editable={showSubtitleEditor}
               />
+            )}
+
+            {/* Initial load / mid-playback buffering */}
+            {buffering && !processing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
+                <Loader2 size={40} className="text-white/80 animate-spin" />
+              </div>
             )}
 
             {/* Processing */}

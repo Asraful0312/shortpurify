@@ -58,68 +58,63 @@ export const processVideo = workflowManager.define({
   },
   handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode, maxClips }) => {
     try {
-    // ── Step 1: Transcription ──────────────────────────────────────────
-    await step.runMutation(internal.projects.updateProjectStatus, {
-      projectId,
-      status: "processing",
-      processingStep: "Transcribing audio…",
-    });
+      // ── Step 1: Transcription ────────────────────────────────────────
+      await step.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "processing",
+        processingStep: "Transcribing audio…",
+      });
 
-    const transcript = await step.runAction(
-      internal.transcription.transcribeVideo,
-      { videoUrl },
-    );
+      const transcript = await step.runAction(
+        internal.transcription.transcribeVideo,
+        { videoUrl },
+      );
 
-    // Save transcript to project for the Transcript tab
-    await step.runMutation(internal.projects.saveTranscript, {
-      projectId,
-      transcriptText: transcript.text,
-      transcriptWords: transcript.words,
-      durationSeconds: transcript.duration,
-    });
+      // Save transcript to project for the Transcript tab
+      await step.runMutation(internal.projects.saveTranscript, {
+        projectId,
+        transcriptText: transcript.text,
+        transcriptWords: transcript.words,
+        durationSeconds: transcript.duration,
+      });
 
-    // ── Step 2: AI Analysis ────────────────────────────────────────────
-    await step.runMutation(internal.projects.updateProjectStatus, {
-      projectId,
-      status: "processing",
-      processingStep: "Generating clip ideas with Claude AI…",
-    });
+      // ── Step 2: AI Analysis ──────────────────────────────────────────
+      await step.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "processing",
+        processingStep: "Generating clip ideas with Claude AI…",
+      });
 
-    const clips = await step.runAction(internal.ai.generateClipIdeas, {
-      transcriptText: transcript.text,
-      videoDuration: transcript.duration,
-      enabledPlatforms,
-      maxClips,
-    });
+      const clips = await step.runAction(internal.ai.generateClipIdeas, {
+        transcriptText: transcript.text,
+        videoDuration: transcript.duration,
+        enabledPlatforms,
+        maxClips,
+      });
 
-    // ── Step 3: Smart crop + encode via Python worker ─────────────────
-    await step.runMutation(internal.projects.updateProjectStatus, {
-      projectId,
-      status: "processing",
-      processingStep: cropMode === "blur_background"
-        ? "Processing clips (blur background + FFmpeg)…"
-        : "Processing clips (AI crop + FFmpeg)…",
-    });
+      // ── Step 3: Smart crop + encode via Python worker ────────────────
+      await step.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "processing",
+        processingStep: cropMode === "blur_background"
+          ? "Processing clips (blur background + FFmpeg)…"
+          : "Processing clips (AI crop + FFmpeg)…",
+      });
 
-    await step.runAction(internal.videoProcessingActions.saveClipsToDb, {
-      projectId,
-      videoUrl,
-      clips,
-      cropMode,
-    });
+      await step.runAction(internal.videoProcessingActions.saveClipsToDb, {
+        projectId,
+        videoUrl,
+        clips,
+        cropMode,
+      });
 
-    // ── Done ───────────────────────────────────────────────────────────
-    await step.runMutation(internal.projects.updateProjectStatus, {
-      projectId,
-      status: "complete",
-      processingStep: "Complete",
-      clipsCount: clips.length,
-    });
-
-    // Delete original video — clips are generated and stored in R2, source is dead weight.
-    // No-op for YouTube imports (they have no originalKey).
-    await step.runAction(internal.r2Actions.deleteOriginalVideo, { projectId });
-
+      // ── Done ──────────────────────────────────────────────────────────
+      await step.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "complete",
+        processingStep: "Complete",
+        clipsCount: clips.length,
+      });
     } catch (err) {
       console.error(`[workflow] processVideo failed for ${projectId}:`, err);
       await step.runMutation(internal.projects.updateProjectStatus, {
@@ -127,6 +122,14 @@ export const processVideo = workflowManager.define({
         status: "failed",
         processingStep: "Processing failed — please try again",
       });
+    }
+
+    // Delete original video — non-critical cleanup, runs regardless of success/failure.
+    // No-op for YouTube imports (they have no originalKey).
+    try {
+      await step.runAction(internal.r2Actions.deleteOriginalVideo, { projectId });
+    } catch (err) {
+      console.warn(`[workflow] deleteOriginalVideo failed (non-fatal):`, err);
     }
   },
 });

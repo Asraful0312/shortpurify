@@ -34,23 +34,32 @@ export const PIPELINE_STEPS = [
     description: "Claude extracts viral moments & captions",
   },
   {
-    key: "Processing clips (AI crop)…",
+    // Matches any "Processing clips…" variant — includes progress/batch suffixes
+    key: "Processing clips",
     label: "Smart Clips",
-    description: "AI face-tracking crop",
+    description: "AI face-tracking crop & FFmpeg encoding",
   },
 ];
 
-
-
 export function getProcessingSteps(processingStep?: string) {
-  const currentIdx = PIPELINE_STEPS.findIndex((s) => s.key === processingStep);
-  return PIPELINE_STEPS.map((s, i) => ({
-    label: s.label,
-    description: s.description,
-    status: (
-      i < currentIdx ? "complete" : i === currentIdx ? "in_progress" : "pending"
-    ) as "complete" | "in_progress" | "pending",
-  }));
+  // Use startsWith so dynamic suffixes like "… 3/15 done — batch 2/5" still match
+  const currentIdx = PIPELINE_STEPS.findIndex((s) =>
+    processingStep?.startsWith(s.key)
+  );
+  return PIPELINE_STEPS.map((s, i) => {
+    // For the active step show the live progress text as description
+    const description =
+      i === currentIdx && processingStep
+        ? processingStep
+        : s.description;
+    return {
+      label: s.label,
+      description,
+      status: (
+        i < currentIdx ? "complete" : i === currentIdx ? "in_progress" : "pending"
+      ) as "complete" | "in_progress" | "pending",
+    };
+  });
 }
 
 

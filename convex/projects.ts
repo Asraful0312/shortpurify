@@ -8,6 +8,7 @@ import { Id } from "./_generated/dataModel";
 import { projectsAggregate } from "./aggregates";
 import { creem } from "./billing";
 import { PLAN_LIMITS } from "./usage";
+import { rateLimiter } from "./rateLimits";
 
 const PRODUCT_PLAN_MAP: Record<string, "pro" | "agency"> = {
   prod_Y9tigUuiNrmSvwHwikJhb: "pro",
@@ -50,6 +51,20 @@ export const createProjectAndStart = mutation({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
     if (!user) throw new Error("User not found — please refresh the page");
+
+    // ── Rate limiting ──────────────────────────────────────────────────────────
+    const key = user._id;
+    const [perMinute, perHour] = await Promise.all([
+      rateLimiter.limit(ctx, "createProject", { key }),
+      rateLimiter.limit(ctx, "createProjectHourly", { key }),
+    ]);
+    if (!perMinute.ok) {
+      throw new ConvexError("You're creating projects too fast. Please wait a moment and try again.");
+    }
+    if (!perHour.ok) {
+      throw new ConvexError("You've created too many projects this hour. Please try again later.");
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // ── Plan limit enforcement ─────────────────────────────────────────────────
     const entityId = args.workspaceId ?? user._id;

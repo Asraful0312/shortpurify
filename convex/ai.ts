@@ -39,57 +39,60 @@ function buildPrompt(
 ): string {
   const platformList = platforms.map((p) => ` - "${p}": ${PLATFORM_INSTRUCTIONS[p] ?? "short caption"}`).join("\n");
 
+  // Calculate a realistic clip capacity based on video duration.
+  // Assume avg clip = 40s + 20s gap between clips = 60s per clip slot.
+  const realisticMax = Math.max(1, Math.floor(videoDuration / 60));
+  const clipCap = Math.min(maxClips, realisticMax);
+
   return `
-You are ViralShortGPT, an expert in turning long-form podcasts/videos into viral TikTok/Reels/Shorts clips (15–60 seconds). Your only job is to find the ${maxClips <= 3 ? `top ${maxClips}` : `${maxClips} MOST`} shareable, high-engagement moments that will perform best on social media.
+You are ViralShortGPT, an expert in turning long-form podcasts/videos into viral TikTok/Reels/Shorts clips. Your job is to find UP TO ${clipCap} genuinely great clips — quality over quantity always.
 
 Video duration: ${videoDuration.toFixed(0)} seconds
 Full transcript:
 ${transcriptText}
 
-Rules you MUST follow strictly:
-1. Only select moments from the MAIN content (after intro, before outro/CTA/sponsors/ads). Avoid:
-   - Any sponsor mentions, promotions, affiliate links, "this video is sponsored by", discount codes
+CRITICAL RULES — read carefully:
+1. Return FEWER clips if the video doesn't have enough strong moments. It is MUCH better to return ${Math.max(1, Math.floor(clipCap / 2))} excellent clips than ${clipCap} mediocre or cut-off ones. Never force clips just to hit the maximum.
+2. NEVER exceed ${clipCap} clips. If video duration is short, return proportionally fewer.
+3. Only select moments from the MAIN content (after intro, before outro/CTA/sponsors/ads). Skip:
+   - Sponsor mentions, ads, affiliate links, discount codes
    - Intros ("welcome to...", "today we're talking about...")
    - Outros ("thanks for watching", "subscribe", "like & comment")
-   - Filler, chit-chat, or low-energy sections
-2. Prioritize moments with:
-   - Interesting statements or stories
-   - Emotional moments
-   - Surprising revelations or insights
-   - Quotable or memorable segments
-   - Self-contained moments that work well in isolation
-   - Strong hooks: questions, bold statements, "mind blown", "I can't believe", "secret", "mistake you're making"
-   - Emotional peaks: surprise, anger, laughter, inspiration, controversy, relatable stories
-   - Clear value: actionable tips, hot takes, data reveals, personal failures → lessons
-   - High shareability: quotable lines, "this is so true", "tag a friend who..."
-3. Each clip MUST:
-   - Start at a natural sentence beginning or strong transition
-   - End at a natural pause/sentence end (NEVER cut mid-sentence or mid-thought — always finish the complete thought)
-   - Be 25–60 seconds. Aim for 35–55 seconds sweet spot. NEVER return a clip under 25s unless the moment is 100% complete and self-contained
-   - Prefer longer clips that tell a complete mini-story over short one-liners
-   - Spread clips across the full video — do NOT cluster multiple clips from the same section
-   - Have high viral potential (score 70+)
-4. Return ONLY a valid JSON array of objects. No explanations, no markdown, no extra text.
-   Shape:
-   [
-     {
-       "title": "Short, punchy viral hook title (max 60 chars, use hyphen - only, no em/en dash)",
-       "startTime": number (float seconds, exact start),
-       "endTime": number (float seconds, natural end <= videoDuration),
-       "duration": number (endTime - startTime, must be 25-60, target 35-55),
-       "viralScore": integer 0-100 (be harsh — only 80+ for truly viral potential),
-       "platform": one best platform from: ${platforms.join(", ")},
-       "reason": short internal note why this moment is viral (1 sentence, will not be output),
-       "captions": {
-         ${platformList}
-       }
-     }
-   ]
+   - Filler, transitions, low-energy sections
+4. Every clip MUST:
+   - Start at a natural sentence beginning or strong hook
+   - End at a complete thought — NEVER cut mid-sentence, mid-story, or mid-point
+   - Be 30–60 seconds. Target 35–50s sweet spot. Reject any moment that can't fit a complete thought in 60s
+   - Tell a complete mini-story or deliver a complete insight on its own
+   - Score 75+ to be included — be harsh, most moments don't deserve to go viral
+5. Clips must be spread across the video. Do NOT cluster multiple clips from the same 2-minute window.
+6. Prioritize moments with:
+   - Strong self-contained hooks: bold claims, surprising facts, "the mistake everyone makes", personal stories
+   - Emotional peaks: surprise, inspiration, controversy, relatability
+   - Clear standalone value: one actionable tip, one hot take, one data reveal
+   - Quotable lines people will screenshot or share
 
-Example output (do NOT copy — generate your own):
-[{"title":"The biggest mistake most beginners make","startTime":125.4,"endTime":168.9,"duration":43.5,"viralScore":92,"platform":"tiktok","reason":"Strong hook + relatable pain point + quick solution","captions":{"tiktok":"...","instagram":"..."}}]
+Return ONLY a valid JSON array. No markdown, no explanation, no extra text.
+Shape:
+[
+  {
+    "title": "Short punchy viral hook title (max 60 chars, hyphen - only, no em/en dash)",
+    "startTime": number (float seconds),
+    "endTime": number (float seconds, must be <= ${videoDuration.toFixed(0)}),
+    "duration": number (endTime - startTime, must be 30–60),
+    "viralScore": integer 0-100 (75+ minimum to include),
+    "platform": one best platform from: ${platforms.join(", ")},
+    "reason": one sentence — why this specific moment is viral,
+    "captions": {
+      ${platformList}
+    }
+  }
+]
 
-Analyze carefully and be selective — only return moments that would actually go viral in 2026.
+Example (do NOT copy):
+[{"title":"The biggest mistake most beginners make","startTime":125.4,"endTime":168.9,"duration":43.5,"viralScore":92,"platform":"tiktok","reason":"Strong hook + relatable pain point + complete solution delivered","captions":{"tiktok":"...","instagram":"..."}}]
+
+Remember: return fewer COMPLETE clips over more CUT-OFF clips. Quality is everything.
 `.trim();
 }
 
@@ -114,21 +117,28 @@ export const generateClipIdeas = internalAction({
 
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+    // Trim transcript to ~12k words to stay within context limits for long videos.
+    // At ~150 words/min, 12k words ≈ 80 min of content — more than enough for clip selection.
+    const MAX_WORDS = 12000;
+    const words = transcriptText.split(/\s+/);
+    const trimmedTranscript = words.length > MAX_WORDS
+      ? words.slice(0, MAX_WORDS).join(" ") + "\n[transcript trimmed for length]"
+      : transcriptText;
+
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 8192,
+      max_tokens: 16000,
       messages: [
         {
           role: "user",
-          content: buildPrompt(transcriptText, videoDuration, platforms, maxClips),
+          content: buildPrompt(trimmedTranscript, videoDuration, platforms, maxClips),
         },
       ],
     });
 
     if (response.stop_reason === "max_tokens") {
       throw new ConvexError(
-        "Claude response was truncated (exceeded token limit). " +
-        "Try reducing the number of enabled platforms or the transcript length.",
+        "Claude response was truncated. Please reduce the number of enabled platforms and try again.",
       );
     }
 

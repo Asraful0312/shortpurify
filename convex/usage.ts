@@ -141,6 +141,31 @@ export const getUsage = query({
       .unique();
     if (!user) return null;
 
+    // ── Manual plan override (collaborations / gifted access) ────────────
+    const now = Date.now();
+    const hasValidOverride =
+      user.grantedTier &&
+      (user.grantedTierExpiry == null || user.grantedTierExpiry > now);
+
+    if (hasValidOverride) {
+      const tier = user.grantedTier as PlanTier;
+      const limits = PLAN_LIMITS[tier];
+      const monthStart = startOfMonth();
+      let projectsThisMonth: { durationSeconds?: number }[] = [];
+      if (workspaceId) {
+        const members = await ctx.db.query("workspaceMembers").withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId)).collect();
+        const all = await Promise.all(members.map((m) => ctx.db.query("projects").withIndex("by_user", (q) => q.eq("userId", m.userId)).filter((q) => q.gte(q.field("createdAt"), monthStart)).collect()));
+        projectsThisMonth = all.flat();
+      } else {
+        projectsThisMonth = await ctx.db.query("projects").withIndex("by_user", (q) => q.eq("userId", user._id)).filter((q) => q.gte(q.field("createdAt"), monthStart)).collect();
+      }
+      const projectsUsed = projectsThisMonth.length;
+      const minutesUsed = Math.round(projectsThisMonth.reduce((s, p) => s + (p.durationSeconds ?? 0), 0) / 60);
+      const resetDate = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      return { tier, limits, usage: { projectsUsed, minutesUsed }, subscription: null, resetDate };
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // Resolve entity for Creem lookup — cascades to owner's subscription if workspace has none
     const entityId = await resolveEntityId(ctx, workspaceId, user._id as string);
 
@@ -238,6 +263,11 @@ export const getUsage = query({
 export const getClipsLimit = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    // Check manual override on the user record first
+    const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
+    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
+      return PLAN_LIMITS[user.grantedTier].clipsPerProject;
+    }
     const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
     const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
     const tier = tierFromProductId(sub?.productId);
@@ -249,6 +279,12 @@ export const getClipsLimit = internalQuery({
 export const getBurnLimit = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    // Check manual override on the user record first
+    const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
+    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
+      const limit = PLAN_LIMITS[user.grantedTier].subtitleBurnsPerClip;
+      return limit === Infinity ? null : limit;
+    }
     const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
     const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
     const tier = tierFromProductId(sub?.productId);
@@ -260,6 +296,11 @@ export const getBurnLimit = internalQuery({
 export const isPaidPlan = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    // Check manual override first — granted tier counts as paid
+    const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
+    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
+      return true;
+    }
     const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
     const subscription = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
     const tier = tierFromProductId(subscription?.productId ?? null);

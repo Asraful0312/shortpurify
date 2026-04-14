@@ -67,10 +67,19 @@ export const createProjectAndStart = mutation({
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Plan limit enforcement ─────────────────────────────────────────────────
-    const entityId = args.workspaceId ?? user._id;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscription = await creem.subscriptions.getCurrent(ctx as any, { entityId });
-    const tier = tierFromId(subscription?.productId ?? null);
+    // Check manual granted tier override before hitting Creem
+    const now = Date.now();
+    const hasOverride = user.grantedTier &&
+      (user.grantedTierExpiry == null || user.grantedTierExpiry > now);
+    let tier: "starter" | "pro" | "agency";
+    if (hasOverride) {
+      tier = user.grantedTier as "pro" | "agency";
+    } else {
+      const entityId = args.workspaceId ?? user._id;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const subscription = await creem.subscriptions.getCurrent(ctx as any, { entityId });
+      tier = tierFromId(subscription?.productId ?? null);
+    }
     const limits = PLAN_LIMITS[tier];
     const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
     const ms = monthStart();

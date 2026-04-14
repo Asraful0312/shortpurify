@@ -142,10 +142,10 @@ export const getUsage = query({
     if (!user) return null;
 
     // ── Manual plan override (collaborations / gifted access) ────────────
-    const now = Date.now();
+    const nowMs = Date.now();
     const hasValidOverride =
       user.grantedTier &&
-      (user.grantedTierExpiry == null || user.grantedTierExpiry > now);
+      (user.grantedTierExpiry == null || user.grantedTierExpiry > nowMs);
 
     if (hasValidOverride) {
       const tier = user.grantedTier as PlanTier;
@@ -161,8 +161,23 @@ export const getUsage = query({
       }
       const projectsUsed = projectsThisMonth.length;
       const minutesUsed = Math.round(projectsThisMonth.reduce((s, p) => s + (p.durationSeconds ?? 0), 0) / 60);
-      const resetDate = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-      return { tier, limits, usage: { projectsUsed, minutesUsed }, subscription: null, resetDate };
+      const overrideResetDate = new Date();
+      const resetDateStr = new Date(overrideResetDate.getFullYear(), overrideResetDate.getMonth() + 1, 1).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      return {
+        tier,
+        limits: {
+          projects: limits.projects === Infinity ? null : limits.projects,
+          minutes: limits.minutes,
+          teamMembers: limits.teamMembers === Infinity ? null : limits.teamMembers,
+          scheduledPublishing: limits.scheduledPublishing,
+          clipsPerProject: limits.clipsPerProject,
+          subtitleBurnsPerClip: limits.subtitleBurnsPerClip === Infinity ? null : limits.subtitleBurnsPerClip,
+          zipExport: limits.zipExport,
+        },
+        usage: { projectsUsed, minutesUsed, memberCount: 1 },
+        subscription: null,
+        resetDate: resetDateStr,
+      };
     }
     // ─────────────────────────────────────────────────────────────────────
 

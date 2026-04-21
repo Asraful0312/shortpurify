@@ -4,6 +4,7 @@ import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import HotJar from "@/components/hotjar";
+import GoogleAnalytics from "@/components/google-analytics";
 import CookieConsentBanner from "@/components/cookie-consent";
 
 const outfit = Outfit({
@@ -118,6 +119,7 @@ export default function RootLayout({
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <HotJar />
+          <GoogleAnalytics />
           <CookieConsentBanner />
         </ClerkProvider>
       </body>

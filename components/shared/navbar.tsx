@@ -1,19 +1,20 @@
 "use client"
 
-import { useState } from "react";
-import { Menu, Wand2, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { Menu, X } from "lucide-react";
 import Link from "next/link";
-import { Authenticated, Unauthenticated } from "convex/react";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/clerk-react";
-import Image from "next/image";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { SignInButton, UserButton } from "@clerk/clerk-react";
 import Logo from "./logo";
 import useClickOutside from "../motion-primitives/useClickOutside";
-import { useRef } from "react";
+import { api } from "@/convex/_generated/api";
 
 function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   useClickOutside(ref as any, () => setIsMobileMenuOpen(false));
+  const reviews = useQuery(api.reviews.getApprovedReviews);
+  const showTestimonials = (reviews?.length ?? 0) >= 3;
 
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 animate-in slide-in-from-top-4 duration-700">
@@ -29,9 +30,9 @@ function Navbar() {
           <Link href="#features" className="hover:text-black transition-colors">Products</Link>
           <Link href="#workflows" className="hover:text-black transition-colors">Workflows</Link>
           <Link href="#how-it-works" className="hover:text-black transition-colors">Solutions</Link>
-          {/* <Link href="#testimonials" className="hover:text-black transition-colors flex gap-2 items-center">
-            Testimonials <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-md">NEW</span>
-          </Link> */}
+          {showTestimonials && (
+            <Link href="#testimonials" className="hover:text-black transition-colors">Testimonials</Link>
+          )}
           <Link href="#pricing" className="hover:text-black transition-colors">Pricing</Link>
         </nav>
 
@@ -70,9 +71,9 @@ function Navbar() {
           <nav className="flex flex-col gap-4 text-lg font-semibold text-foreground">
             <Link href="#features" onClick={() => setIsMobileMenuOpen(false)}>Products</Link>
             <Link href="#how-it-works" onClick={() => setIsMobileMenuOpen(false)}>Solutions</Link>
-            {/* <Link href="#testimonials" className="flex items-center justify-between" onClick={() => setIsMobileMenuOpen(false)}>
-              Testimonials <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-1 rounded-md">NEW</span>
-            </Link> */}
+            {showTestimonials && (
+              <Link href="#testimonials" onClick={() => setIsMobileMenuOpen(false)}>Testimonials</Link>
+            )}
             <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>Pricing</Link>
             <Link href="#workflows" onClick={() => setIsMobileMenuOpen(false)}>Workflows</Link>
           </nav>

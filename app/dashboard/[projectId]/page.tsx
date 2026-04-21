@@ -4,6 +4,7 @@ import { ProcessingStatus } from "@/components/dashboard/processing-status";
 import DeleteProjectDialog from "@/components/dashboard/project/delete-project-dialog";
 import MultiPlatformCaptionCard from "@/components/dashboard/project/multi-platform-caption-card";
 import TranscriptViewer from "@/components/dashboard/project/transcript-viewer";
+import { ReviewPrompt } from "@/components/dashboard/review-prompt";
 import { ClipsGallery } from "@/components/output-preview";
 import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 
 
@@ -41,6 +42,9 @@ export default function ProjectDetailsPage() {
   const [zipSubtitleWarning, setZipSubtitleWarning] = useState<string | null>(null);
   const [zipBurnLimitError, setZipBurnLimitError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // true when this page load saw a processing→complete transition (ideal review moment)
+  const [justCompleted, setJustCompleted] = useState(false);
+  const wasProcessingRef = useRef(false);
 
   // Rename state
   const [renaming, setRenaming] = useState(false);
@@ -59,6 +63,17 @@ export default function ProjectDetailsPage() {
   const renameProject = useMutation(api.projects.renameProject);
 
   const canZip = usage?.limits.zipExport ?? false;
+
+  // Detect processing → complete transition so we know the user just saw their clips for the first time
+  useEffect(() => {
+    if (!project) return;
+    if (project.status === "processing" || project.status === "uploading") {
+      wasProcessingRef.current = true;
+    }
+    if (wasProcessingRef.current && project.status === "complete") {
+      setJustCompleted(true);
+    }
+  }, [project?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function startRename() {
     setRenameValue(project?.title ?? "");
@@ -524,6 +539,9 @@ export default function ProjectDetailsPage() {
           onClose={() => setDeleteOpen(false)}
         />
       )}
+
+      {/* Review prompt — shown 3 s after clips first appear following a processing run */}
+      {justCompleted && <ReviewPrompt delayMs={3000} />}
     </div>
   );
 }

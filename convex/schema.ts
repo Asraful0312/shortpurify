@@ -174,4 +174,18 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_platform", ["userId", "platform"])
     .index("by_user_platform_account", ["userId", "platform", "accountId"]),
+
+  // User-submitted ratings and reviews shown on the landing page
+  reviews: defineTable({
+    userId: v.id("users"),
+    rating: v.number(),          // 1-5
+    reviewText: v.string(),
+    authorName: v.string(),      // user-editable display name
+    authorRole: v.optional(v.string()), // e.g. "Podcast Host"
+    // approved=true → visible on landing page; toggle false in Convex dashboard to hide
+    approved: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_approved", ["approved"]),
 });

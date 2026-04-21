@@ -8,6 +8,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     createdAt: v.number(),
+    // Email notification preferences
+    emailNotifications: v.optional(v.boolean()), // default true when unset
     // Manual plan override — bypasses Creem subscription for collaborations/gifts
     grantedTier: v.optional(v.union(v.literal("pro"), v.literal("agency"))),
     grantedTierExpiry: v.optional(v.number()), // Unix ms — null means no expiry

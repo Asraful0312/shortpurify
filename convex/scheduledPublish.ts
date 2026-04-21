@@ -136,11 +136,25 @@ export const executeScheduledPost = internalAction({
         status: "published",
         postId,
       });
+
+      // Send success email if user has notifications enabled
+      await ctx.runAction(internal.scheduledPublish.sendPostNotification, {
+        scheduledPostId,
+        status: "published",
+      });
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       await ctx.runMutation(internal.scheduledPublish.updatePost, {
         scheduledPostId,
         status: "failed",
-        error: err instanceof Error ? err.message : "Unknown error",
+        error: errorMessage,
+      });
+
+      // Send failure email if user has notifications enabled
+      await ctx.runAction(internal.scheduledPublish.sendPostNotification, {
+        scheduledPostId,
+        status: "failed",
+        errorMessage,
       });
     }
   },
@@ -304,6 +318,37 @@ export const deleteAllScheduledPosts = mutation({
     if (!user) throw new ConvexError("User not found");
 
     await ctx.scheduler.runAfter(0, internal.scheduledPublish._deletePostsBatch, { userId: user._id });
+  },
+});
+
+/** Internal: send post notification email if user has it enabled. */
+export const sendPostNotification = internalAction({
+  args: {
+    scheduledPostId: v.id("scheduledPosts"),
+    status: v.union(v.literal("published"), v.literal("failed")),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, { scheduledPostId, status, errorMessage }) => {
+    const post = await ctx.runQuery(internal.scheduledPublish.getPostById, { scheduledPostId });
+    if (!post) return;
+
+    const resolvedUser = await ctx.runQuery(internal.users.getUserById, {
+      userId: post.userId as Id<"users">,
+    });
+    if (!resolvedUser) return;
+
+    // Respect the user's notification preference (default: enabled)
+    if (resolvedUser.emailNotifications === false) return;
+
+    await ctx.runAction(internal.emails.sendScheduledPostNotification, {
+      toEmail: resolvedUser.email,
+      toName: resolvedUser.name,
+      clipTitle: post.clipTitle ?? "Short Clip",
+      platform: post.platform,
+      status,
+      scheduledAt: post.scheduledAt,
+      errorMessage,
+    });
   },
 });
 

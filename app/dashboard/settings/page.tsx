@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Trash2, AlertTriangle, Building2, UserCircle, ExternalLink, Loader2 } from "lucide-react";
+import { Save, Trash2, AlertTriangle, Building2, UserCircle, ExternalLink, Loader2, Bell } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-context";
 import { useRouter } from "next/navigation";
@@ -94,6 +94,21 @@ export default function SettingsPage() {
   // Initialize name from activeOrg once loaded
   const currentName = activeOrg?.name ?? "";
   const displayName = workspaceName !== "" ? workspaceName : currentName;
+
+  // Email notifications
+  const currentUser = useQuery(api.users.getCurrentUser);
+  const setEmailNotifications = useMutation(api.users.setEmailNotifications);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const emailNotifEnabled = currentUser?.emailNotifications !== false; // default true
+
+  async function handleNotifToggle() {
+    setNotifSaving(true);
+    try {
+      await setEmailNotifications({ enabled: !emailNotifEnabled });
+    } finally {
+      setNotifSaving(false);
+    }
+  }
 
   // Danger zone
   const deleteAllProjects = useAction(api.projects.deleteAllWorkspaceProjects);
@@ -203,6 +218,29 @@ export default function SettingsPage() {
           </button>
         </div>
       )}
+
+      {/* Notifications */}
+      <div className="bg-white border border-border rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+        <h2 className="font-extrabold flex items-center gap-2">
+          <Bell size={18} /> Notifications
+        </h2>
+        <div className="flex items-center justify-between p-4 border border-border rounded-xl">
+          <div>
+            <p className="text-sm font-bold">Scheduled post notifications</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Get an email when a scheduled post is published or fails.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={notifSaving || currentUser === undefined}
+            onClick={handleNotifToggle}
+            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${emailNotifEnabled ? "bg-primary" : "bg-secondary border border-border"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${emailNotifEnabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+      </div>
 
       {/* Danger Zone */}
       <div className="bg-white border-2 border-red-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4">

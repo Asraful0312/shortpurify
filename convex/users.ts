@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 /**
  * Called from the client (SyncUser component) right after Clerk login.
@@ -38,6 +39,27 @@ export const upsertUser = mutation({
 
     return { userId, isNew: true };
   },
+});
+
+/** Update email notification preference for the current user. */
+export const setEmailNotifications = mutation({
+  args: { enabled: v.boolean() },
+  handler: async (ctx, { enabled }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, { emailNotifications: enabled });
+  },
+});
+
+/** Internal: look up a user by their Convex _id. Used by scheduled actions. */
+export const getUserById = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => ctx.db.get(userId),
 });
 
 /** Internal: look up a user by their Clerk ID. Used by server-side actions. */

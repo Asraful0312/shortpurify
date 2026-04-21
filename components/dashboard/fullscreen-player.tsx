@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Clapperboard, Copy, Download, Eye, EyeOff, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Clapperboard, Copy, Download, Eye, EyeOff, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import ActionButton from "../shared/action-button";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
@@ -16,19 +16,29 @@ import { SubtitleEditor } from "../subtitle-editor";
 import { useWorkspace } from "../workspace-context";
 
 function FullscreenPlayer({
-  clip,
+  clips,
+  currentIndex,
+  onNavigate,
   onClose,
   projectId,
   initialSubtitleSettings,
 }: {
-  clip: OutputClipProps;
+  clips: OutputClipProps[];
+  currentIndex: number;
+  onNavigate: (index: number) => void;
   onClose: () => void;
   projectId?: Id<"projects">;
   initialSubtitleSettings?: SubtitleSettings;
 }) {
+  const clip = clips[currentIndex];
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex < clips.length - 1;
+
   const ref = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const navThrottleRef = useRef(false);
+  const touchStartYRef = useRef(0);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
   const [videoSrc, setVideoSrc] = useState(clip.videoUrl);
@@ -72,6 +82,26 @@ function FullscreenPlayer({
   // Auto-hide title/caption when edit panel is open so subtitles aren't covered
   const infoVisible = showInfo && !showSubtitleEditor;
 
+  function navigate(delta: number) {
+    if (navThrottleRef.current) return;
+    const next = currentIndex + delta;
+    if (next < 0 || next >= clips.length) return;
+    navThrottleRef.current = true;
+    onNavigate(next);
+    setTimeout(() => { navThrottleRef.current = false; }, 600);
+  }
+
+  // Reset player whenever we land on a new clip
+  useEffect(() => {
+    setVideoSrc(clips[currentIndex].videoUrl);
+    setRetryKey((k) => k + 1);
+    setProcessing(false);
+    setShowInfo(false);
+    setShowSubtitleEditor(false);
+    setDownloadError(null);
+    setDownloadWarning(null);
+  }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     document.body.style.overflow = "hidden";
 
@@ -83,12 +113,43 @@ function FullscreenPlayer({
     };
     el?.addEventListener("error", suppressAbort, true);
 
+    // Wheel — scroll down = next, scroll up = prev
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) < 20) return;
+      e.preventDefault();
+      navigate(e.deltaY > 0 ? 1 : -1);
+    };
+
+    // Touch — swipe up = next, swipe down = prev
+    const onTouchStart = (e: TouchEvent) => { touchStartYRef.current = e.touches[0].clientY; };
+    const onTouchEnd = (e: TouchEvent) => {
+      const dy = touchStartYRef.current - e.changedTouches[0].clientY;
+      if (Math.abs(dy) < 60) return;
+      navigate(dy > 0 ? 1 : -1);
+    };
+
+    // Keyboard — Arrow keys
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") navigate(1);
+      if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  navigate(-1);
+      if (e.key === "Escape") onClose();
+    };
+
+    document.addEventListener("wheel", onWheel, { passive: false });
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchend", onTouchEnd, { passive: true });
+    document.addEventListener("keydown", onKeyDown);
+
     return () => {
       document.body.style.overflow = "auto";
       if (retryRef.current) clearTimeout(retryRef.current);
       el?.removeEventListener("error", suppressAbort, true);
+      document.removeEventListener("wheel", onWheel);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchend", onTouchEnd);
+      document.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (ref.current) {
@@ -252,9 +313,57 @@ function FullscreenPlayer({
           <X size={28} strokeWidth={2.5} />
         </button>
 
+        {/* Prev / Next navigation */}
+        {clips.length > 1 && (
+          <>
+            {/* Desktop: left of video, stacked vertically */}
+            <div className="hidden sm:flex absolute -left-16 top-1/2 -translate-y-1/2 flex-col gap-3 z-100">
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(-1); }}
+                disabled={!canGoPrev}
+                className="flex flex-col items-center gap-1 text-white disabled:opacity-20 opacity-60 hover:opacity-100 transition-opacity group pointer-events-auto"
+                aria-label="Previous clip"
+              >
+                <div className="p-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm group-hover:bg-white/20 transition-colors">
+                  <ChevronUp size={22} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Prev</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(1); }}
+                disabled={!canGoNext}
+                className="flex flex-col items-center gap-1 text-white disabled:opacity-20 opacity-60 hover:opacity-100 transition-opacity group pointer-events-auto"
+                aria-label="Next clip"
+              >
+                <div className="p-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm group-hover:bg-white/20 transition-colors">
+                  <ChevronDown size={22} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest">Next</span>
+              </button>
+            </div>
+            {/* Mobile: above and below the video */}
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(-1); }}
+              disabled={!canGoPrev}
+              className="sm:hidden absolute left-1/2 -translate-x-1/2 -top-11 z-100 text-white disabled:opacity-20 opacity-70 pointer-events-auto"
+              aria-label="Previous clip"
+            >
+              <ChevronUp size={28} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(1); }}
+              disabled={!canGoNext}
+              className="sm:hidden absolute left-1/2 -translate-x-1/2 -bottom-11 z-100 text-white disabled:opacity-20 opacity-70 pointer-events-auto"
+              aria-label="Next clip"
+            >
+              <ChevronDown size={28} strokeWidth={2.5} />
+            </button>
+          </>
+        )}
+
         {/* Video Box */}
         <div
-          className="relative h-full sm:h-100vh sm:aspect-9/16 sm:max-h-[85vh] w-full sm:w-auto bg-black sm:rounded-3xl transition-all duration-300 overflow-hidden border border-white/5"
+          className="relative h-full sm:h-100vh sm:aspect-10/17 sm:max-h-[90vh] w-full sm:w-auto bg-black sm:rounded-3xl transition-all duration-300 overflow-hidden border border-white/5"
           onClick={(e) => e.stopPropagation()}
         >
           <div ref={containerRef} className="relative w-full h-full group/player">
@@ -336,12 +445,17 @@ function FullscreenPlayer({
             )}
           </div>
 
-          {/* Score Pill */}
-          <div className="absolute top-6 right-6 z-50">
+          {/* Score Pill + clip counter */}
+          <div className="absolute top-6 right-6 z-50 flex flex-col items-end gap-2">
             <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full text-[14px] font-black flex items-center gap-2 shadow-xl text-black">
               <Star size={16} className="text-accent fill-accent" />
               <span>Score: {clip.viralScore}</span>
             </div>
+            {clips.length > 1 && (
+              <div className="bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-bold text-white/80">
+                {currentIndex + 1} / {clips.length}
+              </div>
+            )}
           </div>
 
           {/* Bottom gradient — fades with info panel */}

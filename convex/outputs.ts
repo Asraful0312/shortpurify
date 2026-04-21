@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { r2 } from "./r2storage";
+import { PLAN_LIMITS } from "./usage";
 
 /** Get all clips for a project, ordered by viral score descending. */
 export const listProjectOutputs = query({
@@ -86,7 +88,21 @@ export const saveOutput = internalMutation({
     startTime: v.optional(v.number()),
     endTime: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<any> => {
+    // Resolve user's plan tier to set clip retention expiry
+    const project = await ctx.db.get(args.projectId);
+    let expiresAt: number | undefined;
+    if (project) {
+      const tier = await ctx.runQuery(internal.usage.getTierForUser, {
+        userId: project.userId,
+        workspaceId: project.workspaceId,
+      });
+      const retentionDays = PLAN_LIMITS[tier].clipRetentionDays;
+      if (retentionDays !== Infinity) {
+        expiresAt = Date.now() + retentionDays * 24 * 60 * 60 * 1000;
+      }
+    }
+
     return await ctx.db.insert("outputs", {
       projectId: args.projectId,
       title: args.title,
@@ -100,6 +116,8 @@ export const saveOutput = internalMutation({
       thumbnailKey: args.thumbnailKey,
       startTime: args.startTime,
       endTime: args.endTime,
+      expiresAt,
+      createdAt: Date.now(),
     });
   },
 });

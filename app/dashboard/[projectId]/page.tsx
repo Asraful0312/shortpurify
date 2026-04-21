@@ -4,7 +4,7 @@ import { ProcessingStatus } from "@/components/dashboard/processing-status";
 import DeleteProjectDialog from "@/components/dashboard/project/delete-project-dialog";
 import MultiPlatformCaptionCard from "@/components/dashboard/project/multi-platform-caption-card";
 import TranscriptViewer from "@/components/dashboard/project/transcript-viewer";
-import { OutputPreview } from "@/components/output-preview";
+import { ClipsGallery } from "@/components/output-preview";
 import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -353,6 +353,34 @@ export default function ProjectDetailsPage() {
         </div>
       )}
 
+      {/* Clip expiry warning — shown when soonest clip expires within 48 hours */}
+      {isComplete && outputs && outputs.length > 0 && (() => {
+        const soonest = outputs.reduce<number | undefined>((min, o) => {
+          if (!o.expiresAt) return min;
+          return min == null || o.expiresAt < min ? o.expiresAt : min;
+        }, undefined);
+        if (!soonest) return null;
+        const hoursLeft = Math.floor((soonest - Date.now()) / (1000 * 60 * 60));
+        if (hoursLeft > 48) return null;
+        const label = hoursLeft <= 0 ? "less than an hour" : hoursLeft === 1 ? "1 hour" : `${hoursLeft} hours`;
+        return (
+          <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 max-w-xl">
+            <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">
+                Clips expire in {label} — download them now!
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Your plan stores clips for a limited time. Upgrade to Pro for 90-day retention.
+              </p>
+              <a href="/dashboard/billing" className="text-xs font-bold text-amber-800 underline mt-1 inline-block">
+                Upgrade plan →
+              </a>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Processing state */}
       {isProcessing && (
         <div className="mb-10 max-w-lg">
@@ -406,8 +434,10 @@ export default function ProjectDetailsPage() {
           {/* Clips */}
           <TabsContent value="clips">
             {outputs && outputs.length > 0 ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {outputs.map((clip) => {
+              <ClipsGallery
+                projectId={projectId}
+                initialSubtitleSettings={project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS as any}
+                clips={outputs.map((clip) => {
                   const clipStartMs = (clip.startTime ?? 0) * 1000;
                   const clipEndMs = (clip.endTime ?? Infinity) * 1000;
                   const subtitleWords = (project.transcriptWords ?? [])
@@ -417,29 +447,22 @@ export default function ProjectDetailsPage() {
                       startMs: w.start - clipStartMs,
                       endMs: w.end - clipStartMs,
                     }));
-                  return (
-                  <OutputPreview
-                    key={clip._id}
-                    projectId={projectId}
-                    initialSubtitleSettings={project.subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS as any}
-                    clip={{
-                      id: clip._id,
-                      title: clip.title,
-                      videoUrl: clip.clipUrl,
-                      viralScore: clip.viralScore ?? 0,
-                      duration: formatDuration(clip.startTime, clip.endTime),
-                      caption: clip.content,
-                      platform: clip.platform,
-                      captions: clip.captions ?? { [clip.platform]: clip.content },
-                      startTime: clip.startTime,
-                      endTime: clip.endTime,
-                      clipKey: clip.clipKey,
-                      subtitleWords: subtitleWords.length > 0 ? subtitleWords : undefined,
-                    }}
-                  />
-                  );
+                  return {
+                    id: clip._id,
+                    title: clip.title,
+                    videoUrl: clip.clipUrl,
+                    viralScore: clip.viralScore ?? 0,
+                    duration: formatDuration(clip.startTime, clip.endTime),
+                    caption: clip.content,
+                    platform: clip.platform,
+                    captions: clip.captions ?? { [clip.platform]: clip.content },
+                    startTime: clip.startTime,
+                    endTime: clip.endTime,
+                    clipKey: clip.clipKey,
+                    subtitleWords: subtitleWords.length > 0 ? subtitleWords : undefined,
+                  };
                 })}
-              </div>
+              />
             ) : (
               <p className="text-muted-foreground text-sm">No clips generated yet.</p>
             )}

@@ -28,9 +28,37 @@ export const getServingUrl = action({
 });
 
 /**
- * Delete the original uploaded video from R2 after all clips have been generated.
- * Safe to call for YouTube projects — they have no originalKey, so it's a no-op.
+ * Daily cron handler — deletes R2 files and DB records for expired outputs.
+ * Processes up to 100 per run; the cron fires again tomorrow for any remainder.
  */
+export const deleteExpiredClips = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expired: { _id: string; clipKey?: string; thumbnailKey?: string; exportKey?: string }[] =
+      await ctx.runQuery(internal.crons.getExpiredOutputs, { now, limit: 100 });
+
+    if (expired.length === 0) return;
+    console.log(`[cron] Deleting ${expired.length} expired clips`);
+
+    for (const output of expired) {
+      for (const key of [output.clipKey, output.thumbnailKey, output.exportKey]) {
+        if (!key) continue;
+        try {
+          await r2.deleteObject(ctx, key);
+        } catch (err) {
+          console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+        }
+      }
+      await ctx.runMutation(internal.crons.deleteOutput, {
+        outputId: output._id as import("./_generated/dataModel").Id<"outputs">,
+      });
+    }
+
+    console.log(`[cron] Expired clip cleanup done — ${expired.length} removed`);
+  },
+});
+
 export const deleteOriginalVideo = internalAction({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {

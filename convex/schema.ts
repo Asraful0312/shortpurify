@@ -104,7 +104,12 @@ export default defineSchema({
     ),
     publishRequestId: v.optional(v.string()), // async upload request ID
     publishJobId: v.optional(v.string()),      // scheduled post job ID
-  }).index("by_project", ["projectId"]),
+    // Unix ms — when this clip + R2 files will be auto-deleted. Null = never.
+    expiresAt: v.optional(v.number()),
+    createdAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_expires", ["expiresAt"]),
 
   // Temporary state tokens for OAuth CSRF protection (TTL ~10 min)
   oauthStates: defineTable({

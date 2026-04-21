@@ -49,10 +49,12 @@ const PLAN_LIMITS: Record<PlanTier, {
   subtitleBurnsPerClip: number;
   /** Whether zip bulk-download is available */
   zipExport: boolean;
+  /** How long clips are retained in R2 storage (days). Infinity = forever. */
+  clipRetentionDays: number;
 }> = {
-  starter: { projects: 5,        minutes: 60,   platforms: null,                   accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false },
-  pro:     { projects: 30,       minutes: 300,  platforms: null,                   accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true  },
-  agency:  { projects: Infinity, minutes: 1500, platforms: null,                   accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true  },
+  starter: { projects: 5,        minutes: 60,   platforms: null, accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false, clipRetentionDays: 7   },
+  pro:     { projects: 30,       minutes: 300,  platforms: null, accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true,  clipRetentionDays: 90  },
+  agency:  { projects: Infinity, minutes: 1500, platforms: null, accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true,  clipRetentionDays: 365 },
 };
 
 /** Start of the current calendar month in ms. Billing resets on the 1st. */
@@ -533,6 +535,25 @@ async function _checkCanCreateWorkspace(ctx: any, clerkId: string) {
 
   return { allowed: true as const, tier };
 }
+
+/**
+ * Internal query — resolves the plan tier for a given userId + optional workspaceId.
+ * Used by saveOutput to determine clip retention expiry at creation time.
+ */
+export const getTierForUser = internalQuery({
+  args: { userId: v.id("users"), workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { userId, workspaceId }): Promise<PlanTier> => {
+    const user = await ctx.db.get(userId);
+    if (!user) return "starter";
+    // Check manual override first
+    if (user.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
+      return user.grantedTier as PlanTier;
+    }
+    const entityId = await resolveEntityId(ctx, workspaceId, userId as string);
+    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
+    return tierFromProductId(sub?.productId);
+  },
+});
 
 /**
  * Internal query — called from the onOrganizationCreated hook in tenants.ts.

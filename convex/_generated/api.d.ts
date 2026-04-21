@@ -16,6 +16,7 @@ import type * as authz from "../authz.js";
 import type * as billing from "../billing.js";
 import type * as blueskyActions from "../blueskyActions.js";
 import type * as cloudinaryActions from "../cloudinaryActions.js";
+import type * as crons from "../crons.js";
 import type * as emails from "../emails.js";
 import type * as exportActions from "../exportActions.js";
 import type * as facebookActions from "../facebookActions.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   billing: typeof billing;
   blueskyActions: typeof blueskyActions;
   cloudinaryActions: typeof cloudinaryActions;
+  crons: typeof crons;
   emails: typeof emails;
   exportActions: typeof exportActions;
   facebookActions: typeof facebookActions;

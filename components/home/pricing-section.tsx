@@ -15,8 +15,8 @@ const plans = [
     monthlyPrice: "$0",
     yearlyPrice: "$0",
     features: [
-      { text: "5 projects / month", included: true },
-      { text: "60 min of input video / month", included: true },
+      { text: "2 projects / month", included: true },
+      { text: "Videos up to 10 min each", included: true },
       { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
       { text: "3 AI clips per project", included: true },
       { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },

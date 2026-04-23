@@ -33,6 +33,8 @@ export const STARTER_PLATFORMS = ["youtube", "tiktok"] as const; // kept for ref
 const PLAN_LIMITS: Record<PlanTier, {
   projects: number;
   minutes: number;
+  /** Max duration of a single input video in minutes. Infinity = no cap. */
+  maxVideoDurationMinutes: number;
   /** Allowed platforms — null means all platforms */
   platforms: string[] | null;
   /** Max connected accounts per platform */
@@ -52,9 +54,9 @@ const PLAN_LIMITS: Record<PlanTier, {
   /** How long clips are retained in R2 storage (days). Infinity = forever. */
   clipRetentionDays: number;
 }> = {
-  starter: { projects: 5,        minutes: 60,   platforms: null, accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false, clipRetentionDays: 7   },
-  pro:     { projects: 30,       minutes: 300,  platforms: null, accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true,  clipRetentionDays: 90  },
-  agency:  { projects: Infinity, minutes: 1500, platforms: null, accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true,  clipRetentionDays: 365 },
+  starter: { projects: 2,        minutes: 20,   maxVideoDurationMinutes: 10,       platforms: null, accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false, clipRetentionDays: 7   },
+  pro:     { projects: 30,       minutes: 300,  maxVideoDurationMinutes: Infinity,  platforms: null, accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true,  clipRetentionDays: 90  },
+  agency:  { projects: Infinity, minutes: 1500, maxVideoDurationMinutes: Infinity,  platforms: null, accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true,  clipRetentionDays: 365 },
 };
 
 /** Start of the current calendar month in ms. Billing resets on the 1st. */
@@ -365,7 +367,19 @@ export const canCreateProject = internalQuery({
       };
     }
 
-    // ── Minute check (only when duration is known) ───────────────────────
+    // ── Per-video duration cap ───────────────────────────────────────────
+    if (estimatedDurationMinutes !== undefined && limits.maxVideoDurationMinutes !== Infinity) {
+      if (estimatedDurationMinutes > limits.maxVideoDurationMinutes) {
+        return {
+          allowed: false,
+          tier,
+          limitType: "duration" as const,
+          reason: `The Free plan supports videos up to ${limits.maxVideoDurationMinutes} minutes. This video is ~${Math.round(estimatedDurationMinutes)} min. Upgrade to Pro for unlimited video length.`,
+        };
+      }
+    }
+
+    // ── Monthly minute check (only when duration is known) ──────────────
     if (estimatedDurationMinutes !== undefined) {
       const minutesUsedThisMonth = Math.round(
         projectsThisMonth.reduce((sum, p) => sum + (p.durationSeconds ?? 0), 0) / 60

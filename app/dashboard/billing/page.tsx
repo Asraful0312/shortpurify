@@ -38,10 +38,10 @@ const PLANS = [
     icon: Zap,
     price: { monthly: 0, yearly: 0 },
     description: "Try the AI magic for free",
-    limits: { projects: 5, minutes: 60 },
+    limits: { projects: 2, minutes: 20 },
     features: [
-      { text: "5 projects / month", included: true },
-      { text: "60 min of input video / month", included: true },
+      { text: "2 projects / month", included: true },
+      { text: "Videos up to 10 min each", included: true },
       { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
       { text: "1 account per platform", included: true },
       { text: "3 AI clips per project", included: true },
@@ -126,8 +126,8 @@ export default function BillingPage() {
   const projectsUsed = usage?.usage.projectsUsed ?? 0;
   const minutesUsed = usage?.usage.minutesUsed ?? 0;
   // null from getUsage means unlimited (Agency plan); fall back to starter defaults only when usage hasn't loaded yet
-  const projectsLimit = usage !== undefined ? (usage?.limits.projects ?? Infinity) : 5;
-  const minutesLimit = usage !== undefined ? (usage?.limits.minutes ?? 60) : 60;
+  const projectsLimit = usage !== undefined ? (usage?.limits.projects ?? Infinity) : 2;
+  const minutesLimit = usage !== undefined ? (usage?.limits.minutes ?? 20) : 20;
   const resetDate = usage?.resetDate ?? "the 1st";
 
   async function handleUpgrade(planId: string) {
@@ -258,7 +258,9 @@ export default function BillingPage() {
               used: minutesUsed,
               total: minutesLimit,
               unit: "min",
-              hint: "Minutes of input video processed this month. Longer videos cost more to process.",
+              hint: !isPaid
+                ? "Free plan: max 10 min per video, 20 min total/month. Upgrade for unlimited length."
+                : "Minutes of input video processed this month.",
             },
           ].map(({ label, used, total, unit, hint }) => {
             const pct = total === Infinity ? 0 : Math.min((used / total) * 100, 100);

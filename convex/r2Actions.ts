@@ -11,6 +11,34 @@ import { action, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
 
+/**
+ * Refreshes the signed thumbnail URL for a project card.
+ * Tries project.thumbnailKey first; falls back to the first output's thumbnailKey
+ * so existing projects (created before thumbnailKey was stored) also benefit.
+ */
+export const refreshProjectThumbnail = action({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }): Promise<string | null> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    // Resolve the R2 key — project record first, then first output fallback
+    const key: string | null = await ctx.runQuery(
+      internal.projects.resolveProjectThumbnailKey,
+      { projectId },
+    );
+    if (!key) return null;
+
+    const freshUrl = await r2.getUrl(key, { expiresIn: 60 * 60 * 24 * 7 });
+    await ctx.runMutation(internal.projects.patchThumbnailUrl, {
+      projectId,
+      thumbnailUrl: freshUrl,
+      thumbnailKey: key,
+    });
+    return freshUrl;
+  },
+});
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {

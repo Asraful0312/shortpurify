@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { ConvexError } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
 import { Id } from "./_generated/dataModel";
@@ -506,10 +506,11 @@ export const updateProjectStatus = internalMutation({
     clipsCount: v.optional(v.number()),
     workflowId: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
+    thumbnailKey: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { projectId, status, processingStep, clipsCount, workflowId, thumbnailUrl },
+    { projectId, status, processingStep, clipsCount, workflowId, thumbnailUrl, thumbnailKey },
   ) => {
     // Only fetch old doc when sumValue (clipsCount) is changing — avoids unnecessary reads
     const oldDoc = clipsCount !== undefined ? await ctx.db.get(projectId) : null;
@@ -518,10 +519,37 @@ export const updateProjectStatus = internalMutation({
     if (clipsCount !== undefined) patch.clipsCount = clipsCount;
     if (workflowId !== undefined) patch.workflowId = workflowId;
     if (thumbnailUrl !== undefined) patch.thumbnailUrl = thumbnailUrl;
+    if (thumbnailKey !== undefined) patch.thumbnailKey = thumbnailKey;
     await ctx.db.patch(projectId, patch);
     if (oldDoc) {
       const newDoc = await ctx.db.get(projectId);
       await projectsAggregate.replace(ctx, oldDoc, newDoc!);
     }
+  },
+});
+
+/** Returns the R2 key for the project thumbnail — from the project record, or first output fallback. */
+export const resolveProjectThumbnailKey = internalQuery({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }): Promise<string | null> => {
+    const project = await ctx.db.get(projectId);
+    if (!project) return null;
+    // New projects store key directly
+    if (project.thumbnailKey) return project.thumbnailKey;
+    // Old projects: find first output with a thumbnailKey
+    const output = await ctx.db
+      .query("outputs")
+      .withIndex("by_project", (q) => q.eq("projectId", projectId))
+      .filter((q) => q.neq(q.field("thumbnailKey"), undefined))
+      .first();
+    return output?.thumbnailKey ?? null;
+  },
+});
+
+/** Patches the project's thumbnail URL (and key) after a refresh. */
+export const patchThumbnailUrl = internalMutation({
+  args: { projectId: v.id("projects"), thumbnailUrl: v.string(), thumbnailKey: v.string() },
+  handler: async (ctx, { projectId, thumbnailUrl, thumbnailKey }) => {
+    await ctx.db.patch(projectId, { thumbnailUrl, thumbnailKey });
   },
 });

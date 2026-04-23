@@ -33,6 +33,8 @@ export default defineSchema({
     workflowId: v.optional(v.string()),
     // First clip thumbnail (set after pipeline completes)
     thumbnailUrl: v.optional(v.string()),
+    // R2 key for the thumbnail — used to refresh the signed URL when it expires
+    thumbnailKey: v.optional(v.string()),
     // Full transcript text saved after step 1
     transcriptText: v.optional(v.string()),
     // Word-level timestamps from AssemblyAI (start/end in ms)

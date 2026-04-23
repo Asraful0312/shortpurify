@@ -192,6 +192,7 @@ export const saveClipsToDb = internalAction({
             projectId,
             status: "processing",
             thumbnailUrl: firstThumbnail,
+            thumbnailKey: result.thumbnailUploaded !== false ? thumbKey : undefined,
           });
         }
       }

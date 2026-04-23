@@ -1,8 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TextShimmerWave } from "./motion-primitives/text-shimmer-wave";
 import { TextShimmer } from "./motion-primitives/text-shimmer";
+import { useState } from "react";
+import { useAction } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 export type ProjectStatus = "uploading" | "processing" | "complete" | "failed";
 
@@ -45,6 +51,18 @@ const statusConfig = {
 export function ProjectCard({ project }: { project: ProjectCardProps }) {
   const config = statusConfig[project.status];
   const Icon = config.icon;
+  const [thumbSrc, setThumbSrc] = useState(project.thumbnailUrl);
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const refreshThumbnail = useAction(api.r2Actions.refreshProjectThumbnail);
+
+  async function handleThumbError() {
+    if (thumbFailed || !project.id) return;
+    setThumbFailed(true);
+    try {
+      const fresh = await refreshThumbnail({ projectId: project.id as Id<"projects"> });
+      if (fresh) { setThumbSrc(fresh); setThumbFailed(false); }
+    } catch { /* no key available — show placeholder */ }
+  }
 
   const dateStr = new Date(project.createdAt).toLocaleDateString("en-US", {
     month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute:"2-digit"
@@ -55,8 +73,8 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
       <div className="bg-white rounded-[1.5rem] border border-border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/30 flex flex-col h-full">
         {/* Thumbnail Area */}
         <div className="relative aspect-video bg-secondary flex items-center justify-center overflow-hidden">
-          {project.thumbnailUrl ? (
-            <img src={project.thumbnailUrl} alt={project.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          {thumbSrc && !thumbFailed ? (
+            <img src={thumbSrc} alt={project.title} onError={handleThumbError} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
              <div className="w-full h-full bg-linear-to-tr from-secondary/80 to-secondary flex flex-col items-center justify-center text-muted-foreground transition-transform duration-500 group-hover:scale-105">
                <Video size={36} className="opacity-40 mb-2" />

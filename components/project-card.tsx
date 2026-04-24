@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play } from "lucide-react";
+import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TextShimmerWave } from "./motion-primitives/text-shimmer-wave";
 import { TextShimmer } from "./motion-primitives/text-shimmer";
@@ -10,7 +10,7 @@ import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-export type ProjectStatus = "uploading" | "processing" | "complete" | "failed";
+export type ProjectStatus = "uploading" | "processing" | "awaiting_review" | "complete" | "failed";
 
 export interface ProjectCardProps {
   id: string;
@@ -32,6 +32,12 @@ const statusConfig = {
     icon: Sparkles,
     className: "bg-amber-100 text-amber-700 border-amber-200 animate-pulse",
     text: "AI Processing",
+    spin: false
+  },
+  awaiting_review: {
+    icon: ScanSearch,
+    className: "bg-violet-100 text-violet-700 border-violet-200",
+    text: "Awaiting Review",
     spin: false
   },
   complete: {
@@ -97,6 +103,11 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
             ) : config.text === "Uploading" ? (
                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex bg-blue-100 items-center gap-1.5 shadow-sm backdrop-blur-md",)}>
               <TextShimmer>Uploading...</TextShimmer>
+          </div>
+            ) : config.text === "Awaiting Review" ? (
+                <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-violet-100 text-violet-700 border-violet-200")}>
+            <ScanSearch size={12} />
+            Review clips
           </div>
             ) :  config.text === "Ready" ?(
                  <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-700 text-white border-green-800")}>

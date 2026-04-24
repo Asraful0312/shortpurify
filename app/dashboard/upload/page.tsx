@@ -6,7 +6,7 @@ import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-context";
 import SingleVideoUploader from "@/components/upload-dropzone";
-import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers, Play, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers, Play, X, ScanSearch } from "lucide-react";
 import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
 
@@ -36,6 +36,7 @@ export default function UploadPage() {
     ALL_PLATFORMS.map((p) => p.id),
   );
   const [cropMode, setCropMode] = useState<"smart_crop" | "blur_background">("smart_crop");
+  const [reviewMode, setReviewMode] = useState(false);
   const [previewMode, setPreviewMode] = useState<"smart_crop" | "blur_background" | null>(null);
 
   // YouTube-specific state
@@ -67,6 +68,7 @@ export default function UploadPage() {
         originalKey: key,
         enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
         cropMode,
+        reviewMode: reviewMode || undefined,
         workspaceId: activeOrgId ?? undefined,
         estimatedDurationMinutes: fileDurationMinutes,
       });
@@ -88,6 +90,7 @@ export default function UploadPage() {
         title: title.trim() || undefined,
         enabledPlatforms: enabledPlatforms.length > 0 ? enabledPlatforms : ALL_PLATFORMS.map((p) => p.id),
         cropMode,
+        reviewMode: reviewMode || undefined,
         workspaceId: activeOrgId ?? undefined,
       });
       router.push(`/dashboard/${projectId}`);
@@ -243,7 +246,36 @@ export default function UploadPage() {
           ))}
         </div>
 
- 
+        {/* Review mode toggle */}
+        <button
+          type="button"
+          onClick={() => setReviewMode((v) => !v)}
+          className={cn(
+            "w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all mt-1",
+            reviewMode
+              ? "border-primary bg-primary/5"
+              : "border-border bg-white hover:border-primary/30",
+          )}
+        >
+          <span className={cn("p-1.5 rounded-lg shrink-0", reviewMode ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground")}>
+            <ScanSearch size={18} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm">Review clips before processing</p>
+            <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+              Pause after AI analysis — edit timing, rename, or skip clips you don&apos;t want before the video is encoded.
+            </p>
+          </div>
+          <div className={cn(
+            "shrink-0 w-10 h-6 rounded-full transition-colors relative",
+            reviewMode ? "bg-primary" : "bg-border",
+          )}>
+            <span className={cn(
+              "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all",
+              reviewMode ? "left-4.5" : "left-0.5",
+            )} />
+          </div>
+        </button>
       </div>
 
       {/* Tab content */}

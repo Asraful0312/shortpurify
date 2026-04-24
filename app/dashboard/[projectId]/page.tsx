@@ -1,5 +1,6 @@
 "use client";
 
+import { ClipReview } from "@/components/dashboard/clip-review";
 import { ProcessingStatus } from "@/components/dashboard/processing-status";
 import DeleteProjectDialog from "@/components/dashboard/project/delete-project-dialog";
 import MultiPlatformCaptionCard from "@/components/dashboard/project/multi-platform-caption-card";
@@ -45,6 +46,7 @@ export default function ProjectDetailsPage() {
   // true when this page load saw a processing→complete transition (ideal review moment)
   const [justCompleted, setJustCompleted] = useState(false);
   const wasProcessingRef = useRef(false);
+  const prevStatusRef = useRef<string | undefined>(undefined);
 
   // Rename state
   const [renaming, setRenaming] = useState(false);
@@ -64,15 +66,27 @@ export default function ProjectDetailsPage() {
 
   const canZip = usage?.limits.zipExport ?? false;
 
-  // Detect processing → complete transition so we know the user just saw their clips for the first time
+  // Detect status transitions — play notification sound and set justCompleted flag
   useEffect(() => {
     if (!project) return;
-    if (project.status === "processing" || project.status === "uploading") {
+    const prev = prevStatusRef.current;
+    const curr = project.status;
+
+    if (prev !== undefined && prev !== curr) {
+      const wasActive = prev === "processing" || prev === "uploading";
+      if (wasActive && curr === "awaiting_review") {
+        new Audio("/notification.mp3").play().catch(() => {});
+      }
+      if (curr === "complete" && wasProcessingRef.current) {
+        new Audio("/notification.mp3").play().catch(() => {});
+        setJustCompleted(true);
+      }
+    }
+
+    if (curr === "processing" || curr === "uploading" || curr === "awaiting_review") {
       wasProcessingRef.current = true;
     }
-    if (wasProcessingRef.current && project.status === "complete") {
-      setJustCompleted(true);
-    }
+    prevStatusRef.current = curr;
   }, [project?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function startRename() {
@@ -129,6 +143,7 @@ export default function ProjectDetailsPage() {
   }
 
   const isProcessing = project.status === "processing" || project.status === "uploading";
+  const isAwaitingReview = project.status === "awaiting_review";
   const isFailed = project.status === "failed";
   const isComplete = project.status === "complete";
 
@@ -137,6 +152,7 @@ export default function ProjectDetailsPage() {
 
   const statusLabel =
     isComplete ? "Publish Ready" :
+    isAwaitingReview ? "Awaiting Review" :
     isFailed ? "Failed" :
     project.processingStep ?? "Processing…";
 
@@ -403,6 +419,17 @@ export default function ProjectDetailsPage() {
           <p className="text-sm text-muted-foreground mt-4 font-medium">
             This usually takes 1-3 minutes. You can close this tab - we will keep processing.
           </p>
+        </div>
+      )}
+
+      {/* Awaiting review state */}
+      {isAwaitingReview && project.pendingClips && project.pendingClips.length > 0 && (
+        <div className="mb-10">
+          <ClipReview
+            projectId={projectId}
+            pendingClips={project.pendingClips}
+            transcriptWords={project.transcriptWords}
+          />
         </div>
       )}
 

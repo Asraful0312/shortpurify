@@ -23,9 +23,22 @@ export default defineSchema({
     status: v.union(
       v.literal("uploading"),
       v.literal("processing"),
+      v.literal("awaiting_review"),
       v.literal("complete"),
       v.literal("failed"),
     ),
+    // When true, pipeline pauses after AI analysis for user to approve clips
+    reviewMode: v.optional(v.boolean()),
+    // AI-suggested clips saved here when reviewMode=true, waiting for user approval
+    pendingClips: v.optional(v.array(v.object({
+      title: v.string(),
+      startTime: v.number(),
+      endTime: v.number(),
+      viralScore: v.number(),
+      platform: v.string(),
+      reason: v.optional(v.string()),
+      captions: v.record(v.string(), v.string()),
+    }))),
     // Current pipeline step label shown in UI during processing
     processingStep: v.optional(v.string()),
     // Populated once pipeline completes

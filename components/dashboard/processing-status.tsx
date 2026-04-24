@@ -31,7 +31,7 @@ interface ProcessingStatusProps {
 const DEFAULT_STEPS: Step[] = [
   {
     label: "Transcription",
-    description: "AssemblyAI speech-to-text with timestamps",
+    description: "Speech-to-text with timestamps",
     status: "in_progress",
   },
   {
@@ -41,7 +41,7 @@ const DEFAULT_STEPS: Step[] = [
   },
   {
     label: "Smart Clips",
-    description: "AI face-tracking crop & FFmpeg encoding",
+    description: "AI face-tracking crop & encoding",
     status: "pending",
   },
 ];

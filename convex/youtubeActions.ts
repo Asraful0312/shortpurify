@@ -208,9 +208,10 @@ export const createProjectFromYouTube = action({
     title: v.optional(v.string()),
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()),
+    reviewMode: v.optional(v.boolean()),
     workspaceId: v.optional(v.string()),
   },
-  handler: async (ctx, { youtubeUrl, title, enabledPlatforms, cropMode, workspaceId }): Promise<{ projectId: string }> => {
+  handler: async (ctx, { youtubeUrl, title, enabledPlatforms, cropMode, reviewMode, workspaceId }): Promise<{ projectId: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Not authenticated");
 
@@ -286,6 +287,7 @@ export const createProjectFromYouTube = action({
       originalKey: data.uploaded ? ytKey : undefined,
       enabledPlatforms: enabledPlatforms ?? [],
       cropMode: cropMode ?? "smart_crop",
+      reviewMode: reviewMode ?? undefined,
       workspaceId,
       estimatedDurationMinutes,
     });

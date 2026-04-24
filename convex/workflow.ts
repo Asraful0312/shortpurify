@@ -21,6 +21,7 @@ export const kickoff = internalAction({
     });
     const enabledPlatforms = project?.enabledPlatforms ?? undefined;
     const cropMode = project?.cropMode ?? "smart_crop";
+    const reviewMode = project?.reviewMode ?? false;
 
     // Resolve per-plan clips limit — falls back to 6 if subscription not found
     const maxClips = await ctx.runQuery(internal.usage.getClipsLimit, {
@@ -31,7 +32,7 @@ export const kickoff = internalAction({
     const workflowId = await workflowManager.start(
       ctx,
       internal.workflow.processVideo,
-      { ...args, enabledPlatforms, cropMode, maxClips },
+      { ...args, enabledPlatforms, cropMode, maxClips, reviewMode },
     );
     await ctx.runMutation(internal.projects.updateProjectStatus, {
       projectId: args.projectId,
@@ -55,8 +56,9 @@ export const processVideo = workflowManager.define({
     enabledPlatforms: v.optional(v.array(v.string())),
     cropMode: v.optional(v.string()),
     maxClips: v.optional(v.number()),
+    reviewMode: v.optional(v.boolean()),
   },
-  handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode, maxClips }) => {
+  handler: async (step, { projectId, videoUrl, enabledPlatforms, cropMode, maxClips, reviewMode }) => {
     try {
       // ── Step 1: Transcription ────────────────────────────────────────
       await step.runMutation(internal.projects.updateProjectStatus, {
@@ -91,6 +93,16 @@ export const processVideo = workflowManager.define({
         enabledPlatforms,
         maxClips,
       });
+
+      // ── Step 3 (review mode): pause and wait for user approval ──────
+      if (reviewMode) {
+        await step.runMutation(internal.projects.savePendingClips, {
+          projectId,
+          clips,
+        });
+        // Pipeline ends here — approveClipsAndProcess mutation picks up from the UI
+        return;
+      }
 
       // ── Step 3: Smart crop + encode via Python worker ────────────────
       await step.runMutation(internal.projects.updateProjectStatus, {

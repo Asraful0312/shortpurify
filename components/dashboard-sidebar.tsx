@@ -361,8 +361,8 @@ export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {
 
       {/* User Area */}
       <div className="border-t border-border pt-4 px-2 space-y-2">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+        <div className="flex items-center gap-3 px-2 py-2  ">
+          <UserButton  appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
           <div className="flex flex-col">
             <span className="text-sm font-bold text-foreground">My Account</span>
             <span className="text-xs font-medium text-muted-foreground truncate w-28">

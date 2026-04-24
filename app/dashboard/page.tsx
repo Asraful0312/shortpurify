@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Plus, Video, Sparkles, Clapperboard, Send, Zap, Loader2 } from "lucide-react";
 import { ProjectCard } from "@/components/project-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
+import { FeatureAnnouncement } from "@/components/dashboard/feature-announcement";
 import { useWorkspace } from "@/components/workspace-context";
 
 const PAGE_SIZE = 12;
@@ -82,7 +83,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <StatsCards stats={stats} className="mb-10" />
+      <StatsCards stats={stats} className="mb-8" />
+
+      {/* Feature announcement */}
+      <FeatureAnnouncement />
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-3 mb-8">

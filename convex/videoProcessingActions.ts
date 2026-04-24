@@ -199,3 +199,54 @@ export const saveClipsToDb = internalAction({
     }
   },
 });
+
+/**
+ * Runs after user approves clips in review mode.
+ * Processes clips via the Modal worker, marks the project complete, then cleans up the original video.
+ */
+export const runApprovedClips = internalAction({
+  args: {
+    projectId: v.id("projects"),
+    videoUrl: v.string(),
+    clips: v.array(v.object({
+      title: v.string(),
+      startTime: v.number(),
+      endTime: v.number(),
+      viralScore: v.number(),
+      platform: v.string(),
+      reason: v.optional(v.string()),
+      captions: v.record(v.string(), v.string()),
+    })),
+    cropMode: v.optional(v.string()),
+  },
+  handler: async (ctx, { projectId, videoUrl, clips, cropMode }) => {
+    try {
+      await ctx.runAction(internal.videoProcessingActions.saveClipsToDb, {
+        projectId,
+        videoUrl,
+        clips,
+        cropMode,
+      });
+
+      await ctx.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "complete",
+        processingStep: "Complete",
+        clipsCount: clips.length,
+      });
+    } catch (err) {
+      console.error(`[review] runApprovedClips failed for ${projectId}:`, err);
+      await ctx.runMutation(internal.projects.updateProjectStatus, {
+        projectId,
+        status: "failed",
+        processingStep: "Processing failed — please try again",
+      });
+    }
+
+    try {
+      await ctx.runAction(internal.r2Actions.deleteOriginalVideo, { projectId });
+    } catch (err) {
+      console.warn(`[review] deleteOriginalVideo failed (non-fatal):`, err);
+    }
+  },
+});

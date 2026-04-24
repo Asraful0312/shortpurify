@@ -41,6 +41,8 @@ export const createProjectAndStart = mutation({
     // Duration in minutes — used for pre-flight minute limit check.
     // Pass this when it's known before upload (client-side video element, YouTube info).
     estimatedDurationMinutes: v.optional(v.number()),
+    // When true the pipeline pauses after AI analysis so the user can review clips
+    reviewMode: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -122,6 +124,7 @@ export const createProjectAndStart = mutation({
       enabledPlatforms: args.enabledPlatforms,
       cropMode: args.cropMode,
       workspaceId: args.workspaceId,
+      reviewMode: args.reviewMode,
       status: "processing",
       processingStep: "Queued…",
       createdAt: Date.now(),
@@ -499,6 +502,7 @@ export const updateProjectStatus = internalMutation({
     status: v.union(
       v.literal("uploading"),
       v.literal("processing"),
+      v.literal("awaiting_review"),
       v.literal("complete"),
       v.literal("failed"),
     ),
@@ -551,5 +555,66 @@ export const patchThumbnailUrl = internalMutation({
   args: { projectId: v.id("projects"), thumbnailUrl: v.string(), thumbnailKey: v.string() },
   handler: async (ctx, { projectId, thumbnailUrl, thumbnailKey }) => {
     await ctx.db.patch(projectId, { thumbnailUrl, thumbnailKey });
+  },
+});
+
+const pendingClipSchema = v.object({
+  title: v.string(),
+  startTime: v.number(),
+  endTime: v.number(),
+  viralScore: v.number(),
+  platform: v.string(),
+  reason: v.optional(v.string()),
+  captions: v.record(v.string(), v.string()),
+});
+
+/** Called by the workflow when reviewMode=true — saves AI clip suggestions and pauses pipeline. */
+export const savePendingClips = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    clips: v.array(pendingClipSchema),
+  },
+  handler: async (ctx, { projectId, clips }) => {
+    await ctx.db.patch(projectId, {
+      status: "awaiting_review",
+      pendingClips: clips,
+      processingStep: "Waiting for your review…",
+    });
+  },
+});
+
+/** Called by the user from the review UI — submits approved (possibly edited) clips for Modal processing. */
+export const approveClipsAndProcess = mutation({
+  args: {
+    projectId: v.id("projects"),
+    clips: v.array(pendingClipSchema),
+  },
+  handler: async (ctx, { projectId, clips }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const project = await ctx.db.get(projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.status !== "awaiting_review") throw new Error("Project is not awaiting review");
+
+    // Verify ownership
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || project.userId !== user._id) throw new Error("Unauthorized");
+
+    await ctx.db.patch(projectId, {
+      status: "processing",
+      pendingClips: undefined,
+      processingStep: "Starting clip processing…",
+    });
+
+    await ctx.scheduler.runAfter(0, internal.videoProcessingActions.runApprovedClips, {
+      projectId,
+      videoUrl: project.originalUrl,
+      clips,
+      cropMode: project.cropMode,
+    });
   },
 });

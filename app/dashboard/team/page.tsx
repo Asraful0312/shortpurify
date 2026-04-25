@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -48,14 +48,18 @@ export default function TeamPage() {
   const [inviteError, setInviteError]   = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
   const [savingName, setSavingName]     = useState(false);
+  const initializedRef = useRef(false);
 
   const isOwner = ctxIsOwner;
   const isAdmin = ctxIsAdmin;
 
-  // Populate workspace name input once loaded
-  if (activeOrg && workspaceName === "" && activeOrg.name) {
-    setWorkspaceName(activeOrg.name);
-  }
+  // Populate workspace name input once when activeOrg first loads — never overwrite user edits
+  useEffect(() => {
+    if (activeOrg?.name && !initializedRef.current) {
+      setWorkspaceName(activeOrg.name);
+      initializedRef.current = true;
+    }
+  }, [activeOrg?.name]);
 
   async function handleInvite() {
     if (!orgId || !inviteEmail.trim()) return;
@@ -251,7 +255,7 @@ export default function TeamPage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@example.com"
                   type="email"
-                  className="flex-1 rounded-xl"
+                  className="flex-1 rounded-xl py-5"
                   onKeyDown={(e) => e.key === "Enter" && handleInvite()}
                   disabled={inviteState === "sending"}
                 />
@@ -420,7 +424,7 @@ export default function TeamPage() {
               <Input
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                className="rounded-xl flex-1"
+                className="rounded-xl flex-1 py-5"
                 onKeyDown={(e) => e.key === "Enter" && handleSaveWorkspaceName()}
               />
               <button

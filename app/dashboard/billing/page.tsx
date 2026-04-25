@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   CheckCircle2, XCircle, Zap, Crown, Building2,
   CreditCard, ArrowUpRight, Lock, Loader2, ExternalLink, Info,
@@ -8,9 +8,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useWorkspace } from "@/components/workspace-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Confetti, type ConfettiRef } from "@/components/ui/confetti";
 
 type PlanFeature = { text: string; included: boolean; tooltip?: string };
 
@@ -108,8 +109,11 @@ export default function BillingPage() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const { isOwner, isLoading, activeOrgId } = useWorkspace();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const confettiRef = useRef<ConfettiRef>(null);
 
   const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   const createCheckout = useAction(api.billing.createPlanCheckout);
@@ -129,6 +133,24 @@ export default function BillingPage() {
   const projectsLimit = usage !== undefined ? (usage?.limits.projects ?? Infinity) : 2;
   const minutesLimit = usage !== undefined ? (usage?.limits.minutes ?? 20) : 20;
   const resetDate = usage?.resetDate ?? "the 1st";
+
+  // Fire confetti when Creem redirects back with ?checkout=success
+  useEffect(() => {
+    if (searchParams.get("checkout") !== "success") return;
+    setShowSuccess(true);
+    // Remove param from URL without full navigation
+    router.replace("/dashboard/billing", { scroll: false });
+    // Small delay so the canvas is mounted before firing
+    const t = setTimeout(() => {
+      confettiRef.current?.fire({
+        particleCount: 180,
+        spread: 100,
+        origin: { y: 0.5 },
+        colors: ["#8B5CF6", "#D8B4FE", "#F59E0B", "#FDE68A", "#10B981"],
+      });
+    }, 300);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleUpgrade(planId: string) {
     const key = `${planId}_${billing}` as const;
@@ -189,6 +211,33 @@ export default function BillingPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto w-full min-h-full flex flex-col gap-8">
+      {/* Confetti canvas — fixed overlay, fires once on checkout success */}
+      <Confetti
+        ref={confettiRef}
+        manualstart
+        className="pointer-events-none fixed inset-0 z-200 w-full h-full"
+      />
+
+      {/* Checkout success banner */}
+      {showSuccess && (
+        <div className="flex items-center gap-4 bg-linear-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl px-5 py-4 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+            <Crown size={20} className="text-violet-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-extrabold text-foreground">
+              Welcome to {currentPlanId === "pro" ? "Pro Creator" : "Agency"}! 🎉
+            </p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Your plan is now active. All new limits apply immediately.
+            </p>
+          </div>
+          <button onClick={() => setShowSuccess(false)} className="p-1.5 rounded-lg hover:bg-violet-100 transition-colors text-muted-foreground shrink-0">
+            <XCircle size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

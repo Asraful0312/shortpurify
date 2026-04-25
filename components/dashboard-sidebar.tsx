@@ -23,6 +23,7 @@ import {
   Loader2,
   X,
   HelpCircle,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "./shared/logo";
@@ -37,6 +38,26 @@ const ROLE_ICON: Record<string, React.ElementType> = {
   admin: Shield,
   member: User,
 };
+
+function PlanBadge({ tier }: { tier: "starter" | "pro" | "agency" }) {
+  if (tier === "pro") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-amber-400/20 text-amber-600 border border-amber-400/40 px-1.5 py-0.5 rounded-full">
+        <Crown size={8} />
+        Pro
+      </span>
+    );
+  }
+  if (tier === "agency") {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-violet-500/15 text-violet-600 border border-violet-400/40 px-1.5 py-0.5 rounded-full">
+        <Zap size={8} />
+        Agency
+      </span>
+    );
+  }
+  return null;
+}
 
 /** Modal for creating a new workspace */
 function NewWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
@@ -143,7 +164,8 @@ function NewWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCrea
 
 /** Workspace switcher dropdown */
 function WorkspaceSwitcher() {
-  const { orgs, activeOrg, setActiveOrgId, myRole, isLoading } = useWorkspace();
+  const { orgs, activeOrg, setActiveOrgId, myRole, isLoading, activeOrgId } = useWorkspace();
+  const tier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined }) ?? "starter";
   const [open, setOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -168,13 +190,26 @@ function WorkspaceSwitcher() {
       <div ref={ref} className="relative mx-1">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-secondary/60 hover:bg-secondary transition-colors border border-border"
+          className={cn(
+            "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-secondary/60 hover:bg-secondary transition-colors border",
+            tier === "agency" ? "border-violet-300 shadow-[0_0_0_1px_rgba(139,92,246,0.15)]" :
+            tier === "pro"    ? "border-amber-300 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]" :
+            "border-border",
+          )}
         >
-          <div className="w-7 h-7 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
-            <Building2 size={14} />
+          <div className={cn(
+            "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+            tier === "agency" ? "bg-violet-100 text-violet-600" :
+            tier === "pro"    ? "bg-amber-100 text-amber-600" :
+            "bg-primary/15 text-primary",
+          )}>
+            {tier === "agency" ? <Zap size={14} /> : tier === "pro" ? <Crown size={14} /> : <Building2 size={14} />}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className="text-xs font-extrabold truncate leading-tight">{activeOrg?.name ?? "Loading…"}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-extrabold truncate leading-tight">{activeOrg?.name ?? "Loading…"}</p>
+              <PlanBadge tier={tier} />
+            </div>
             <div className="flex items-center gap-1 mt-0.5">
               <RoleIcon size={9} className="text-muted-foreground" />
               <p className="text-[10px] font-semibold text-muted-foreground capitalize">{myRole}</p>
@@ -304,7 +339,8 @@ function NavGroup({
 
 export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {}) {
   const pathname = usePathname();
-  const { isOwner } = useWorkspace();
+  const { isOwner, activeOrgId } = useWorkspace();
+  const tier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined }) ?? "starter";
 
   const mainNav = [
     { name: "Projects", href: "/dashboard", icon: LayoutDashboard },
@@ -361,12 +397,15 @@ export function DashboardSidebar({ onNavClick }: { onNavClick?: () => void } = {
 
       {/* User Area */}
       <div className="border-t border-border pt-4 px-2 space-y-2">
-        <div className="flex items-center gap-3 px-2 py-2  ">
-          <UserButton  appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-foreground">My Account</span>
+        <div className="flex items-center gap-3 px-2 py-2">
+          <UserButton appearance={{ elements: { userButtonAvatarBox: "w-9 h-9" } }} />
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-foreground">My Account</span>
+              <PlanBadge tier={tier} />
+            </div>
             <span className="text-xs font-medium text-muted-foreground truncate w-28">
-              Manage Profile
+              {tier === "starter" ? "Free plan" : tier === "pro" ? "Pro Creator" : "Agency"}
             </span>
           </div>
         </div>

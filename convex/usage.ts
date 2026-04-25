@@ -130,6 +130,49 @@ async function resolveEntityId(ctx: any, workspaceId: string | undefined, fallba
 }
 
 /**
+ * Resolves the effective plan tier for a workspace context, in priority order:
+ *   1. Current user's own grantedTier (e.g. the owner has a gifted plan)
+ *   2. Workspace owner's grantedTier (so members inherit the owner's gifted plan)
+ *   3. Creem subscription cascade
+ *
+ * Returns the tier and whether it came from a manual grant (vs. a paid Creem sub).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveWorkspaceTier(
+  ctx: any,
+  workspaceId: string | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  currentUser: { _id: any; grantedTier?: string | null; grantedTierExpiry?: number | null }
+): Promise<{ tier: PlanTier; fromGrant: boolean }> {
+  const nowMs = Date.now();
+
+  // 1. Current user's own grantedTier
+  if (currentUser.grantedTier && (currentUser.grantedTierExpiry == null || currentUser.grantedTierExpiry > nowMs)) {
+    return { tier: currentUser.grantedTier as PlanTier, fromGrant: true };
+  }
+
+  // 2. Workspace owner's grantedTier (members inherit the owner's gifted plan)
+  if (workspaceId) {
+    const ownerMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_workspace", (q: any) => q.eq("workspaceId", workspaceId))
+      .filter((q: any) => q.eq(q.field("role"), "owner"))
+      .first();
+    if (ownerMembership) {
+      const ownerUser = await ctx.db.get(ownerMembership.userId);
+      if (ownerUser?.grantedTier && (ownerUser.grantedTierExpiry == null || ownerUser.grantedTierExpiry > nowMs)) {
+        return { tier: ownerUser.grantedTier as PlanTier, fromGrant: true };
+      }
+    }
+  }
+
+  // 3. Creem subscription (cascade through owned workspaces)
+  const entityId = await resolveEntityId(ctx, workspaceId, currentUser._id);
+  const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
+  return { tier: tierFromProductId(sub?.productId), fromGrant: false };
+}
+
+/**
  * Returns current plan tier + monthly usage for a user/workspace.
  * Used by the billing page and dashboard stats card.
  */
@@ -145,73 +188,32 @@ export const getUsage = query({
       .unique();
     if (!user) return null;
 
-    // ── Manual plan override (collaborations / gifted access) ────────────
-    const nowMs = Date.now();
-    const hasValidOverride =
-      user.grantedTier &&
-      (user.grantedTierExpiry == null || user.grantedTierExpiry > nowMs);
-
-    if (hasValidOverride) {
-      const tier = user.grantedTier as PlanTier;
-      const limits = PLAN_LIMITS[tier];
-      const monthStart = startOfMonth();
-      let projectsThisMonth: { durationSeconds?: number }[] = [];
-      if (workspaceId) {
-        const members = await ctx.db.query("workspaceMembers").withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId)).collect();
-        const all = await Promise.all(members.map((m) => ctx.db.query("projects").withIndex("by_user", (q) => q.eq("userId", m.userId)).filter((q) => q.gte(q.field("createdAt"), monthStart)).collect()));
-        projectsThisMonth = all.flat();
-      } else {
-        projectsThisMonth = await ctx.db.query("projects").withIndex("by_user", (q) => q.eq("userId", user._id)).filter((q) => q.gte(q.field("createdAt"), monthStart)).collect();
-      }
-      const projectsUsed = projectsThisMonth.length;
-      const minutesUsed = Math.round(projectsThisMonth.reduce((s, p) => s + (p.durationSeconds ?? 0), 0) / 60);
-      const overrideResetDate = new Date();
-      const resetDateStr = new Date(overrideResetDate.getFullYear(), overrideResetDate.getMonth() + 1, 1).toLocaleDateString("en-US", { month: "long", day: "numeric" });
-      return {
-        tier,
-        limits: {
-          projects: limits.projects === Infinity ? null : limits.projects,
-          minutes: limits.minutes,
-          teamMembers: limits.teamMembers === Infinity ? null : limits.teamMembers,
-          scheduledPublishing: limits.scheduledPublishing,
-          clipsPerProject: limits.clipsPerProject,
-          subtitleBurnsPerClip: limits.subtitleBurnsPerClip === Infinity ? null : limits.subtitleBurnsPerClip,
-          zipExport: limits.zipExport,
-        },
-        usage: { projectsUsed, minutesUsed, memberCount: 1 },
-        subscription: null,
-        resetDate: resetDateStr,
-      };
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
-    // Resolve entity for Creem lookup — cascades to owner's subscription if workspace has none
-    const entityId = await resolveEntityId(ctx, workspaceId, user._id as string);
-
-    // Get subscription from Creem internal tables (reads local DB, not API call).
-    // Wrapped in try/catch: creem throws "Product not found" if syncProducts hasn't run yet.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let subscription: any = null;
-    try {
-      subscription = await creem.subscriptions.getCurrent(ctx, { entityId });
-    } catch {
-      // Products not yet synced — treat as starter until syncBillingProducts is run
-    }
-    const tier = tierFromProductId(subscription?.productId);
+    // Resolve tier: current user's grantedTier → workspace owner's grantedTier → Creem
+    const { tier, fromGrant } = await resolveWorkspaceTier(ctx, workspaceId, user);
     const limits = PLAN_LIMITS[tier];
 
-    const monthStart = startOfMonth();
+    // Fetch Creem subscription details only when tier comes from a paid subscription
+    // (used on the billing page to show cancel/renewal info)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let subscription: any = null;
+    if (!fromGrant) {
+      try {
+        const entityId = await resolveEntityId(ctx, workspaceId, user._id as string);
+        subscription = await creem.subscriptions.getCurrent(ctx, { entityId });
+      } catch {
+        // Products not yet synced — treat as starter until syncBillingProducts is run
+      }
+    }
 
-    // Count projects created this month for this user/workspace
-    // (workspace mode: count projects for all workspace members)
+    const monthStart = startOfMonth();
     let projectsThisMonth: { durationSeconds?: number }[] = [];
+    let memberCount = 1;
 
     if (workspaceId) {
       const members = await ctx.db
         .query("workspaceMembers")
         .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
         .collect();
-
       const allProjects = await Promise.all(
         members.map((m) =>
           ctx.db
@@ -222,6 +224,7 @@ export const getUsage = query({
         )
       );
       projectsThisMonth = allProjects.flat();
+      memberCount = members.length;
     } else {
       projectsThisMonth = await ctx.db
         .query("projects")
@@ -235,15 +238,6 @@ export const getUsage = query({
       projectsThisMonth.reduce((sum, p) => sum + (p.durationSeconds ?? 0), 0) / 60
     );
 
-    // Count workspace members for team limit display
-    const memberCount = workspaceId
-      ? (await ctx.db
-          .query("workspaceMembers")
-          .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-          .collect()).length
-      : 1;
-
-    // Next reset date = 1st of next month
     const now = new Date();
     const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
@@ -273,6 +267,65 @@ export const getUsage = query({
 });
 
 /**
+ * Returns the plan tier for a workspace's OWN subscription only — no cascade
+ * through the owner's other workspaces. Used for sidebar badges so a Pro
+ * subscription on workspace A never bleeds through to workspace B.
+ *
+ * - No workspaceId (personal view): checks the user's own Creem entity.
+ * - workspaceId provided: checks only that workspace's direct subscription.
+ */
+export const getDirectWorkspaceTier = query({
+  args: { workspaceId: v.optional(v.string()) },
+  handler: async (ctx, { workspaceId }): Promise<PlanTier> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return "starter";
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return "starter";
+
+    const hasGrantedTier =
+      user.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now());
+
+    if (workspaceId) {
+      // Current user's grantedTier — only when they own this workspace
+      if (hasGrantedTier) {
+        const membership = await ctx.db
+          .query("workspaceMembers")
+          .withIndex("by_clerk_workspace", (q) =>
+            q.eq("clerkId", identity.subject).eq("workspaceId", workspaceId)
+          )
+          .unique();
+        if (membership?.role === "owner") return user.grantedTier as PlanTier;
+      }
+      // Workspace owner's grantedTier — members inherit the owner's gifted plan
+      const ownerMembership = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .filter((q) => q.eq(q.field("role"), "owner"))
+        .first();
+      if (ownerMembership) {
+        const ownerUser = await ctx.db.get(ownerMembership.userId);
+        if (ownerUser?.grantedTier && (ownerUser.grantedTierExpiry == null || ownerUser.grantedTierExpiry > Date.now())) {
+          return ownerUser.grantedTier as PlanTier;
+        }
+      }
+      // Direct Creem subscription only — no cascade to the owner's other workspaces
+      const sub = await creem.subscriptions.getCurrent(ctx, { entityId: workspaceId }).catch(() => null);
+      return tierFromProductId(sub?.productId);
+    }
+
+    // Personal workspace — granted tier applies directly
+    if (hasGrantedTier) return user.grantedTier as PlanTier;
+
+    const sub = await creem.subscriptions.getCurrent(ctx, { entityId: user._id as string }).catch(() => null);
+    return tierFromProductId(sub?.productId);
+  },
+});
+
+/**
  * Internal query — returns true when the user/workspace is on a paid plan.
  * Used by export actions to decide whether to burn a watermark.
  * Pass workspaceId when the project belongs to a workspace; fallbackEntityId = userId otherwise.
@@ -282,14 +335,8 @@ export const getUsage = query({
 export const getClipsLimit = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
-    // Check manual override on the user record first
     const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
-    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
-      return PLAN_LIMITS[user.grantedTier].clipsPerProject;
-    }
-    const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
-    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(sub?.productId);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: fallbackEntityId });
     return PLAN_LIMITS[tier].clipsPerProject;
   },
 });
@@ -298,15 +345,8 @@ export const getClipsLimit = internalQuery({
 export const getBurnLimit = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
-    // Check manual override on the user record first
     const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
-    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
-      const limit = PLAN_LIMITS[user.grantedTier].subtitleBurnsPerClip;
-      return limit === Infinity ? null : limit;
-    }
-    const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
-    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(sub?.productId);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: fallbackEntityId });
     const limit = PLAN_LIMITS[tier].subtitleBurnsPerClip;
     return limit === Infinity ? null : limit;
   },
@@ -315,14 +355,8 @@ export const getBurnLimit = internalQuery({
 export const isPaidPlan = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {
-    // Check manual override first — granted tier counts as paid
     const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
-    if (user?.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
-      return true;
-    }
-    const entityId = await resolveEntityId(ctx, workspaceId, fallbackEntityId);
-    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(subscription?.productId ?? null);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: fallbackEntityId });
     return tier !== "starter";
   },
 });
@@ -344,9 +378,7 @@ export const canCreateProject = internalQuery({
     const user = await ctx.db.get(userId);
     if (!user) return { allowed: false, reason: "User not found", limitType: "unknown" as const };
 
-    const entityId = await resolveEntityId(ctx, workspaceId, userId);
-    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId });
-    const tier = tierFromProductId(subscription?.productId);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user);
     const limits = PLAN_LIMITS[tier];
     const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
 
@@ -415,9 +447,8 @@ export const canConnectPlatform = internalQuery({
     platform: v.string(),
   },
   handler: async (ctx, { userId, workspaceId, platform }) => {
-    const entityId = await resolveEntityId(ctx, workspaceId, userId);
-    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(subscription?.productId);
+    const user = await ctx.db.get(userId);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: userId });
     const limits = PLAN_LIMITS[tier];
     const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
 
@@ -459,9 +490,8 @@ export const canConnectPlatform = internalQuery({
 export const canInviteMember = internalQuery({
   args: { workspaceId: v.string() },
   handler: async (ctx, { workspaceId }) => {
-    const entityId = await resolveEntityId(ctx, workspaceId, workspaceId);
-    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(subscription?.productId);
+    // Pass workspaceId as currentUser._id so the Creem fallback resolves correctly
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, { _id: workspaceId });
     const limits = PLAN_LIMITS[tier];
     const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
 
@@ -499,9 +529,8 @@ export const canInviteMember = internalQuery({
 export const canSchedulePost = internalQuery({
   args: { userId: v.id("users"), workspaceId: v.optional(v.string()) },
   handler: async (ctx, { userId, workspaceId }) => {
-    const entityId = await resolveEntityId(ctx, workspaceId, userId);
-    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
-    const tier = tierFromProductId(subscription?.productId);
+    const user = await ctx.db.get(userId);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: userId });
     const limits = PLAN_LIMITS[tier];
 
     if (!limits.scheduledPublishing) {
@@ -532,11 +561,16 @@ async function _checkCanCreateWorkspace(ctx: any, clerkId: string) {
     .collect();
   const ownedCount = (allMemberships as { role: string }[]).filter((m) => m.role === "owner").length;
 
-  // Derive tier from the subscription on the primary (first owned) workspace
-  const primaryWorkspaceId =
-    (allMemberships as { role: string; workspaceId: string }[]).find((m) => m.role === "owner")?.workspaceId ?? user._id;
-  const subscription = await creem.subscriptions.getCurrent(ctx, { entityId: primaryWorkspaceId }).catch(() => null);
-  const tier = tierFromProductId(subscription?.productId);
+  // Derive tier — grantedTier takes priority over Creem subscription
+  let tier: PlanTier;
+  if (user.grantedTier && (user.grantedTierExpiry == null || user.grantedTierExpiry > Date.now())) {
+    tier = user.grantedTier as PlanTier;
+  } else {
+    const primaryWorkspaceId =
+      (allMemberships as { role: string; workspaceId: string }[]).find((m) => m.role === "owner")?.workspaceId ?? user._id;
+    const subscription = await creem.subscriptions.getCurrent(ctx, { entityId: primaryWorkspaceId }).catch(() => null);
+    tier = tierFromProductId(subscription?.productId);
+  }
   const limits = PLAN_LIMITS[tier];
 
   if (limits.maxOwnedWorkspaces !== Infinity && ownedCount >= limits.maxOwnedWorkspaces) {

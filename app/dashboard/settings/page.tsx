@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, Trash2, AlertTriangle, Building2, UserCircle, ExternalLink, Loader2, Bell } from "lucide-react";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useMutation, useAction, useQuery } from "convex/react";
@@ -90,10 +90,17 @@ export default function SettingsPage() {
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState("");
   const [renameSaved, setRenameSaved] = useState(false);
+  const nameInitialized = useRef(false);
 
-  // Initialize name from activeOrg once loaded
   const currentName = activeOrg?.name ?? "";
-  const displayName = workspaceName !== "" ? workspaceName : currentName;
+
+  // Set the input value once when activeOrg first loads — never overwrite user edits
+  useEffect(() => {
+    if (activeOrg?.name && !nameInitialized.current) {
+      setWorkspaceName(activeOrg.name);
+      nameInitialized.current = true;
+    }
+  }, [activeOrg?.name]);
 
   // Email notifications
   const currentUser = useQuery(api.users.getCurrentUser);
@@ -197,7 +204,7 @@ export default function SettingsPage() {
           <div>
             <label className="text-sm font-bold mb-1.5 block">Workspace Name</label>
             <input
-              value={displayName}
+              value={workspaceName}
               onChange={(e) => setWorkspaceName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRename()}
               placeholder={currentName}

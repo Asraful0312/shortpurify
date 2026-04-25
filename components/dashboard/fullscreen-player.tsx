@@ -38,6 +38,7 @@ function FullscreenPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const navThrottleRef = useRef(false);
+  const videoBoxRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef(0);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
@@ -87,8 +88,36 @@ function FullscreenPlayer({
     const next = currentIndex + delta;
     if (next < 0 || next >= clips.length) return;
     navThrottleRef.current = true;
-    onNavigate(next);
-    setTimeout(() => { navThrottleRef.current = false; }, 600);
+
+    const el = videoBoxRef.current;
+    if (!el) {
+      onNavigate(next);
+      setTimeout(() => { navThrottleRef.current = false; }, 400);
+      return;
+    }
+
+    const exitY = delta > 0 ? "-100%" : "100%";
+    const enterY = delta > 0 ? "100%" : "-100%";
+
+    // Slide current clip out
+    el.style.transition = "transform 300ms cubic-bezier(0.4,0,0.2,1)";
+    el.style.transform = `translateY(${exitY})`;
+
+    setTimeout(() => {
+      // Jump to opposite side (off-screen, no transition) and swap clip
+      el.style.transition = "none";
+      el.style.transform = `translateY(${enterY})`;
+      onNavigate(next);
+
+      // Two rAFs to ensure the browser has painted the off-screen position
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.style.transition = "transform 300ms cubic-bezier(0.4,0,0.2,1)";
+          el.style.transform = "translateY(0)";
+          setTimeout(() => { navThrottleRef.current = false; }, 320);
+        });
+      });
+    }, 310);
   }
 
   // Reset player whenever we land on a new clip
@@ -363,9 +392,11 @@ function FullscreenPlayer({
 
         {/* Video Box */}
         <div
-          className="relative h-full sm:h-100vh sm:aspect-10/17 sm:max-h-[90vh] w-full sm:w-auto bg-black sm:rounded-3xl transition-all duration-300 overflow-hidden border border-white/5"
+          className="relative h-full sm:h-100vh sm:aspect-10/17 sm:max-h-[90vh] w-full sm:w-auto overflow-hidden sm:rounded-3xl border border-white/5"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Sliding panel — translated by navigate() for the YouTube-style swipe */}
+          <div ref={videoBoxRef} className="relative w-full h-full bg-black" style={{ willChange: "transform" }}>
           <div ref={containerRef} className="relative w-full h-full group/player">
             <video
               key={retryKey}
@@ -501,7 +532,8 @@ function FullscreenPlayer({
               onClick={handleDownload}
             />
           </div>
-        </div>
+          </div>{/* end sliding panel */}
+        </div>{/* end clip container */}
 
         {/* Desktop sidebar */}
         <div className="hidden sm:flex flex-col gap-4 items-center" onClick={(e) => e.stopPropagation()}>

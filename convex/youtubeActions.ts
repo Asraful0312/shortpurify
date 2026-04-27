@@ -221,12 +221,17 @@ export const createProjectFromYouTube = action({
     const workerUrl = process.env.VIDEO_WORKER_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET;
     if (!workerUrl || !workerSecret) {
-      throw new ConvexError("Missing VIDEO_WORKER_URL or VIDEO_WORKER_SECRET environment variables.");
+      throw new ConvexError("YouTube import is not configured. Please contact support.");
     }
 
-    // Generate a presigned R2 upload URL so the worker can store the downloaded video
+    // R2 key where the downloaded video will be stored
     const ytKey = `yt-imports/${videoId}-${Date.now()}.mp4`;
     const { url: uploadUrl } = await r2.generateUploadUrl(ytKey);
+
+    type ExtractResult = {
+      ok?: boolean; uploaded?: boolean; playbackUrl?: string;
+      title?: string; durationSeconds?: number; error?: string;
+    };
 
     const extractUrl = workerUrl.replace("process-video", "extract-youtube-info");
     const res = await fetch(extractUrl, {
@@ -234,29 +239,18 @@ export const createProjectFromYouTube = action({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ youtubeUrl, workerSecret, uploadUrl }),
     });
-
     if (!res.ok) throw new ConvexError(`Worker returned HTTP ${res.status}`);
+    const data = (await res.json()) as ExtractResult;
+    if (!data.ok) throw new ConvexError(data.error ?? "Failed to extract YouTube video. Please check the URL and try again.");
 
-    const data = await res.json() as {
-      ok?: boolean;
-      uploaded?: boolean;
-      playbackUrl?: string;
-      title?: string;
-      durationSeconds?: number;
-      error?: string;
-    };
-    if (!data.ok) {
-      throw new ConvexError(data.error ?? "Failed to extract video playback URL.");
-    }
-
-    // Prefer the R2-stored high-quality version; fall back to direct playback URL
+    // Prefer the R2-stored version; fall back to direct playback URL
     let videoUrl: string;
     if (data.uploaded) {
       videoUrl = await r2.getUrl(ytKey, { expiresIn: 60 * 60 * 24 });
     } else if (data.playbackUrl) {
       videoUrl = data.playbackUrl;
     } else {
-      throw new ConvexError("No video URL returned from worker.");
+      throw new ConvexError("No video URL returned from extraction.");
     }
 
     const videoTitle = title?.trim() || data.title || "YouTube Import";
@@ -264,10 +258,8 @@ export const createProjectFromYouTube = action({
       ? Math.ceil(data.durationSeconds / 60)
       : undefined;
 
-    // Pre-flight plan limit check (actions can runQuery)
-    const user = await ctx.runQuery(internal.users.getUserByClerkId, {
-      clerkId: identity.subject,
-    });
+    // Pre-flight plan limit check
+    const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject });
     if (!user) throw new ConvexError("User not found");
 
     const limitCheck = await ctx.runQuery(internal.usage.canCreateProject, {

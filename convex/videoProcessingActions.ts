@@ -235,7 +235,8 @@ export const runApprovedClips = internalAction({
         clipsCount: clips.length,
       });
     } catch (err) {
-      console.error(`[review] runApprovedClips failed for ${projectId}:`, err);
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error(`[review] runApprovedClips failed for ${projectId}: ${msg}`);
       await ctx.runMutation(internal.projects.updateProjectStatus, {
         projectId,
         status: "failed",

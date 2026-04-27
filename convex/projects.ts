@@ -527,7 +527,8 @@ export const updateProjectStatus = internalMutation({
     await ctx.db.patch(projectId, patch);
     if (oldDoc) {
       const newDoc = await ctx.db.get(projectId);
-      await projectsAggregate.replace(ctx, oldDoc, newDoc!);
+      // replaceOrInsert handles the edge case where the aggregate entry is missing
+      await projectsAggregate.replaceOrInsert(ctx, oldDoc, newDoc!);
     }
   },
 });

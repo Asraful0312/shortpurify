@@ -114,7 +114,7 @@ export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {
   enabled: true,
   x: 50,
   y: 78,
-  fontSize: 22,
+  fontSize: 28,
   fontFamily: "Inter, sans-serif",
   textColor: "#ffffff",
   highlightColor: "#000000",

@@ -93,11 +93,7 @@ export default function SingleVideoUploader({
         </div>
       )}
 
-      {disabled && (
-        <div className="bg-amber-50 text-amber-700 text-sm font-semibold px-4 py-3 rounded-xl mb-4 border border-amber-200">
-          Enter a project title above before uploading.
-        </div>
-      )}
+     
 
       <div
         className={`rounded-2xl border-2 border-dashed transition-colors p-12 min-h-[300px] flex flex-col items-center justify-center ${

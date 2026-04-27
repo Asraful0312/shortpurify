@@ -54,7 +54,7 @@ const PLAN_LIMITS: Record<PlanTier, {
   /** How long clips are retained in R2 storage (days). Infinity = forever. */
   clipRetentionDays: number;
 }> = {
-  starter: { projects: 2,        minutes: 20,   maxVideoDurationMinutes: 10,       platforms: null, accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false, clipRetentionDays: 7   },
+  starter: { projects: 2,        minutes: 20,   maxVideoDurationMinutes: 20,       platforms: null, accountsPerPlatform: 1,        teamMembers: 1,        scheduledPublishing: false, maxOwnedWorkspaces: 1,        clipsPerProject: 3,  subtitleBurnsPerClip: 3,        zipExport: false, clipRetentionDays: 7   },
   pro:     { projects: 30,       minutes: 300,  maxVideoDurationMinutes: Infinity,  platforms: null, accountsPerPlatform: 3,        teamMembers: 3,        scheduledPublishing: true,  maxOwnedWorkspaces: 1,        clipsPerProject: 8,  subtitleBurnsPerClip: 10,       zipExport: true,  clipRetentionDays: 90  },
   agency:  { projects: Infinity, minutes: 1500, maxVideoDurationMinutes: Infinity,  platforms: null, accountsPerPlatform: Infinity, teamMembers: Infinity, scheduledPublishing: true,  maxOwnedWorkspaces: Infinity, clipsPerProject: 15, subtitleBurnsPerClip: Infinity, zipExport: true,  clipRetentionDays: 365 },
 };

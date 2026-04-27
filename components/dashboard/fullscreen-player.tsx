@@ -342,53 +342,7 @@ function FullscreenPlayer({
           <X size={28} strokeWidth={2.5} />
         </button>
 
-        {/* Prev / Next navigation */}
-        {clips.length > 1 && (
-          <>
-            {/* Desktop: left of video, stacked vertically */}
-            <div className="hidden sm:flex absolute -left-16 top-1/2 -translate-y-1/2 flex-col gap-3 z-100">
-              <button
-                onClick={(e) => { e.stopPropagation(); navigate(-1); }}
-                disabled={!canGoPrev}
-                className="flex flex-col items-center gap-1 text-white disabled:opacity-20 opacity-60 hover:opacity-100 transition-opacity group pointer-events-auto"
-                aria-label="Previous clip"
-              >
-                <div className="p-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm group-hover:bg-white/20 transition-colors">
-                  <ChevronUp size={22} strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">Prev</span>
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); navigate(1); }}
-                disabled={!canGoNext}
-                className="flex flex-col items-center gap-1 text-white disabled:opacity-20 opacity-60 hover:opacity-100 transition-opacity group pointer-events-auto"
-                aria-label="Next clip"
-              >
-                <div className="p-2.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm group-hover:bg-white/20 transition-colors">
-                  <ChevronDown size={22} strokeWidth={2.5} />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">Next</span>
-              </button>
-            </div>
-            {/* Mobile: above and below the video */}
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(-1); }}
-              disabled={!canGoPrev}
-              className="sm:hidden absolute left-1/2 -translate-x-1/2 -top-11 z-100 text-white disabled:opacity-20 opacity-70 pointer-events-auto"
-              aria-label="Previous clip"
-            >
-              <ChevronUp size={28} strokeWidth={2.5} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(1); }}
-              disabled={!canGoNext}
-              className="sm:hidden absolute left-1/2 -translate-x-1/2 -bottom-11 z-100 text-white disabled:opacity-20 opacity-70 pointer-events-auto"
-              aria-label="Next clip"
-            >
-              <ChevronDown size={28} strokeWidth={2.5} />
-            </button>
-          </>
-        )}
+
 
         {/* Video Box */}
         <div

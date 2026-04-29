@@ -4,7 +4,8 @@ import { SubtitleSettings, SubtitleTemplate, SUBTITLE_TEMPLATES } from "./subtit
 import { X, Type, AlignCenter, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-
+import { TemplateThumb } from "./subtitle-template-thumb";
+import { ColorRow } from "./subtitle-color-row";
 const FONT_OPTIONS = [
   { label: "Inter",       value: "Inter, sans-serif" },
   { label: "Arial",       value: "Arial, sans-serif" },
@@ -21,6 +22,7 @@ interface SubtitleEditorProps {
 
 export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorProps) {
   const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<"template" | "style">("template");
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -86,13 +88,31 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
       </div>
 
       <div className={`space-y-4 ${!settings.enabled ? "opacity-40 pointer-events-none" : ""}`}>
+        
+        {/* Tabs */}
+        <div className="flex bg-white/5 rounded-lg p-1">
+          <button 
+            onClick={() => setActiveTab("template")}
+            className={cn(
+              "flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors",
+              activeTab === "template" ? "bg-white/10 text-white" : "text-white/50 hover:text-white/80"
+            )}
+          >
+            Templates
+          </button>
+          <button 
+            onClick={() => setActiveTab("style")}
+            className={cn(
+              "flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors",
+              activeTab === "style" ? "bg-white/10 text-white" : "text-white/50 hover:text-white/80"
+            )}
+          >
+            Settings
+          </button>
+        </div>
 
-        {/* ── Template picker ── */}
-        <div>
-          <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2 block">
-            Template
-          </label>
-          <div className="grid grid-cols-2 gap-1.5">
+        {activeTab === "template" && (
+          <div className="grid grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto pr-1">
             {SUBTITLE_TEMPLATES.map((t) => (
               <button
                 key={t.id}
@@ -119,230 +139,74 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
               </button>
             ))}
           </div>
-        </div>
+        )}
 
-        <div className="border-t border-white/10 pt-4 space-y-3.5">
-          {/* Font family */}
-          <div>
-            <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Type size={11} /> Font
-            </label>
-            <select
-              value={settings.fontFamily}
-              onChange={(e) => set("fontFamily", e.target.value)}
-              className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-primary/60"
-            >
-              {FONT_OPTIONS.map((f) => (
-                <option key={f.value} value={f.value} className="bg-[#1a1a1a]">
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        {activeTab === "style" && (
+          <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
+            {/* Font family */}
+            <div>
+              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+                <Type size={11} /> Font
+              </label>
+              <select
+                value={settings.fontFamily}
+                onChange={(e) => set("fontFamily", e.target.value)}
+                className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-primary/60"
+              >
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f.value} value={f.value} className="bg-[#1a1a1a]">
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Font size */}
-          <div>
-            <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span>Font Size</span>
-              <span className="text-white/80 font-mono">{settings.fontSize}px</span>
-            </label>
-            <input
-              type="range" min={14} max={48}
-              value={settings.fontSize}
-              onChange={(e) => set("fontSize", Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </div>
+            {/* Font size */}
+            <div>
+              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span>Font Size</span>
+                <span className="text-white/80 font-mono">{settings.fontSize}px</span>
+              </label>
+              <input
+                type="range" min={14} max={48}
+                value={settings.fontSize}
+                onChange={(e) => set("fontSize", Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
 
-          {/* Words per line */}
-          <div>
-            <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5"><AlignCenter size={11} /> Words / Line</span>
-              <span className="text-white/80 font-mono">{settings.wordsPerLine}</span>
-            </label>
-            <input
-              type="range" min={1} max={6} step={1}
-              value={settings.wordsPerLine}
-              onChange={(e) => set("wordsPerLine", Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </div>
+            {/* Words per line */}
+            <div>
+              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><AlignCenter size={11} /> Words / Line</span>
+                <span className="text-white/80 font-mono">{settings.wordsPerLine}</span>
+              </label>
+              <input
+                type="range" min={1} max={6} step={1}
+                value={settings.wordsPerLine}
+                onChange={(e) => set("wordsPerLine", Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
 
-          {/* Colors */}
-          <div>
-            <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Palette size={11} /> Colors
-            </label>
-            <div className="space-y-2">
-              <ColorRow label={labels.text} value={settings.textColor}      onChange={(v) => set("textColor", v)} />
-              <ColorRow label={labels.hl}   value={settings.highlightColor} onChange={(v) => set("highlightColor", v)} />
-              {/* Hide bg colour row for templates that don't use it */}
-              {template !== "beasty" && template !== "cinematic" && template !== "karaoke" && (
-                <ColorRow label={labels.bg} value={settings.highlightBg} onChange={(v) => set("highlightBg", v)} />
-              )}
+            {/* Colors */}
+            <div>
+              <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Palette size={11} /> Colors
+              </label>
+              <div className="space-y-2">
+                <ColorRow label={labels.text} value={settings.textColor}      onChange={(v) => set("textColor", v)} />
+                <ColorRow label={labels.hl}   value={settings.highlightColor} onChange={(v) => set("highlightColor", v)} />
+                {/* Hide bg colour row for templates that don't use it */}
+                {template !== "beasty" && template !== "cinematic" && template !== "karaoke" && (
+                  <ColorRow label={labels.bg} value={settings.highlightBg} onChange={(v) => set("highlightBg", v)} />
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-function TemplateThumb({
-  id,
-  active,
-  settings,
-  previewIndex,
-}: {
-  id: SubtitleTemplate;
-  active: boolean;
-  settings: SubtitleSettings;
-  previewIndex: number;
-}) {
-  const hl = active ? settings.highlightColor : "#facc15";
-  const bg = active ? settings.highlightBg : "#facc15";
-  const col = active ? settings.textColor : "#ffffff";
-
-  const base = "text-[7px] font-black leading-none transition-all duration-300";
-
-  if (id === "classic") {
-    return (
-      <div className="flex gap-0.5 items-center h-4">
-        <span 
-          className={cn(base, "px-0.5 rounded")} 
-          style={{ 
-            color: previewIndex === 0 ? "#000000" : col, 
-            backgroundColor: previewIndex === 0 ? bg : "transparent",
-            textShadow: previewIndex === 0 ? "none" : "0 1px 3px #000" 
-          }}
-        >HI</span>
-        <span 
-          className={cn(base, "px-0.5 rounded")} 
-          style={{ 
-            color: previewIndex === 1 ? "#000000" : col, 
-            backgroundColor: previewIndex === 1 ? bg : "transparent",
-            textShadow: previewIndex === 1 ? "none" : "0 1px 3px #000" 
-          }}
-        >THERE</span>
-      </div>
-    );
-  }
-  if (id === "neon") {
-    const glowColor = active ? settings.highlightBg : "#22d3ee";
-    return (
-      <div className="flex gap-0.5 items-center h-4 px-1 rounded" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 0 ? "#22d3ee" : col, 
-            textShadow: previewIndex === 0 ? `0 0 4px ${glowColor}, 0 0 8px ${glowColor}` : "none" 
-          }}
-        >HI</span>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 1 ? "#22d3ee" : col, 
-            textShadow: previewIndex === 1 ? `0 0 4px ${glowColor}, 0 0 8px ${glowColor}` : "none" 
-          }}
-        >THERE</span>
-      </div>
-    );
-  }
-  if (id === "cinematic") {
-    return (
-      <div className="flex gap-0.5 items-center h-4 px-1 w-full justify-center" style={{ backgroundColor: "rgba(0,0,0,0.7)" }}>
-        <span className={base} style={{ color: previewIndex === 0 ? hl : col }}>HI</span>
-        <span className={base} style={{ color: previewIndex === 1 ? hl : col }}>THERE</span>
-      </div>
-    );
-  }
-  if (id === "minimal") {
-    return (
-      <div className="flex gap-0.5 items-center h-4">
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 0 ? hl : col,
-            borderBottom: previewIndex === 0 ? `1px solid ${bg}` : "1px solid transparent",
-            textShadow: "0 1px 3px #000"
-          }}
-        >HI</span>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 1 ? hl : col, 
-            borderBottom: previewIndex === 1 ? `1px solid ${bg}` : "1px solid transparent",
-            textShadow: "0 1px 3px #000"
-          }}
-        >THERE</span>
-      </div>
-    );
-  }
-  if (id === "beasty") {
-    return (
-      <div className="flex gap-0.5 items-center h-4">
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 0 ? "#4ade80" : col, 
-            textShadow: "-1px -1px 0 #000,1px 1px 0 #000, 2px 2px 0 #000" 
-          }}
-        >HI</span>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 1 ? "#4ade80" : col, 
-            textShadow: "-1px -1px 0 #000,1px 1px 0 #000, 2px 2px 0 #000" 
-          }}
-        >THERE</span>
-      </div>
-    );
-  }
-  if (id === "karaoke") {
-    return (
-      <div className="flex gap-0.5 items-center h-4">
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 0 ? "#4ade80" : col, 
-            textShadow: "0 1px 1px #000",
-            fontSize: previewIndex === 0 ? "8px" : "7px"
-          }}
-        >HI</span>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 1 ? "#4ade80" : col, 
-            textShadow: "0 1px 1px #000", 
-            fontSize: previewIndex === 1 ? "8px" : "7px" 
-          }}
-        >THERE</span>
-      </div>
-    );
-  }
-  return null;
-}
-
-
-function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-white/70">{label}</span>
-      <label className="flex items-center gap-2 cursor-pointer group">
-        <span className="text-xs font-mono text-white/50 group-hover:text-white/80 transition-colors">
-          {value}
-        </span>
-        <span
-          className="w-6 h-6 rounded-md border border-white/20 shadow-inner cursor-pointer"
-          style={{ backgroundColor: value }}
-        />
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-0 h-0 opacity-0 absolute"
-        />
-      </label>
-    </div>
-  );
-}

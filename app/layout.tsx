@@ -20,11 +20,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://shortpurify.com"),
   title: {
-    default: "ShortPurify – AI Short-Form Clip Generator",
+    default: "ShortPurify – AI Short Clip Generator",
     template: "%s | ShortPurify",
   },
   description:
-    "Turn long-form videos into viral short clips with AI. Auto-generate captions, smart crop for 9:16, and publish directly to TikTok, Instagram Reels, YouTube Shorts and more.",
+    "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
+  alternates: {
+    canonical: "https://shortpurify.com",
+  },
   keywords: [
     "AI video clips",
     "short-form video",
@@ -55,9 +58,9 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "ShortPurify",
-    title: "ShortPurify – AI Short-Form Clip Generator",
+    title: "ShortPurify – AI Short Clip Generator",
     description:
-      "Turn long-form videos into viral short clips with AI. Auto-generate captions, smart crop for 9:16, and publish directly to TikTok, Instagram Reels, YouTube Shorts and more.",
+      "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
     url: "https://shortpurify.com",
     images: [
       {

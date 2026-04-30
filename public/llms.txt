@@ -1,0 +1,37 @@
+# ShortPurify
+
+> ShortPurify turns long videos into viral-ready short clips using AI, then publishes them directly to TikTok, YouTube Shorts, and Bluesky.
+
+ShortPurify is a SaaS AI video clipping tool for content creators, social media managers, and agencies. Users paste a YouTube link or upload a video file (MP4, MOV, WebM). The AI automatically identifies the most engaging moments, generates captions, smart-crops to 9:16 for mobile, and scores each clip for virality. The built-in subtitle editor lets users customize fonts, colors, and highlights before publishing directly to connected social accounts or scheduling in advance. A 60-minute video is fully processed in under five minutes.
+
+## Key Features
+
+- **Viral Hook Detection** — AI scans the full video to find moments with the highest retention and virality potential
+- **AI Virality Scoring** — every clip receives a 0–100 score with an explanation of why it will perform
+- **Subtitle Editor with Burn-in** — custom fonts, colors, and highlights permanently burned into exported clips
+- **YouTube URL Import** — paste any YouTube link; ShortPurify fetches, transcribes, and clips automatically
+- **One-Click Multi-Platform Publishing** — post simultaneously to TikTok, YouTube Shorts, and Bluesky from a single Publish Hub
+- **Smart Scheduling** — queue clips days or weeks in advance across all connected accounts
+- **Team Collaboration** — invite editors and managers to shared workspaces with role-based access control
+
+## Pricing
+
+- **Starter** — $0/month: 2 projects/month, videos up to 20 min, 3 AI clips per project, 7-day storage, watermark-free
+- **Pro Creator** — $24/month: 30 projects/month, 300 min input video/month, 8 AI clips per project, 90-day storage, 3 team members
+- **Agency** — $79/month: unlimited projects, 1,500 min input video/month, 15 AI clips per project, 365-day storage, unlimited team seats, role-based access control
+- Yearly billing saves 20%
+
+## Target Users
+
+Content creators, social media managers, and agencies who repurpose long-form video (podcasts, interviews, webinars, YouTube videos) into short-form content for TikTok, YouTube Shorts, and Bluesky without spending hours editing.
+
+## Integrations
+
+TikTok, YouTube Shorts, Bluesky, Instagram, X/Twitter, Threads
+
+## Company
+
+- **Website:** https://shortpurify.com
+- **Primary CTA:** Get Started Free — https://shortpurify.com/sign-up
+- **Category:** AI video clipping tool, short-form content creator, social media automation
+- **Business model:** Freemium SaaS

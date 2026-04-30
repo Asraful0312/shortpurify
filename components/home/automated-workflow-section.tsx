@@ -124,7 +124,7 @@ export default function AutomatedWorkflowsSection() {
               <Send size={16} />
               <span className="text-sm font-bold">Multi-Platform Publishing</span>
             </div>
-            <h2 className="text-3xl md:text-5xl font-extrabold mb-6 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold mb-4 md:mb-6 tracking-tight">
               One upload.<br />Every platform.
             </h2>
             <p className="text-lg text-muted-foreground mb-8">

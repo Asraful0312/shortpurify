@@ -32,7 +32,7 @@ function ReviewCard({
   image?: string;
 }) {
   return (
-    <div className="p-8 rounded-3xl bg-white border border-border/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] relative transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group">
+    <div className="p-5 sm:p-8 rounded-3xl bg-white border border-border/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] relative transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group">
       <div className="flex text-yellow-500 mb-6 drop-shadow-sm transition-transform group-hover:scale-105 origin-left">
         {[1, 2, 3, 4, 5].map((s) => (
           <Star key={s} size={18} fill={s <= rating ? "currentColor" : "none"} className={s <= rating ? "" : "text-border"} />
@@ -83,15 +83,15 @@ function SocialProofSection() {
         <div className="inline-flex items-center justify-center p-4 bg-secondary rounded-2xl mb-6 shadow-sm">
           <ShieldCheck className="text-primary" size={36} />
         </div>
-        <h2 className="text-3xl md:text-5xl font-extrabold mb-6 tracking-tight text-black">
+        <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold mb-4 md:mb-6 tracking-tight text-black">
           Built for creators, agencies & teams
         </h2>
-        <p className="text-xl text-muted-foreground mb-16 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-base sm:text-xl text-muted-foreground mb-8 md:mb-16 max-w-2xl mx-auto leading-relaxed">
           From solo podcasters to content agencies — ShortPurify helps you turn long videos into scroll-stopping shorts without the grind.
         </p>
 
         {/* Platform Trust Marquee */}
-        <div className="mb-20">
+        <div className="mb-10 md:mb-20">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-8">Trusted by creators on</p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
             <Image src="/icons/youtube.png" alt="YouTube" width={100} height={30} className="h-6 w-auto object-contain" />
@@ -101,7 +101,7 @@ function SocialProofSection() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 text-left">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-8 text-left">
           {reviews.slice(0, 3).map((r, i) => (
             <ReviewCard key={i} {...r} />
           ))}

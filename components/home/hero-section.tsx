@@ -68,14 +68,14 @@ export default function HeroSection() {
   }, [showVideo]);
 
   return (
-    <section className="relative overflow-hidden bg-white pt-32 flex flex-col items-center border-b border-border/40">
+    <section className="relative overflow-hidden bg-white pt-24 md:pt-32 flex flex-col items-center border-b border-border/40">
       {/* Hero Text Content (Top) */}
-      <div className="container mx-auto px-4 relative z-20 flex flex-col items-center text-center mt-12 mb-10">
-        <h1 className="text-5xl md:text-[5.5rem] font-bold tracking-tight max-w-5xl text-black mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 leading-[1.05]">
+      <div className="container mx-auto px-4 relative z-20 flex flex-col items-center text-center mt-8 md:mt-12 mb-8 md:mb-10">
+        <h1 className="text-4xl sm:text-5xl md:text-[5.5rem] font-bold tracking-tight max-w-5xl text-black mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 leading-[1.05]">
           Turn long videos into <br className="hidden md:block" /> viral-ready shorts
         </h1>
 
-        <div className="text-xl text-muted-foreground mb-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-relaxed font-medium ">
+        <div className="text-base sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-relaxed font-medium ">
           Paste a YouTube link or upload any video. ShortPurify&apos;s AI finds the best moments, generates captions, scores each clip for virality, and publishes directly to{" "}
           <Image className="inline size-4 align-middle" src="/icons/tik-tok.png" alt="tiktok" width={20} height={20} />{" "}
           <Image className="inline size-4 align-middle" src="/icons/youtube-short.png" alt="youtube short" width={20} height={20} />{" "}
@@ -101,7 +101,7 @@ export default function HeroSection() {
       </div>
 
       {/* Visual Showcase Centerpiece (Bottom) */}
-      <div className="relative w-full max-w-[1200px] h-[550px] mx-auto z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
+      <div className="relative w-full max-w-[1200px] h-[320px] sm:h-[420px] md:h-[550px] mx-auto z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
         
         {/* Localized Orbit/Gradient Background */}
         <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] pointer-events-none z-0 flex items-center justify-center">

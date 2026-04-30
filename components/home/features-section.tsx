@@ -342,12 +342,12 @@ export default function FeaturesSection() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="container mx-auto px-4 max-w-6xl"
       >
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-8 md:mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary mb-6">
             <span className="text-sm font-bold">Powerful AI Features</span>
           </div>
-          <h2 className="text-3xl md:text-5xl font-extrabold mb-4">Built for maximum engagement</h2>
-          <p className="text-lg text-muted-foreground">Everything you need to grow your audience without spending hours in software.</p>
+          <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold mb-4">Built for maximum engagement</h2>
+          <p className="text-base sm:text-lg text-muted-foreground">Everything you need to grow your audience without spending hours in software.</p>
         </div>
 
         {/* Bento Grid */}
@@ -355,7 +355,7 @@ export default function FeaturesSection() {
           
           {/* Card 1: Viral Hook Detection */}
           <div className="md:col-span-2 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col relative group">
-            <div className="p-8 pb-0 relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center">
+            <div className="p-5 sm:p-8 pb-0 relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center">
               <div>
                 <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
                   <TrendingUp size={24} />
@@ -373,7 +373,7 @@ export default function FeaturesSection() {
 
           {/* Card 2: Subtitle Editor */}
           <div className="md:col-span-1 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col group">
-            <div className="p-8 pb-4">
+            <div className="p-5 sm:p-8 pb-4">
               <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center mb-4">
                 <CheckCircle2 size={24} />
               </div>
@@ -387,7 +387,7 @@ export default function FeaturesSection() {
 
                  {/* Card 3: Viral Score */}
           <div className="md:col-span-1 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col group">
-            <div className="p-8 pb-4">
+            <div className="p-5 sm:p-8 pb-4">
               <div className="w-12 h-12 rounded-xl bg-green-500/10 text-green-600 flex items-center justify-center mb-4">
                 <Trophy size={24} />
               </div>
@@ -415,7 +415,7 @@ export default function FeaturesSection() {
 
           {/* Card 4: YouTube Import */}
           <div className="md:col-span-2 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col md:flex-row relative group">
-            <div className="p-8 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/20">
+            <div className="p-5 sm:p-8 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/20">
               <div className="w-12 h-12 rounded-xl bg-red-500/10 text-red-600 flex items-center justify-center mb-4">
                 <Link2 size={24} />
               </div>
@@ -429,7 +429,7 @@ export default function FeaturesSection() {
 
           {/* Card 5: Lightning Fast */}
           <div className="md:col-span-1 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col group">
-             <div className="p-8 pb-4">
+             <div className="p-5 sm:p-8 pb-4">
               <div className="w-12 h-12 rounded-xl bg-yellow-500/10 text-yellow-600 flex items-center justify-center mb-4">
                 <Zap size={24} />
               </div>
@@ -443,7 +443,7 @@ export default function FeaturesSection() {
 
           {/* Card 6: Multi-Platform Publish */}
           <div className="md:col-span-2 bg-white rounded-[2rem] border border-border/60 shadow-sm overflow-hidden flex flex-col md:flex-row relative group">
-             <div className="p-8 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/20">
+             <div className="p-5 sm:p-8 md:w-1/2 flex flex-col justify-center border-b md:border-b-0 md:border-r border-border/20">
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-4">
                 <Share2 size={24} />
               </div>

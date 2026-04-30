@@ -86,12 +86,12 @@ function PricingSection() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="container mx-auto px-4 max-w-6xl"
       >
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-8 md:mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent mb-6">
             <span className="text-sm font-medium">Simple Pricing</span>
           </div>
-          <h2 className="text-4xl font-extrabold mb-4">Choose your perfect plan</h2>
-          <p className="text-lg text-muted-foreground mb-8">
+          <h2 className="text-2xl sm:text-4xl font-extrabold mb-4">Choose your perfect plan</h2>
+          <p className="text-base sm:text-lg text-muted-foreground mb-8">
             Most tools stop at exporting clips. ShortPurify publishes them. No hidden fees, cancel anytime.
           </p>
 
@@ -126,7 +126,7 @@ function PricingSection() {
           {plans.map((plan, i) => (
             <div
               key={i}
-              className={`rounded-[2.5rem] p-8 w-full transition-all duration-500 relative group/card ${
+              className={`rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-8 w-full transition-all duration-500 relative group/card ${
                 plan.highlighted
                   ? "bg-primary text-primary-foreground shadow-[0_20px_50px_rgba(var(--primary),0.3)] scale-100 md:scale-105 border-transparent z-10"
                   : "bg-white text-foreground border border-border shadow-sm hover:shadow-2xl hover:-translate-y-1"
@@ -153,7 +153,7 @@ function PricingSection() {
               </p>
               <div className="mb-6">
                 <div className="flex items-end gap-1">
-                  <span className="text-5xl font-extrabold">{isYearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
+                  <span className="text-4xl sm:text-5xl font-extrabold">{isYearly ? plan.yearlyPrice : plan.monthlyPrice}</span>
                   <span className={`text-sm font-medium ${plan.highlighted ? "text-primary-foreground/80" : "text-muted-foreground"} mb-1`}>
                     {plan.monthlyPrice === "$0" ? " forever" : " /mo"}
                   </span>

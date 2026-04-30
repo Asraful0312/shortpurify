@@ -249,13 +249,13 @@ export default function HowItWorksSection() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="container mx-auto px-4 max-w-6xl"
       >
-        <div className="flex flex-col lg:flex-row items-center gap-16">
+        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-16">
           <div className="lg:w-1/2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary mb-6">
               <span className="text-sm font-bold">Fast & Simple</span>
             </div>
-            <h2 className="text-3xl md:text-5xl font-extrabold mb-6 tracking-tight">Start posting in minutes, not hours.</h2>
-            <p className="text-lg text-muted-foreground mb-12">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-extrabold mb-4 md:mb-6 tracking-tight">Start posting in minutes, not hours.</h2>
+            <p className="text-base sm:text-lg text-muted-foreground mb-8 md:mb-12">
               We've boiled down the complex video editing process into three simple steps anyone can follow.
             </p>
             

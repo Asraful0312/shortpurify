@@ -7,13 +7,14 @@ import MultiPlatformCaptionCard from "@/components/dashboard/project/multi-platf
 import TranscriptViewer from "@/components/dashboard/project/transcript-viewer";
 import { ReviewPrompt } from "@/components/dashboard/review-prompt";
 import { ClipsGallery } from "@/components/output-preview";
-import { DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
+
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspace } from "@/components/workspace-context";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { downloadAllAsZip } from "@/lib/download";
+import { DEFAULT_SUBTITLE_SETTINGS } from "@/lib/subtitle";
 import { formatDuration, friendlyError, getProcessingSteps, timeAgo } from "@/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {

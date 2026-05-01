@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Geist_Mono } from "next/font/google";
+import { Outfit, Geist_Mono, Bangers, Comic_Relief } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ClerkProvider } from "@clerk/nextjs";
@@ -14,6 +14,18 @@ const outfit = Outfit({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const bangers = Bangers({
+  weight: "400",
+  variable: "--font-bangers",
+  subsets: ["latin"],
+});
+
+const comicRelief = Comic_Relief({
+  weight: "400",
+  variable: "--font-comic-relief",
   subsets: ["latin"],
 });
 
@@ -111,7 +123,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${outfit.variable} ${geistMono.variable} antialiased`}
+        className={`${outfit.variable} ${geistMono.variable} ${bangers.variable} ${comicRelief.variable} antialiased`}
       >
         <ClerkProvider
           dynamic

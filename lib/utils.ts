@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { SubtitleWord } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -123,4 +124,13 @@ export function groupWordsIntoBlocks(
     blocks.push({ startMs: blockStart, words: current });
   }
   return blocks;
+}
+
+
+export function groupWords(words: SubtitleWord[], size: number): SubtitleWord[][] {
+  const groups: SubtitleWord[][] = [];
+  for (let i = 0; i < words.length; i += size) {
+    groups.push(words.slice(i, i + size));
+  }
+  return groups;
 }

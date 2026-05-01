@@ -1,3 +1,5 @@
+import { SubtitleSettings } from "@/components/subtitle-overlay";
+
 export interface SubtitleWord {
   text: string;
   startMs: number; // ms relative to clip start
@@ -18,4 +20,10 @@ export interface OutputClipProps {
   endTime?: number;
   clipKey?: string;
   subtitleWords?: SubtitleWord[];
+}
+
+export interface TemplateProps {
+  settings: SubtitleSettings;
+  displayGroups: SubtitleWord[][];
+  activeWord: SubtitleWord | null;
 }

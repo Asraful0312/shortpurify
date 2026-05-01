@@ -114,22 +114,52 @@ export function TemplateThumb({
   if (id === "karaoke") {
     return (
       <div className="flex gap-0.5 items-center h-4">
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 0 ? "#4ade80" : col, 
+        <span
+          className={base}
+          style={{
+            color: previewIndex === 0 ? "#4ade80" : col,
             textShadow: "0 1px 1px #000",
             fontSize: previewIndex === 0 ? "8px" : "7px"
           }}
         >HI</span>
-        <span 
-          className={base} 
-          style={{ 
-            color: previewIndex === 1 ? "#4ade80" : col, 
-            textShadow: "0 1px 1px #000", 
-            fontSize: previewIndex === 1 ? "8px" : "7px" 
+        <span
+          className={base}
+          style={{
+            color: previewIndex === 1 ? "#4ade80" : col,
+            textShadow: "0 1px 1px #000",
+            fontSize: previewIndex === 1 ? "8px" : "7px"
           }}
         >THERE</span>
+      </div>
+    );
+  }
+  if (id === "comic") {
+    const dotColor = active ? settings.textColor : "#EF4444";
+    const shadowColor = active ? settings.highlightColor : "#EF4444";
+    const bgColor  = active ? settings.highlightBg    : "#FACC15";
+    return (
+      <div className="flex gap-0.5 items-center h-4 scale-125">
+        {(["HI", "THERE"] as const).map((word) => (
+          <span
+            key={word}
+            className={cn(base, "uppercase")}
+             style={{
+                fontFamily: "'Impact', 'Comic Sans MS', 'Impact', sans-serif",
+                fontSize: `8px`,
+                fontWeight: "900",
+                display: "inline-block",
+                transform: "skewX(-4deg)",
+                backgroundColor: bgColor,
+                backgroundImage: `radial-gradient(circle at 1.2px 1.2px, ${dotColor} 0.8px, transparent 0)`,
+                backgroundSize: "10px 10px",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                WebkitTextStroke: `0.5px #000000`,
+                filter: `drop-shadow(0px 0px 0px ${shadowColor}) drop-shadow(0px 0px 0px #000000)`,
+              }}
+          >{word}</span>
+        ))}
       </div>
     );
   }

@@ -44,8 +44,12 @@ image = (
     .run_commands(
         "apt-get update",
         "mkdir -p /usr/share/fonts/truetype/custom",
-        "wget -qO /usr/share/fonts/truetype/custom/Inter-Bold.ttf https://github.com/google/fonts/raw/main/ofl/inter/static/Inter-Bold.ttf || true",
-        "wget -qO /usr/share/fonts/truetype/custom/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf || true",
+        "wget -q --timeout=30 -O /usr/share/fonts/truetype/custom/Anton-Regular.ttf 'https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf'",
+        "wget -q --timeout=30 -O /usr/share/fonts/truetype/custom/Inter-Bold.ttf 'https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf'",
+        # Bangers is now a variable font in Google Fonts — try variable first, fall back to static
+        "wget -q --timeout=30 -O /usr/share/fonts/truetype/custom/Bangers-Regular.ttf 'https://github.com/google/fonts/raw/main/ofl/bangers/Bangers%5Bwght%5D.ttf' || wget -q --timeout=30 -O /usr/share/fonts/truetype/custom/Bangers-Regular.ttf 'https://github.com/google/fonts/raw/main/ofl/bangers/static/Bangers-Regular.ttf' || echo 'WARNING: Bangers download failed'",
+        "wget -q --timeout=30 -O /usr/share/fonts/truetype/custom/ComicRelief-Regular.ttf 'https://github.com/google/fonts/raw/main/ofl/comicrelief/ComicRelief-Regular.ttf' || echo 'WARNING: Comic Relief download failed'",
+        "echo 'cache-bust-2026-05-01'",
         "fc-cache -f -v"
     )
     .pip_install(
@@ -370,10 +374,12 @@ _FONT_PATHS = [
 def _find_font(font_family: str) -> str:
     family = font_family.lower()
     paths = {
-        "impact": "/usr/share/fonts/truetype/custom/Anton-Regular.ttf",
-        "arial": "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "georgia": "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
-        "courier": "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+        "impact":        "/usr/share/fonts/truetype/custom/Anton-Regular.ttf",
+        "bangers":       "/usr/share/fonts/truetype/custom/Bangers-Regular.ttf",
+        "comic relief":  "/usr/share/fonts/truetype/custom/ComicRelief-Regular.ttf",
+        "arial":         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "georgia":       "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "courier":       "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
     }
     for k, p in paths.items():
         if k in family and Path(p).exists():
@@ -434,10 +440,10 @@ def _render_subtitle_frames(
             except Exception:
                 pass
 
-    LINE_HEIGHT = int(font_size_px * 1.4)
-    pad_x       = int(font_size_px * 0.2)
-    pad_y       = int(font_size_px * 0.12)
-    gap_x       = int(font_size_px * 0.2)
+    LINE_HEIGHT = int(font_size_px * 1.35)
+    pad_x       = int(font_size_px * 0.05)  # Tightened padding
+    pad_y       = int(font_size_px * 0.08)
+    gap_x       = int(font_size_px * 0.15) # Tightened gap
     c_radius    = int(font_size_px * 0.15)
 
     def measure(text: str, fnt) -> float:
@@ -481,16 +487,21 @@ def _render_subtitle_frames(
 
     # ── shared layout helper ─────────────────────────────────────────────────
 
-    def layout_row(chunk, base_fnt):
+    def layout_row(chunk, base_fnt, full_chunk=None):
         """Return (scaled_font, scale, span_widths, total_w, c_pad_x, c_pad_y, c_gap_x, rad)"""
-        w_sum = sum(measure(cw["text"], base_fnt) + 2 * pad_x for cw in chunk)
-        tw    = w_sum + gap_x * max(0, len(chunk) - 1)
+        # Calculate scale based on the FULL chunk (if provided) so the font doesn't shrink mid-sentence
+        ref_chunk = full_chunk if full_chunk is not None else chunk
+        ref_w_sum = sum(measure(cw["text"], base_fnt) + 2 * pad_x for cw in ref_chunk)
+        ref_tw    = ref_w_sum + gap_x * max(0, len(ref_chunk) - 1)
+        
         sc    = 1.0
         sfnt  = base_fnt
         max_w = vid_w * 0.85
-        if tw > max_w:
-            sc   = max_w / tw
+        if ref_tw > max_w:
+            sc   = max_w / ref_tw
             sfnt = scale_font(base_fnt, int(font_size_px * sc))
+
+        # Layout the actual visible chunk using the stable scale
         cp_x = int(pad_x * sc)
         cp_y = int(pad_y * sc)
         cg_x = int(gap_x * sc)
@@ -503,7 +514,8 @@ def _render_subtitle_frames(
 
     def render_classic(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
@@ -526,7 +538,7 @@ def _render_subtitle_frames(
                         draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=text_rgba, anchor="la")
                 x_cur += span_w + cg_x
 
-    def render_neon(img, draw, _shadow_draw, display_chunks, num_rows, active_word):
+    def render_neon(img, draw, _shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None):
         # highlightBg is repurposed as the glow colour for this template
         glow_rgba = hl_bg_rgba
         bar_pad_x = int(14 * scale_factor)
@@ -535,7 +547,8 @@ def _render_subtitle_frames(
         # Pre-compute layout so we can do 3 ordered passes (strip → glow → text)
         row_layouts = []
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             row_cy = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y = int(row_cy - (std_bottom + std_top) / 2)
@@ -593,7 +606,7 @@ def _render_subtitle_frames(
                     draw.text((int(x_cur) + cp_x, text_y), cw["text"], font=sfnt, fill=fill, anchor="la")
                 x_cur += spans[col_idx] + cg_x
 
-    def render_cinematic(_img, draw, _shadow_draw, display_chunks, num_rows, active_word):
+    def render_cinematic(_img, draw, _shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None):
         bar_h    = int(LINE_HEIGHT * 1.3)
         bar_pad  = int(4 * scale_factor)
         total_bar_h = bar_h * num_rows + bar_pad * (num_rows - 1)
@@ -602,7 +615,8 @@ def _render_subtitle_frames(
         draw.rectangle([0, bar_top - bar_pad, vid_w, bar_top + total_bar_h + bar_pad],
                        fill=(0, 0, 0, 178))
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             row_cy  = bar_top + bar_h * row_idx + bar_h // 2
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
@@ -617,11 +631,12 @@ def _render_subtitle_frames(
                     draw.text((x_int + cp_x, text_y), wt, font=sfnt, fill=fill, anchor="la")
                 x_cur += span_w + cg_x
 
-    def render_minimal(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+    def render_minimal(_img, draw, shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None):
         uline_rgba = hl_bg_rgba  # underline uses highlightBg
         uline_w    = max(2, int(3 * scale_factor))
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
@@ -643,13 +658,14 @@ def _render_subtitle_frames(
                                    fill=uline_rgba)
                 x_cur += span_w + cg_x
 
-    def render_beasty(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+    def render_beasty(_img, draw, shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None):
         for chunk in display_chunks:
             for cw in chunk:
                 cw["text"] = cw["text"].upper()
 
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
             std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
             text_y  = int(row_cy - (std_bottom + std_top) / 2)
@@ -668,14 +684,15 @@ def _render_subtitle_frames(
                 x_cur += span_w + cg_x
 
 
-    def render_karaoke(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+    def render_karaoke(_img, draw, shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None):
         K_SCALE = 1.15
         for chunk in display_chunks:
             for cw in chunk:
                 cw["text"] = cw["text"].upper()
                 
         for row_idx, chunk in enumerate(display_chunks):
-            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj)
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
             
             b_sc = sc * K_SCALE
             big_fnt = scale_font(font_obj, int(font_size_px * b_sc))
@@ -716,6 +733,104 @@ def _render_subtitle_frames(
                     draw_outlined_text(draw, (x_int + cp_x, text_y + y_offset), wt, fnt_to_use, fill, stroke, (0, 0, 0, 216))
                 x_cur += span_w + cg_x
 
+    def render_comic(img, _draw, _shadow_draw, display_chunks, num_rows, _active_word, display_full_chunks=None):
+        import math
+        dot_rgba    = text_rgba
+        shadow_rgba = hl_text_rgba
+        bg_rgba     = hl_bg_rgba
+
+        # Replicate web math exactly - boosted for parity
+        fs = float(settings.get("fontSize", 30))
+        
+        # Thicker stroke and deeper shadows for that "pop" look
+        css_stroke = max(1.5, fs * 0.04)
+        css_sh_red = css_stroke + max(1.0, fs * 0.02)
+        css_sh_black = css_sh_red + max(1.5, fs * 0.03)
+        
+        # Web dot pattern in CSS pixels - tiny and sharp
+        css_dot_step = 10.0
+        css_dot_r = 0.5
+
+        # Scale to video resolution (scale_factor = vid_w / 390.0)
+        stroke_px = max(2, int(css_stroke * scale_factor))
+        sh_red    = max(4, int(css_sh_red * scale_factor))
+        sh_black  = max(7, int(css_sh_black * scale_factor))
+        dot_step  = max(6, int(css_dot_step * scale_factor))
+        dot_r     = max(1, int(css_dot_r * scale_factor))
+
+        for chunk in display_chunks:
+            for cw in chunk:
+                cw["text"] = cw["text"].upper()
+
+        for row_idx, chunk in enumerate(display_chunks):
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
+            row_cy  = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            std_top, std_bottom = get_text_bounds(draw, sfnt, sc)
+            text_y  = int(row_cy - (std_bottom + std_top) / 2)
+            x_cur   = center_x - total_w / 2
+
+            for col_idx, cw in enumerate(chunk):
+                span_w = spans[col_idx]
+                x_int  = int(x_cur)
+                wt     = cw["text"]
+
+                tw = measure(wt, sfnt)
+                
+                # Extra padding for massive shadows and skew
+                pad_x = sh_black + int(font_size_px * sc * 0.5)
+                pad_y = sh_black + int(font_size_px * sc * 0.5)
+                
+                W = int(tw + pad_x * 2)
+                H = int(font_size_px * sc * 2.5 + pad_y * 2)
+
+                # 1. Pattern Canvas
+                pattern = Image.new("RGBA", (W, H), bg_rgba)
+                pd = ImageDraw.Draw(pattern)
+                for dy in range(0, H, dot_step):
+                    for dx in range(0, W, dot_step):
+                        pd.ellipse([dx - dot_r, dy - dot_r, dx + dot_r, dy + dot_r], fill=dot_rgba)
+
+                # 2. Text Mask
+                mask = Image.new("L", (W, H), 0)
+                md = ImageDraw.Draw(mask)
+                if sfnt:
+                    md.text((pad_x, pad_y), wt, font=sfnt, fill=255, anchor="la")
+
+                word_img = Image.new("RGBA", (W, H), (0,0,0,0))
+                word_img.paste(pattern, (0,0), mask)
+
+                # 3. Apply Black Stroke to the word
+                final_word = Image.new("RGBA", (W, H), (0,0,0,0))
+                fd = ImageDraw.Draw(final_word)
+                if sfnt:
+                    # Draw solid black stroke behind the dotted fill
+                    fd.text((pad_x, pad_y), wt, font=sfnt, fill=(0,0,0,255), 
+                            stroke_width=stroke_px, stroke_fill=(0,0,0,255), anchor="la")
+                final_word.alpha_composite(word_img)
+
+                # 4. Skew (4 degrees to lean right)
+                skew_angle = 4 * math.pi / 180
+                m_skew = (1, math.tan(skew_angle), 0, 0, 1, 0)
+                skewed = final_word.transform(final_word.size, Image.AFFINE, m_skew, resample=Image.BICUBIC)
+
+                # 5. Layered 3D Shadows
+                black_shadow = Image.new("RGBA", skewed.size, (0,0,0,255))
+                black_shadow.putalpha(skewed.split()[3])
+
+                red_shadow = Image.new("RGBA", skewed.size, shadow_rgba)
+                red_shadow.putalpha(skewed.split()[3])
+
+                # 6. Compositing onto main frame
+                paste_x = x_int + cp_x - pad_x
+                paste_y = text_y - pad_y
+
+                img.paste(black_shadow, (paste_x + sh_black, paste_y + sh_black), black_shadow)
+                img.paste(red_shadow, (paste_x + sh_red, paste_y + sh_red), red_shadow)
+                img.paste(skewed, (paste_x, paste_y), skewed)
+
+                x_cur += span_w + cg_x
+
     # ── main loop ────────────────────────────────────────────────────────────
 
     RENDER_FNS = {
@@ -725,6 +840,7 @@ def _render_subtitle_frames(
         "minimal":   render_minimal,
         "beasty":    render_beasty,
         "karaoke":   render_karaoke,
+        "comic":     render_comic,
     }
     render_fn = RENDER_FNS.get(template, render_classic)
 
@@ -750,7 +866,12 @@ def _render_subtitle_frames(
 
         spoken         = subtitle_words[:wi + 1]
         all_chunks     = [spoken[j:j + words_per_line] for j in range(0, len(spoken), words_per_line)]
+        
+        # Get the full rows to keep scaling stable
+        all_full_chunks = [subtitle_words[j:j + words_per_line] for j in range(0, len(subtitle_words), words_per_line)]
+        
         display_chunks = all_chunks[-2:]
+        display_full_chunks = all_full_chunks[:len(all_chunks)][-2:]
         num_rows       = len(display_chunks)
 
         img          = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
@@ -758,7 +879,7 @@ def _render_subtitle_frames(
         shadow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
         shadow_draw  = ImageDraw.Draw(shadow_layer)
 
-        render_fn(img, draw, shadow_draw, display_chunks, num_rows, word)
+        render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks)
 
         # Composite shadow/glow
         # Neon manages its own glow internally (composited directly into img),

@@ -11,9 +11,10 @@ import { downloadVideo } from "@/lib/download";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { SubtitleOverlay, DEFAULT_SUBTITLE_SETTINGS, SubtitleSettings } from "../subtitle-overlay";
+import { SubtitleOverlay, SubtitleSettings } from "../subtitle-overlay";
 import { SubtitleEditor } from "../subtitle-editor";
 import { useWorkspace } from "../workspace-context";
+import { DEFAULT_SUBTITLE_SETTINGS } from "@/lib/subtitle";
 
 function FullscreenPlayer({
   clips,
@@ -63,6 +64,9 @@ function FullscreenPlayer({
   const { isAdmin, activeOrgId } = useWorkspace();
   const accountsQuery = useQuery(api.socialTokens.getAllTokens);
   const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
+  // Use the same plan resolution as the sidebar: user's grantedTier only counts if they
+  // OWN the workspace. An admin of a starter workspace stays on starter for feature gating.
+  const workspaceTier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined });
   const accounts = accountsQuery ?? [];
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const refreshClipUrl = useAction(api.outputs.refreshClipUrl);
@@ -346,7 +350,7 @@ function FullscreenPlayer({
 
         {/* Video Box */}
         <div
-          className="relative h-full sm:h-100vh sm:aspect-10/17 sm:max-h-[90vh] w-full sm:w-auto overflow-hidden sm:rounded-3xl border border-white/5"
+          className="relative h-full sm:h-100vh sm:aspect-11/18 sm:max-h-[95vh] w-full sm:w-auto overflow-hidden sm:rounded-3xl border border-white/5"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Sliding panel — translated by navigate() for the YouTube-style swipe */}
@@ -515,6 +519,7 @@ function FullscreenPlayer({
               settings={subtitleSettings}
               onChange={handleSubtitleSettingsChange}
               onClose={() => setShowSubtitleEditor(false)}
+              plan={workspaceTier}
             />
           </div>
         )}

@@ -1,26 +1,31 @@
 "use client";
 
-import { SubtitleSettings, SubtitleTemplate, SUBTITLE_TEMPLATES } from "./subtitle-overlay";
-import { X, Type, AlignCenter, Palette } from "lucide-react";
+import { SubtitleSettings, SubtitleTemplate,  } from "./subtitle-overlay";
+import { X, Type, AlignCenter, Palette, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { TemplateThumb } from "./subtitle-template-thumb";
 import { ColorRow } from "./subtitle-color-row";
+import { SUBTITLE_TEMPLATES } from "@/lib/subtitle";
+import Image from "next/image";
 const FONT_OPTIONS = [
-  { label: "Inter",       value: "Inter, sans-serif" },
-  { label: "Arial",       value: "Arial, sans-serif" },
-  { label: "Impact",      value: "Impact, sans-serif" },
-  { label: "Georgia",     value: "Georgia, serif" },
-  { label: "Courier New", value: "'Courier New', monospace" },
+  { label: "Bangers",       value: "var(--font-bangers), 'Bangers', sans-serif" },
+  { label: "Comic Relief",  value: "var(--font-comic-relief), 'Comic Relief', sans-serif" },
+  { label: "Inter",         value: "Inter, sans-serif" },
+  { label: "Arial",         value: "Arial, sans-serif" },
+  { label: "Impact",        value: "Impact, sans-serif" },
+  { label: "Georgia",       value: "Georgia, serif" },
+  { label: "Courier New",   value: "'Courier New', monospace" },
 ];
 
 interface SubtitleEditorProps {
   settings: SubtitleSettings;
   onChange: (s: SubtitleSettings) => void;
   onClose: () => void;
+  plan?: string;
 }
 
-export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorProps) {
+export function SubtitleEditor({ settings, onChange, onClose, plan }: SubtitleEditorProps) {
   const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<"template" | "style">("template");
 
@@ -50,6 +55,8 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
   const template = settings.template ?? "classic";
 
   // Which colour labels make sense per template
+  const isFreePlan = !plan || plan === "starter";
+
   const colorLabels: Record<SubtitleTemplate, { text: string; hl: string; bg: string }> = {
     classic:      { text: "Text",       hl: "Highlight Text", bg: "Highlight BG" },
     neon:         { text: "Text",       hl: "Active Word",    bg: "Glow Colour" },
@@ -57,6 +64,7 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
     minimal:      { text: "Text",       hl: "Active Word",    bg: "Underline" },
     beasty:       { text: "Text",       hl: "Active Word",    bg: "— (unused)" },
     karaoke:      { text: "Inactive",   hl: "Active Word",    bg: "— (unused)" },
+    comic:        { text: "Dots",       hl: "3D Shadow",      bg: "Text Fill" },
   };
   const labels = colorLabels[template];
 
@@ -113,31 +121,43 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
 
         {activeTab === "template" && (
           <div className="grid grid-cols-2 gap-1.5 max-h-[300px] overflow-y-auto pr-1">
-            {SUBTITLE_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTemplate(t.id)}
-                title={t.description}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all min-h-[64px] justify-center",
-                  template === t.id
-                    ? "border-primary/50 bg-primary/20 text-white"
-                    : "border-white/10 bg-white/5 text-white/50 hover:border-white/30 hover:text-white/90",
-                )}
-              >
-                <TemplateThumb 
-                  id={t.id} 
-                  active={template === t.id} 
-                  settings={settings} 
-                  previewIndex={previewActiveIndex}
-                />
-                <span className={cn(
-                  "text-[9px] font-bold leading-none transition-colors",
-                  template === t.id ? "text-white" : "text-white/60"
-                )}>{t.label}</span>
-              </button>
-            ))}
+            {SUBTITLE_TEMPLATES.map((t) => {
+              const isPaidTemplate = Boolean(t.paidOnly) && isFreePlan;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => applyTemplate(t.id)}
+                  title={isPaidTemplate ? `${t.label} — Pro & Agency plan` : t.description}
+                  className={cn(
+                    "relative flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all min-h-[64px] justify-center",
+                    template === t.id
+                      ? "border-primary/50 bg-primary/20 text-white"
+                      : "border-white/10 bg-white/5 text-white/50 hover:border-white/30 hover:text-white/90",
+                  )}
+                >
+                  {isPaidTemplate && (
+                    <div className="absolute top-0 right-2  rounded px-0.5 py-px leading-none size-6 flex items-center justify-center">
+                         <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-amber-400/80 text-primary border border-amber-400/40 px-1.5 py-0.5 rounded-full rotate-12">
+        <Crown size={8} />
+        Pro
+      </span>
+                     
+                    </div>
+                  )}
+                  <TemplateThumb
+                    id={t.id}
+                    active={template === t.id}
+                    settings={settings}
+                    previewIndex={previewActiveIndex}
+                  />
+                  <span className={cn(
+                    "text-[9px] font-bold leading-none transition-colors",
+                    template === t.id ? "text-white" : "text-white/60"
+                  )}>{t.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -195,10 +215,13 @@ export function SubtitleEditor({ settings, onChange, onClose }: SubtitleEditorPr
                 <Palette size={11} /> Colors
               </label>
               <div className="space-y-2">
-                <ColorRow label={labels.text} value={settings.textColor}      onChange={(v) => set("textColor", v)} />
-                <ColorRow label={labels.hl}   value={settings.highlightColor} onChange={(v) => set("highlightColor", v)} />
-                {/* Hide bg colour row for templates that don't use it */}
-                {template !== "beasty" && template !== "cinematic" && template !== "karaoke" && (
+                {labels.text !== "— (unused)" && (
+                  <ColorRow label={labels.text} value={settings.textColor} onChange={(v) => set("textColor", v)} />
+                )}
+                {labels.hl !== "— (unused)" && (
+                  <ColorRow label={labels.hl} value={settings.highlightColor} onChange={(v) => set("highlightColor", v)} />
+                )}
+                {labels.bg !== "— (unused)" && (
                   <ColorRow label={labels.bg} value={settings.highlightBg} onChange={(v) => set("highlightBg", v)} />
                 )}
               </div>

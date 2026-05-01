@@ -63,8 +63,9 @@ export const exportWithSubtitles = action({
 
     const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
 
-    // Resolve watermark status BEFORE cache check — plan upgrades must produce a
-    // different hash so the old watermarked file is never served to a paid user.
+    // Resolve plan tier BEFORE cache check — affects watermark and template gating.
+    // Uses resolveWorkspaceTier internally so grantedTier is respected.
+    let isPaid = false;
     let watermark = "shortpurify.com";
     if (outputId) {
       const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
@@ -72,20 +73,27 @@ export const exportWithSubtitles = action({
         ? await ctx.runQuery(api.projects.getProject, { projectId: output.projectId })
         : null;
       if (project) {
-        const paid = await ctx.runQuery(internal.usage.isPaidPlan, {
+        isPaid = await ctx.runQuery(internal.usage.isPaidPlan, {
           workspaceId: project.workspaceId ?? undefined,
           fallbackEntityId: project.userId,
         });
-        if (paid) watermark = "";
+        if (isPaid) watermark = "";
       }
     } else {
       const user = await ctx.runQuery(internal.users.getUserByClerkId, {
         clerkId: identity.subject,
       });
       if (user) {
-        const paid = await ctx.runQuery(internal.usage.isPaidPlan, { fallbackEntityId: user._id });
-        if (paid) watermark = "";
+        isPaid = await ctx.runQuery(internal.usage.isPaidPlan, { fallbackEntityId: user._id });
+        if (isPaid) watermark = "";
       }
+    }
+
+    // Comic subtitle template is a paid-only feature
+    if (settings.template === "comic" && !isPaid) {
+      throw new ConvexError(
+        "The Comic subtitle template requires a Pro or Agency plan. Upgrade to export with this style."
+      );
     }
 
     // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render

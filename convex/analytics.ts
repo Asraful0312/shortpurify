@@ -114,10 +114,11 @@ async function getWorkspaceProjects(
     .unique();
   if (!membership) return null;
 
-  // Only return projects explicitly tagged with this workspace
+  // Only return projects explicitly tagged with this workspace (exclude soft-deleted)
   const workspaceProjects = await ctx.db
     .query("projects")
     .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+    .filter((q) => q.eq(q.field("deletedAt"), undefined))
     .collect();
 
   return workspaceProjects;
@@ -185,7 +186,7 @@ export const getWeeklyActivity = query({
         ctx.db
           .query("projects")
           .withIndex("by_user", (q) => q.eq("userId", user._id))
-          .filter((q) => q.gte(q.field("createdAt"), startMs))
+          .filter((q) => q.and(q.gte(q.field("createdAt"), startMs), q.eq(q.field("deletedAt"), undefined)))
           .collect(),
         ctx.db
           .query("scheduledPosts")
@@ -312,6 +313,7 @@ export const getTopClips = query({
       projects = await ctx.db
         .query("projects")
         .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .filter((q) => q.eq(q.field("deletedAt"), undefined))
         .collect();
     }
 

@@ -157,11 +157,12 @@ export const listUserProjects = query({
       .unique();
     if (!user) return [];
 
-    return await ctx.db
+    return (await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
-      .collect();
+      .collect()
+    ).filter((p) => !p.deletedAt);
   },
 });
 
@@ -188,11 +189,12 @@ export const listWorkspaceProjects = query({
     if (!callerMembership) return [];
 
     // Only return projects explicitly tagged with this workspace
-    return await ctx.db
+    return (await ctx.db
       .query("projects")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .order("desc")
-      .collect();
+      .collect()
+    ).filter((p) => !p.deletedAt);
   },
 });
 
@@ -212,6 +214,7 @@ export const listUserProjectsPaginated = query({
     return await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("deletedAt"), undefined))
       .order("desc")
       .paginate(args.paginationOpts);
   },
@@ -235,16 +238,19 @@ export const listWorkspaceProjectsPaginated = query({
     return await ctx.db
       .query("projects")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .filter((q) => q.eq(q.field("deletedAt"), undefined))
       .order("desc")
       .paginate(args.paginationOpts);
   },
 });
 
-/** Get a single project by ID. */
+/** Get a single project by ID. Returns null if the project has been deleted. */
 export const getProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {
-    return await ctx.db.get(projectId);
+    const project = await ctx.db.get(projectId);
+    if (!project || project.deletedAt) return null;
+    return project;
   },
 });
 
@@ -464,10 +470,11 @@ export const purgeProjectData = internalMutation({
       await ctx.db.delete(output._id);
     }
 
-    // Remove project from aggregate before deleting
+    // Soft-delete: keep the row so monthly usage counts (project count + minutes)
+    // remain accurate after deletion. The aggregate is updated so UI lists don't show it.
     const projectDoc = await ctx.db.get(projectId);
     if (projectDoc) await projectsAggregate.delete(ctx, projectDoc);
-    await ctx.db.delete(projectId);
+    await ctx.db.patch(projectId, { deletedAt: Date.now() });
   },
 });
 

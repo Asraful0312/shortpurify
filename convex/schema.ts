@@ -84,6 +84,8 @@ export default defineSchema({
       template: v.optional(v.string()),
     })),
     createdAt: v.number(),
+    // Set when the project is soft-deleted. Row is kept so monthly usage counts remain accurate.
+    deletedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_workspace", ["workspaceId"]),

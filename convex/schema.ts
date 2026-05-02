@@ -84,11 +84,14 @@ export default defineSchema({
       template: v.optional(v.string()),
     })),
     createdAt: v.number(),
+    // Unix ms when the project (and its R2 files) will be auto-cleaned. Null = never.
+    expiresAt: v.optional(v.number()),
     // Set when the project is soft-deleted. Row is kept so monthly usage counts remain accurate.
     deletedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
-    .index("by_workspace", ["workspaceId"]),
+    .index("by_workspace", ["workspaceId"])
+    .index("by_expires", ["expiresAt"]),
 
   outputs: defineTable({
     projectId: v.id("projects"),

@@ -87,6 +87,45 @@ export const deleteExpiredClips = internalAction({
   },
 });
 
+/**
+ * Daily cron handler — soft-deletes projects past their expiresAt and cleans up their R2 files.
+ * Soft-delete (not hard-delete) preserves the project row so monthly usage counts remain accurate.
+ * Limits do not reset on expiry — they only reset on the 1st of each month.
+ * Processes up to 50 per run; the cron fires again tomorrow for any remainder.
+ */
+export const deleteExpiredProjects = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expired: {
+      _id: string;
+      originalKey?: string;
+      thumbnailKey?: string;
+    }[] = await ctx.runQuery(internal.crons.getExpiredProjects, { now, limit: 50 });
+
+    if (expired.length === 0) return;
+    console.log(`[cron] Expiring ${expired.length} projects`);
+
+    for (const project of expired) {
+      // Delete project-level R2 files (outputs have their own expiry cron)
+      for (const key of [project.originalKey, project.thumbnailKey]) {
+        if (!key) continue;
+        try {
+          await r2.deleteObject(ctx, key);
+        } catch (err) {
+          console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+        }
+      }
+      // purgeProjectData soft-deletes the project row and hard-deletes outputs/posts
+      await ctx.runMutation(internal.projects.purgeProjectData, {
+        projectId: project._id as import("./_generated/dataModel").Id<"projects">,
+      });
+    }
+
+    console.log(`[cron] Project expiry done — ${expired.length} cleaned up`);
+  },
+});
+
 export const deleteOriginalVideo = internalAction({
   args: { projectId: v.id("projects") },
   handler: async (ctx, { projectId }) => {

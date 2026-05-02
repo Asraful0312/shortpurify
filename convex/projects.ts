@@ -115,6 +115,11 @@ export const createProjectAndStart = mutation({
     }
     // ─────────────────────────────────────────────────────────────────────────
 
+    const retentionDays = limits.clipRetentionDays;
+    const expiresAt = retentionDays !== Infinity
+      ? Date.now() + retentionDays * 24 * 60 * 60 * 1000
+      : undefined;
+
     const projectId = await ctx.db.insert("projects", {
       userId: user._id,
       title: args.title,
@@ -128,6 +133,7 @@ export const createProjectAndStart = mutation({
       status: "processing",
       processingStep: "Queued…",
       createdAt: Date.now(),
+      expiresAt,
     });
 
     // Maintain aggregate

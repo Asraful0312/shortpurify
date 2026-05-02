@@ -131,11 +131,18 @@ async function resolveEntityId(ctx: any, workspaceId: string | undefined, fallba
 
 /**
  * Resolves the effective plan tier for a workspace context, in priority order:
- *   1. Current user's own grantedTier (e.g. the owner has a gifted plan)
- *   2. Workspace owner's grantedTier (so members inherit the owner's gifted plan)
- *   3. Creem subscription cascade
  *
- * Returns the tier and whether it came from a manual grant (vs. a paid Creem sub).
+ * WITH workspaceId (team context):
+ *   1. Current user's grantedTier — ONLY if they are the workspace owner
+ *   2. Workspace owner's grantedTier (members inherit the owner's gifted plan)
+ *   3. Workspace Creem subscription (cascade through owner's workspaces)
+ *
+ * WITHOUT workspaceId (personal context):
+ *   1. Current user's own grantedTier
+ *   2. User's personal Creem subscription
+ *
+ * Key rule: a member/admin's personal grantedTier must NOT bleed into a workspace
+ * they don't own. The workspace plan is always determined by the owner.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveWorkspaceTier(
@@ -145,29 +152,48 @@ async function resolveWorkspaceTier(
   currentUser: { _id: any; grantedTier?: string | null; grantedTierExpiry?: number | null }
 ): Promise<{ tier: PlanTier; fromGrant: boolean }> {
   const nowMs = Date.now();
+  const hasGrantedTier =
+    !!currentUser.grantedTier &&
+    (currentUser.grantedTierExpiry == null || currentUser.grantedTierExpiry > nowMs);
 
-  // 1. Current user's own grantedTier
-  if (currentUser.grantedTier && (currentUser.grantedTierExpiry == null || currentUser.grantedTierExpiry > nowMs)) {
-    return { tier: currentUser.grantedTier as PlanTier, fromGrant: true };
-  }
-
-  // 2. Workspace owner's grantedTier (members inherit the owner's gifted plan)
   if (workspaceId) {
+    // Fetch the workspace owner once — used for both the owner-check and the owner's grantedTier.
     const ownerMembership = await ctx.db
       .query("workspaceMembers")
       .withIndex("by_workspace", (q: any) => q.eq("workspaceId", workspaceId))
       .filter((q: any) => q.eq(q.field("role"), "owner"))
       .first();
+
+    const currentUserIsOwner =
+      ownerMembership && String(ownerMembership.userId) === String(currentUser._id);
+
+    // 1. Current user's grantedTier — only if they own this workspace
+    if (hasGrantedTier && currentUserIsOwner) {
+      return { tier: currentUser.grantedTier as PlanTier, fromGrant: true };
+    }
+
+    // 2. Workspace owner's grantedTier (members inherit the owner's plan)
     if (ownerMembership) {
       const ownerUser = await ctx.db.get(ownerMembership.userId);
-      if (ownerUser?.grantedTier && (ownerUser.grantedTierExpiry == null || ownerUser.grantedTierExpiry > nowMs)) {
+      if (
+        ownerUser?.grantedTier &&
+        (ownerUser.grantedTierExpiry == null || ownerUser.grantedTierExpiry > nowMs)
+      ) {
         return { tier: ownerUser.grantedTier as PlanTier, fromGrant: true };
       }
     }
+
+    // 3. Workspace Creem subscription (cascades through owner's other workspaces)
+    const entityId = await resolveEntityId(ctx, workspaceId, currentUser._id);
+    const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
+    return { tier: tierFromProductId(sub?.productId), fromGrant: false };
   }
 
-  // 3. Creem subscription (cascade through owned workspaces)
-  const entityId = await resolveEntityId(ctx, workspaceId, currentUser._id);
+  // Personal context (no workspaceId) — user's own plan applies directly
+  if (hasGrantedTier) {
+    return { tier: currentUser.grantedTier as PlanTier, fromGrant: true };
+  }
+  const entityId = await resolveEntityId(ctx, undefined, currentUser._id);
   const sub = await creem.subscriptions.getCurrent(ctx, { entityId }).catch(() => null);
   return { tier: tierFromProductId(sub?.productId), fromGrant: false };
 }

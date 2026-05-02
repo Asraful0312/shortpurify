@@ -11,11 +11,11 @@ This is the most error-prone area of the codebase. Read this before touching any
 | Function | Where | What it checks | Use when |
 |---|---|---|---|
 | `getDirectWorkspaceTier` (query) | `convex/usage.ts` | User's grantedTier **only if they own the workspace** → workspace owner's grantedTier → workspace Creem subscription | UI badges, feature gates in the player/editor — must match sidebar |
-| `resolveWorkspaceTier` (internal helper) | `convex/usage.ts` | Current user's grantedTier (any role) → workspace owner's grantedTier → Creem subscription | Internal server-side checks (export watermark, burn limits, project creation) |
+| `resolveWorkspaceTier` (internal helper) | `convex/usage.ts` | Current user's grantedTier **only if they own the workspace** → workspace owner's grantedTier → workspace Creem subscription | Internal server-side checks (export watermark, burn limits, project creation) |
 | `isPaidPlan` (internalQuery) | `convex/usage.ts` | Calls `resolveWorkspaceTier` — returns `true` when tier ≠ "starter" | Export actions, internalMutations, internalActions |
 | `getUsage` (query) | `convex/usage.ts` | Full usage stats + tier via `resolveWorkspaceTier` | Showing usage numbers to the user, NOT for feature gating |
 
-**Key difference:** `getDirectWorkspaceTier` requires the user to be the **owner** of the workspace before their personal grantedTier counts. `resolveWorkspaceTier` grants the user's personal tier regardless of their role. Use `getDirectWorkspaceTier` for all client-side feature gates so they match the sidebar badges.
+**Key difference:** Both functions now require the user to be the **owner** of the workspace before their personal grantedTier counts. The practical difference is where they are called: `getDirectWorkspaceTier` is a public query for React components; `resolveWorkspaceTier` is an internal helper for server-side actions and mutations. Use `getDirectWorkspaceTier` for all client-side feature gates so they match the sidebar badges.
 
 ---
 

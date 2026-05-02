@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { SubtitleOverlay, SubtitleSettings, DEFAULT_SUBTITLE_SETTINGS } from "@/components/subtitle-overlay";
+import { SubtitleOverlay, SubtitleSettings } from "@/components/subtitle-overlay";
+import { DEFAULT_SUBTITLE_SETTINGS } from "@/lib/subtitle";
 
 interface SubtitleWord {
   text: string;

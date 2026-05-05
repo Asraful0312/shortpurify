@@ -17,7 +17,7 @@ const plans = [
     features: [
       { text: "2 projects / month", included: true },
       { text: "Videos up to 10 min each", included: true },
-      { text: "All platforms (YouTube, TikTok, Bluesky)", included: true },
+      { text: "YouTube Shorts & Bluesky", included: true },
       { text: "3 AI clips per project", included: true },
       { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "Smart crop & blur background", included: true },
@@ -37,7 +37,8 @@ const plans = [
     features: [
       { text: "30 projects / month", included: true },
       { text: "300 min of input video / month", included: true },
-      { text: "All platforms · up to 3 accounts each", included: true },
+      { text: "YouTube, Bluesky + TikTok, Instagram, LinkedIn, Facebook, Threads & X", included: true },
+      { text: "2 connected Pro platform accounts (via Zernio)", included: true },
       { text: "8 AI clips per project", included: true },
       { text: "10 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
       { text: "90-day clip storage", included: true },
@@ -58,7 +59,8 @@ const plans = [
     features: [
       { text: "Unlimited projects", included: true },
       { text: "1,500 min of input video / month", included: true },
-      { text: "All platforms · unlimited accounts", included: true },
+      { text: "YouTube, Bluesky + TikTok, Instagram, LinkedIn, Facebook, Threads & X", included: true },
+      { text: "Unlimited connected Pro platform accounts", included: true },
       { text: "15 AI clips per project", included: true },
       { text: "Unlimited subtitle re-renders", included: true, tooltip: "Change subtitle style, font, or position and re-export as many times as you want — no limits." },
       { text: "365-day clip storage", included: true },

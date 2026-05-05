@@ -8,9 +8,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
 import {
-  AlertCircle, Calendar, CheckCircle2, Clock, Loader2, X, Lock, Trash2, AlertTriangle,
+  AlertCircle, Calendar, CheckCircle2, Clock, Loader2, X, Lock, Trash2, AlertTriangle, Play,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useWorkspace } from "@/components/workspace-context";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
@@ -37,6 +37,8 @@ type Post = {
   status: string;
   error?: string;
   postId?: string;
+  thumbnailUrl?: string | null;
+  clipUrl?: string | null;
 };
 
 type ConfirmDialog =
@@ -66,6 +68,7 @@ export default function ScheduledPage() {
   const [deleteAllPending, setDeleteAllPending] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialog | null>(null);
   const [dialogError, setDialogError] = useState("");
+  const [previewPost, setPreviewPost] = useState<Post | null>(null);
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.scheduledPublish.getScheduledPostsPaginated,
@@ -202,6 +205,7 @@ export default function ScheduledPage() {
               <PostRow
                 key={post.id}
                 post={post}
+                onPreview={() => setPreviewPost(post)}
                 onCancel={() => setConfirmDialog({ type: "cancel", id: post.id, title: post.clipTitle })}
                 onDelete={() => setConfirmDialog({ type: "delete-single", id: post.id, title: post.clipTitle })}
                 actionPending={actionPending === post.id}
@@ -220,6 +224,7 @@ export default function ScheduledPage() {
               <PostRow
                 key={post.id}
                 post={post}
+                onPreview={() => setPreviewPost(post)}
                 onDelete={() => setConfirmDialog({ type: "delete-single", id: post.id, title: post.clipTitle })}
                 actionPending={actionPending === post.id}
               />
@@ -240,6 +245,11 @@ export default function ScheduledPage() {
             {isLoadingMore ? <><Loader2 size={15} className="animate-spin" /> Loading…</> : "Load more"}
           </button>
         </div>
+      )}
+
+      {/* Clip preview modal */}
+      {previewPost && (
+        <ClipPreviewModal post={previewPost} onClose={() => setPreviewPost(null)} />
       )}
 
       {/* Confirm dialog */}
@@ -308,11 +318,13 @@ export default function ScheduledPage() {
 
 function PostRow({
   post,
+  onPreview,
   onCancel,
   onDelete,
   actionPending,
 }: {
   post: Post;
+  onPreview?: () => void;
   onCancel?: () => void;
   onDelete?: () => void;
   actionPending?: boolean;
@@ -323,13 +335,39 @@ function PostRow({
 
   return (
     <div className={cn(
-      "bg-white border rounded-2xl p-4 flex items-start gap-4 shadow-sm",
+      "bg-white border rounded-2xl p-4 flex items-start gap-3 shadow-sm",
       post.status === "failed" ? "border-red-200" : "border-border",
     )}>
       {/* Platform icon */}
       <div className="shrink-0 mt-0.5">
-        {meta.image && <Image src={meta.image} alt={meta.name} width={28} height={28} className="rounded-lg" />}
+        {meta.image && <Image src={meta.image} alt={meta.name} width={26} height={26} className="rounded-lg" />}
       </div>
+
+      {/* Clip thumbnail — clickable to preview */}
+      <button
+        onClick={onPreview}
+        disabled={!post.clipUrl}
+        className="shrink-0 relative w-14 h-20 rounded-xl overflow-hidden bg-secondary border border-border group disabled:cursor-default"
+        title={post.clipUrl ? "Preview clip" : "No preview available"}
+      >
+        {post.thumbnailUrl ? (
+          // eslint-disable-next-line @next/next-image
+          <img
+            src={post.thumbnailUrl}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Play size={16} className="text-muted-foreground/50" />
+          </div>
+        )}
+        {post.clipUrl && (
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Play size={18} className="text-white fill-white" />
+          </div>
+        )}
+      </button>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
@@ -387,6 +425,58 @@ function PostRow({
             {actionPending ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={13} />}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ClipPreviewModal({ post, onClose }: { post: Post; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const meta = PLATFORM_META[post.platform] ?? { name: post.platform, image: "" };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-black rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+        style={{ width: "min(360px, 90vw)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-linear-to-b from-black/70 to-transparent">
+          <div className="flex items-center gap-2">
+            {meta.image && (
+              <Image src={meta.image} alt={meta.name} width={20} height={20} className="rounded-md" />
+            )}
+            <span className="text-white text-sm font-bold drop-shadow">{post.clipTitle}</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          >
+            <X size={14} className="text-white" />
+          </button>
+        </div>
+
+        {/* Video */}
+        <video
+          ref={videoRef}
+          src={post.clipUrl ?? undefined}
+          poster={post.thumbnailUrl ?? undefined}
+          autoPlay
+          controls
+          playsInline
+          className="w-full object-contain bg-black"
+          style={{ maxHeight: "80vh" }}
+        />
       </div>
     </div>
   );

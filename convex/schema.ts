@@ -212,7 +212,8 @@ export default defineSchema({
     accountPicture: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_account", ["userId", "accountId"]),
+    .index("by_user_account", ["userId", "accountId"])
+    .index("by_account_id", ["accountId"]),
 
   // User-submitted ratings and reviews shown on the landing page
   reviews: defineTable({

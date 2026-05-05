@@ -17,6 +17,17 @@ export const getProfileByUser = internalQuery({
   },
 });
 
+/** Webhook variant — look up which user owns a given Zernio profileId. */
+export const getProfileOwner = internalQuery({
+  args: { profileId: v.string() },
+  handler: async (ctx, { profileId }) => {
+    return ctx.db
+      .query("zernioProfiles")
+      .filter((q) => q.eq(q.field("profileId"), profileId))
+      .unique();
+  },
+});
+
 export const getAccountsByUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, { userId }) => {
@@ -71,6 +82,18 @@ export const deleteAccount = internalMutation({
       .withIndex("by_user_account", (q) =>
         q.eq("userId", userId).eq("accountId", accountId)
       )
+      .unique();
+    if (acc) await ctx.db.delete(acc._id);
+  },
+});
+
+/** Webhook variant — deletes by accountId alone (no userId required). */
+export const deleteAccountByAccountId = internalMutation({
+  args: { accountId: v.string() },
+  handler: async (ctx, { accountId }) => {
+    const acc = await ctx.db
+      .query("zernioAccounts")
+      .withIndex("by_account_id", (q) => q.eq("accountId", accountId))
       .unique();
     if (acc) await ctx.db.delete(acc._id);
   },

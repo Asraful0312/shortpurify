@@ -32,7 +32,7 @@ const comicRelief = Comic_Relief({
 export const metadata: Metadata = {
   metadataBase: new URL("https://shortpurify.com"),
   title: {
-    default: "ShortPurify – AI Short Clip Generator",
+    default: "ShortPurify | AI Short Clip Generator",
     template: "%s | ShortPurify",
   },
   description:

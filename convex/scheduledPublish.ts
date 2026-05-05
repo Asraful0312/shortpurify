@@ -257,24 +257,31 @@ export const getScheduledPostsPaginated = query({
       .order("desc")
       .paginate(args.paginationOpts);
 
-    return {
-      ...result,
-      page: result.page.map((p) => ({
-        id: p._id,
-        outputId: p.outputId,
-        platform: p.platform,
-        accountId: p.accountId,
-        accountName: p.accountName,
-        accountPicture: p.accountPicture,
-        clipTitle: p.clipTitle,
-        caption: p.caption,
-        scheduledAt: p.scheduledAt,
-        status: p.status,
-        postId: p.postId,
-        error: p.error,
-        createdAt: p.createdAt,
-      })),
-    };
+    // Join with outputs to get clip thumbnail + video URL for the UI
+    const pages = await Promise.all(
+      result.page.map(async (p) => {
+        const output = await ctx.db.get(p.outputId);
+        return {
+          id: p._id,
+          outputId: p.outputId,
+          platform: p.platform,
+          accountId: p.accountId,
+          accountName: p.accountName,
+          accountPicture: p.accountPicture,
+          clipTitle: p.clipTitle,
+          caption: p.caption,
+          scheduledAt: p.scheduledAt,
+          status: p.status,
+          postId: p.postId,
+          error: p.error,
+          createdAt: p.createdAt,
+          thumbnailUrl: output?.thumbnailUrl ?? null,
+          clipUrl: output?.clipUrl ?? null,
+        };
+      })
+    );
+
+    return { ...result, page: pages };
   },
 });
 

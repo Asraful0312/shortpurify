@@ -36,6 +36,7 @@ export default function PublishPage() {
   const [blueskyConnectOpen, setBlueskyConnectOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const syncInProgressRef = useRef(false);
+  const autoSyncedRef = useRef(false);
 
   // Plan tier — use getDirectWorkspaceTier per CLAUDE.md (matches sidebar)
   const tier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined });
@@ -88,6 +89,14 @@ export default function PublishPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  // Silent auto-sync once tier is known — reconciles accounts if the user
+  // disconnected directly from Zernio's dashboard without going through ShortPurify.
+  useEffect(() => {
+    if (isFreePlan || autoSyncedRef.current) return;
+    autoSyncedRef.current = true;
+    syncZernioAccounts({}).catch(() => {/* silent */});
+  }, [isFreePlan]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Native connect ──────────────────────────────────────────────────────────
   const handleNativeConnect = async (platformId: string) => {
     setConnecting(platformId);
@@ -137,7 +146,7 @@ export default function PublishPage() {
         window.location.href = authUrl;
         return;
       }
-      setToast({ type: "success", msg: "Complete the connection in the popup, then click Refresh to sync your accounts." });
+      setToast({ type: "success", msg: "Complete the connection in the popup — your account will appear automatically in a few seconds." });
     } catch (err) {
       setToast({ type: "error", msg: friendlyError(err, "Failed to get connect URL") });
       setConnecting(null);

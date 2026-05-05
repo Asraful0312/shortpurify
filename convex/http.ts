@@ -144,6 +144,106 @@ http.route({
   }),
 });
 
+/**
+ * Zernio webhook — receives account lifecycle events.
+ *
+ * Register this URL in your Zernio dashboard → Webhooks:
+ *   https://<your-deployment>.convex.site/webhooks/zernio
+ *
+ * Optionally set ZERNIO_WEBHOOK_SECRET in Convex env vars to verify signatures.
+ *
+ * Events handled:
+ *   account.connected → upserts account into our DB (no manual Refresh needed)
+ *   account.disconnected / account.deleted → removes account from our DB
+ */
+http.route({
+  path: "/webhooks/zernio",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    // Optional signature verification (HMAC-SHA256)
+    const secret = process.env.ZERNIO_WEBHOOK_SECRET;
+    if (secret) {
+      const sig = request.headers.get("x-zernio-signature") ??
+                  request.headers.get("x-webhook-signature") ?? "";
+      const body = await request.text();
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      );
+      const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+      const expected = Array.from(new Uint8Array(mac))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      if (!sig.includes(expected)) {
+        console.warn("[zernio webhook] signature mismatch — rejecting");
+        return new Response("Unauthorized", { status: 401 });
+      }
+      // Body already consumed as text — parse it
+      let payload: Record<string, unknown>;
+      try { payload = JSON.parse(body); } catch { return new Response("Bad JSON", { status: 400 }); }
+      return handleZernioEvent(ctx, payload);
+    }
+
+    // No secret configured — parse body directly
+    let payload: Record<string, unknown>;
+    try { payload = await request.json(); } catch { return new Response("Bad JSON", { status: 400 }); }
+    return handleZernioEvent(ctx, payload);
+  }),
+});
+
+async function handleZernioEvent(
+  ctx: Parameters<Parameters<typeof httpAction>[0]>[0],
+  payload: Record<string, unknown>
+): Promise<Response> {
+  const event = (payload.event ?? payload.type ?? payload.eventType) as string | undefined;
+  console.log("[zernio webhook] event:", event, JSON.stringify(payload).slice(0, 500));
+
+  // Zernio sends account data under payload.account (not payload.data)
+  // e.g. { id, event, account: { accountId, profileId, platform, displayName, ... }, timestamp }
+  const acc = (payload.account ?? payload.data ?? {}) as Record<string, unknown>;
+
+  if (event === "account.connected" || event === "account.created") {
+    const profileId = (acc.profileId ?? acc.profile) as string | undefined;
+    const accountId = (acc.accountId ?? acc._id ?? acc.id) as string | undefined;
+    const platform = ((acc.platform ?? acc.type ?? "") as string).toLowerCase();
+    const accountName = (acc.displayName ?? acc.accountName ?? acc.name ?? acc.username ?? platform) as string;
+    const rawPicture = acc.accountPicture ?? acc.picture ?? acc.profilePicture ?? acc.avatar;
+    const accountPicture = typeof rawPicture === "string" ? rawPicture : undefined;
+
+    if (profileId && accountId && platform) {
+      const profile = await ctx.runQuery(internal.zernio.getProfileOwner, { profileId });
+      if (profile) {
+        await ctx.runMutation(internal.zernio.upsertAccount, {
+          userId: profile.userId,
+          profileId,
+          accountId,
+          platform,
+          accountName,
+          accountPicture,
+        });
+        console.log("[zernio webhook] upserted account:", platform, accountName, accountId);
+      } else {
+        console.warn("[zernio webhook] no profile owner found for profileId:", profileId);
+      }
+    } else {
+      console.warn("[zernio webhook] account.connected missing fields — profileId:", profileId, "accountId:", accountId, "platform:", platform);
+    }
+  } else if (event === "account.disconnected" || event === "account.deleted" || event === "account.removed") {
+    // Zernio sends accountId (their internal ID string), not _id
+    const accountId = (acc.accountId ?? acc._id ?? acc.id) as string | undefined;
+    if (accountId) {
+      await ctx.runMutation(internal.zernio.deleteAccountByAccountId, { accountId });
+      console.log("[zernio webhook] removed account:", accountId);
+    } else {
+      console.warn("[zernio webhook] account.disconnected missing accountId — payload:", JSON.stringify(acc));
+    }
+  } else {
+    console.log("[zernio webhook] unhandled event type:", event);
+  }
+
+  return new Response("ok", { status: 200 });
+}
+
 // Creem billing webhooks — handles checkout.completed, subscription.*, product.*
 // Webhook URL to register in Creem dashboard:
 //   https://<your-deployment>.convex.site/creem/events

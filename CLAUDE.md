@@ -8,12 +8,12 @@ This is the most error-prone area of the codebase. Read this before touching any
 
 ### The two resolver functions — and when to use each
 
-| Function | Where | What it checks | Use when |
-|---|---|---|---|
-| `getDirectWorkspaceTier` (query) | `convex/usage.ts` | User's grantedTier **only if they own the workspace** → workspace owner's grantedTier → workspace Creem subscription | UI badges, feature gates in the player/editor — must match sidebar |
+| Function                                 | Where             | What it checks                                                                                                               | Use when                                                                      |
+| ---------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `getDirectWorkspaceTier` (query)         | `convex/usage.ts` | User's grantedTier **only if they own the workspace** → workspace owner's grantedTier → workspace Creem subscription         | UI badges, feature gates in the player/editor — must match sidebar            |
 | `resolveWorkspaceTier` (internal helper) | `convex/usage.ts` | Current user's grantedTier **only if they own the workspace** → workspace owner's grantedTier → workspace Creem subscription | Internal server-side checks (export watermark, burn limits, project creation) |
-| `isPaidPlan` (internalQuery) | `convex/usage.ts` | Calls `resolveWorkspaceTier` — returns `true` when tier ≠ "starter" | Export actions, internalMutations, internalActions |
-| `getUsage` (query) | `convex/usage.ts` | Full usage stats + tier via `resolveWorkspaceTier` | Showing usage numbers to the user, NOT for feature gating |
+| `isPaidPlan` (internalQuery)             | `convex/usage.ts` | Calls `resolveWorkspaceTier` — returns `true` when tier ≠ "starter"                                                          | Export actions, internalMutations, internalActions                            |
+| `getUsage` (query)                       | `convex/usage.ts` | Full usage stats + tier via `resolveWorkspaceTier`                                                                           | Showing usage numbers to the user, NOT for feature gating                     |
 
 **Key difference:** Both functions now require the user to be the **owner** of the workspace before their personal grantedTier counts. The practical difference is where they are called: `getDirectWorkspaceTier` is a public query for React components; `resolveWorkspaceTier` is an internal helper for server-side actions and mutations. Use `getDirectWorkspaceTier` for all client-side feature gates so they match the sidebar badges.
 
@@ -55,7 +55,9 @@ Use `getDirectWorkspaceTier` — same query the sidebar uses:
 ```typescript
 // In a React component
 const { activeOrgId } = useWorkspace();
-const tier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined });
+const tier = useQuery(api.usage.getDirectWorkspaceTier, {
+  workspaceId: activeOrgId ?? undefined,
+});
 const isFreePlan = !tier || tier === "starter";
 
 // Show badge / disable button when isFreePlan === true
@@ -87,6 +89,7 @@ Always prefer passing `workspaceId` when available so workspace-level subscripti
 The comic subtitle template (and any future paid-only template) is gated at two layers:
 
 **Layer 1 — client preview badge** (`subtitle-editor.tsx`)
+
 ```typescript
 // SUBTITLE_TEMPLATES entries have paidOnly?: boolean
 // In SubtitleEditor, plan prop comes from getDirectWorkspaceTier (NOT getUsage)
@@ -95,14 +98,18 @@ const isPaidTemplate = Boolean(t.paidOnly) && isFreePlan;
 ```
 
 **Layer 2 — export block** (`exportActions.ts`)
+
 ```typescript
 // Early in exportWithSubtitles handler, after resolving isPaid:
 if (settings.template === "comic" && !isPaid) {
-  throw new ConvexError("The Comic subtitle template requires a Pro or Agency plan.");
+  throw new ConvexError(
+    "The Comic subtitle template requires a Pro or Agency plan.",
+  );
 }
 ```
 
 When adding a new paid template:
+
 1. Add `paidOnly: true` to its `TemplatePreset` in `SUBTITLE_TEMPLATES`.
 2. Add its template id to the export block in `exportActions.ts`.
 3. No other changes needed — the badge and block are driven by those two sources.

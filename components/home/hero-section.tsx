@@ -79,8 +79,9 @@ export default function HeroSection() {
           Paste a YouTube link or upload any video. ShortPurify&apos;s AI finds the best moments, generates captions, scores each clip for virality, and publishes directly to{" "}
           <Image className="inline size-4 align-middle" src="/icons/tik-tok.png" alt="tiktok" width={20} height={20} />{" "}
           <Image className="inline size-4 align-middle" src="/icons/youtube-short.png" alt="youtube short" width={20} height={20} />{" "}
-          {/* <Image className="inline size-4 align-middle" src="/icons/threads.png" alt="threads" width={20} height={20} />{" "} */}
-          <Image className="inline size-4 align-middle" src="/icons/bluesky-icon.png" alt="bluesky" width={20} height={20} />{" "}
+          <Image className="inline size-4 align-middle" src="/icons/facebook.png" alt="facebook" width={20} height={20} />{" "}
+          <Image className="inline size-3 align-middle" src="/icons/twitter.png" alt="twitter" width={18} height={18} />{" "}
+          <Image className="inline size-4 align-middle" src="/icons/instagram.png" alt="instagram" width={20} height={20} />{" "}
            saving you 10+ hours per week.
         </div>
 

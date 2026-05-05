@@ -512,7 +512,7 @@ def _render_subtitle_frames(
 
     # ── per-template render functions ────────────────────────────────────────
 
-    def render_classic(_img, draw, shadow_draw, display_chunks, num_rows, active_word):
+    def render_classic(_img, draw, shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None, frame_idx=0):
         for row_idx, chunk in enumerate(display_chunks):
             full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
             sfnt, sc, spans, total_w, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
@@ -831,6 +831,94 @@ def _render_subtitle_frames(
 
                 x_cur += span_w + cg_x
 
+    def render_shadow(_img, draw, _shadow_draw, display_chunks, num_rows, active_word, display_full_chunks=None, frame_idx=0):
+        import math
+        shadow_rgba = hl_bg_rgba
+        
+        for row_idx, chunk in enumerate(display_chunks):
+            full_chunk = display_full_chunks[row_idx] if display_full_chunks else None
+            # Initial layout to get baseline scaling
+            _, sc, _, _, cp_x, cp_y, cg_x, rad = layout_row(chunk, font_obj, full_chunk)
+            
+            # Global total width calculation with zero gap for active words
+            row_spans = []
+            row_fonts = []
+            row_total_w = 0
+            for i, cw in enumerate(chunk):
+                is_act = (cw is active_word)
+                word_scale = 1.1 if is_act else 1.0
+                cur_fnt = scale_font(font_obj, int(font_size_px * sc * word_scale))
+                wt = cw["text"].strip().upper()
+                w = measure(wt, cur_fnt)
+                # Skew compensation: pull word left to tighten the gap at the top
+                if is_act:
+                    skew_pull = int(font_size_px * sc * 0.15)
+                    w -= skew_pull
+                row_spans.append(w)
+                row_fonts.append(cur_fnt)
+                row_total_w += w
+                if i < len(chunk) - 1:
+                    next_is_act = (chunk[i+1] is active_word)
+                    # Zero gap if active is involved to force them together
+                    gap = -8 if (is_act or next_is_act) else cg_x
+                    row_total_w += gap
+
+
+            row_cy = center_y if num_rows == 1 else center_y - LINE_HEIGHT // 2 + row_idx * LINE_HEIGHT
+            # Align on baseline
+            baseline_y = row_cy + int(font_size_px * sc * 0.2)
+            x_cur = center_x - row_total_w / 2
+
+            for col_idx, cw in enumerate(chunk):
+                span_w = row_spans[col_idx]
+                sfnt   = row_fonts[col_idx]
+                x_int  = int(x_cur)
+                wt     = cw["text"].strip().upper()
+                is_act = (cw is active_word)
+                fill   = hl_text_rgba if is_act else text_rgba
+                
+                # Composite/Draw
+                if is_act:
+                    pad_x, pad_y = int(60 * scale_factor), int(60 * scale_factor)
+                    # Slightly wider canvas for transformations
+                    W, H = int(span_w + pad_x*2 + int(font_size_px * sc * 0.3)), int(font_size_px * sc * 3 + pad_y*2)
+                    
+                    stripe_size = max(4, int(4 * scale_factor))
+                    shift = (frame_idx % 20) * (stripe_size / 20.0)
+                    pattern = Image.new("RGBA", (W, H), (0,0,0,0))
+                    pd = ImageDraw.Draw(pattern)
+                    for i in range(-H*2, W*2, stripe_size):
+                        pd.line([(i + shift, 0), (i + H + shift, H)], fill=shadow_rgba, width=max(1, stripe_size // 2))
+                    
+                    mask = Image.new("L", (W, H), 0)
+                    md = ImageDraw.Draw(mask)
+                    off_val = int(3 * scale_factor)
+                    md.text((pad_x + off_val, pad_y + off_val), wt, font=sfnt, fill=255, anchor="ls")
+                    shadow_img = Image.new("RGBA", (W, H), (0,0,0,0))
+                    shadow_img.paste(pattern, (0,0), mask)
+                    
+                    text_img = Image.new("RGBA", (W, H), (0,0,0,0))
+                    td = ImageDraw.Draw(text_img)
+                    td.text((pad_x, pad_y), wt, font=sfnt, fill=fill, anchor="ls")
+                    
+                    skew_factor = 0.2 
+                    offset_x = -skew_factor * (H * 0.7)
+                    final_shadow = shadow_img.transform((W, H), Image.AFFINE, (1, skew_factor, offset_x, 0, 1, 0), resample=Image.BICUBIC)
+                    final_text = text_img.transform((W, H), Image.AFFINE, (1, skew_factor, offset_x, 0, 1, 0), resample=Image.BICUBIC)
+                    
+                    # SKEW PULL: shift active word left to compensate for right-lean slant
+                    skew_pull = int(font_size_px * sc * 0.15)
+                    _img.alpha_composite(final_shadow, (int(x_int - pad_x - skew_pull), int(baseline_y - pad_y)))
+                    _img.alpha_composite(final_text, (int(x_int - pad_x - skew_pull), int(baseline_y - pad_y)))
+                else:
+                    draw.text((x_int, baseline_y), wt, font=sfnt, fill=fill, anchor="ls")
+                
+                # Advance x_cur with zero gap for active words
+                if col_idx < len(chunk) - 1:
+                    next_is_act = (chunk[col_idx+1] is active_word)
+                    gap = 0 if (is_act or next_is_act) else cg_x
+                    x_cur += span_w + gap
+
     # ── main loop ────────────────────────────────────────────────────────────
 
     RENDER_FNS = {
@@ -841,6 +929,7 @@ def _render_subtitle_frames(
         "beasty":    render_beasty,
         "karaoke":   render_karaoke,
         "comic":     render_comic,
+        "shadow":    render_shadow,
     }
     render_fn = RENDER_FNS.get(template, render_classic)
 
@@ -874,29 +963,45 @@ def _render_subtitle_frames(
         display_full_chunks = all_full_chunks[:len(all_chunks)][-2:]
         num_rows       = len(display_chunks)
 
-        img          = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        draw         = ImageDraw.Draw(img)
-        shadow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-        shadow_draw  = ImageDraw.Draw(shadow_layer)
+        # Animation support: if template is shadow, render multiple frames per word
+        anim_fps = 10 if template == "shadow" else 0
+        
+        duration_ms = ev_end_ms - ev_start_ms
+        num_frames = max(1, int((duration_ms / 1000.0) * anim_fps)) if anim_fps > 0 else 1
+        frame_dur_ms = duration_ms / num_frames
 
-        render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks)
+        for fi in range(num_frames):
+            f_start_ms = ev_start_ms + fi * frame_dur_ms
+            f_end_ms = ev_start_ms + (fi + 1) * frame_dur_ms
+            
+            img          = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+            draw         = ImageDraw.Draw(img)
+            shadow_layer = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+            shadow_draw  = ImageDraw.Draw(shadow_layer)
 
-        # Composite shadow/glow
-        # Neon manages its own glow internally (composited directly into img),
-        # so no shadow_layer processing is needed for that template.
-        if template == "neon":
-            final_img = img
-        else:
-            blur1 = shadow_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
-            blur2 = shadow_layer.filter(ImageFilter.GaussianBlur(int(8 * scale_factor)))
-            final_img = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
-            final_img.alpha_composite(blur2)
-            final_img.alpha_composite(blur1)
-            final_img.alpha_composite(img)
+            # Use frame_idx for animation logic
+            frame_idx = int(f_start_ms / 1000.0 * 30) # Use global time for consistent animation
+            
+            # Pass frame_idx to render_fn if it supports it
+            try:
+                render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks, frame_idx=frame_idx)
+            except TypeError:
+                render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks)
 
-        png_path = f"{tmpdir}/frame_{wi:05d}.png"
-        final_img.save(png_path, "PNG")
-        frames.append((ev_start_ms / 1000.0, ev_end_ms / 1000.0, png_path))
+            # Composite shadow/glow
+            if template == "neon":
+                final_img = img
+            else:
+                blur1 = shadow_layer.filter(ImageFilter.GaussianBlur(int(4 * scale_factor)))
+                blur2 = shadow_layer.filter(ImageFilter.GaussianBlur(int(8 * scale_factor)))
+                final_img = Image.new("RGBA", (vid_w, vid_h), (0, 0, 0, 0))
+                final_img.alpha_composite(blur2)
+                final_img.alpha_composite(blur1)
+                final_img.alpha_composite(img)
+
+            png_path = f"{tmpdir}/frame_{wi:05d}_{fi:02d}.png"
+            final_img.save(png_path, "PNG")
+            frames.append((f_start_ms / 1000.0, f_end_ms / 1000.0, png_path))
 
     return frames
 

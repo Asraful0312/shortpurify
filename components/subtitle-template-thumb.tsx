@@ -138,14 +138,14 @@ export function TemplateThumb({
     const shadowColor = active ? settings.highlightColor : "#EF4444";
     const bgColor  = active ? settings.highlightBg    : "#FACC15";
     return (
-      <div className="flex gap-0.5 items-center h-4 scale-125">
+      <div className="flex gap-0.5 items-center h-4">
         {(["HI", "THERE"] as const).map((word) => (
           <span
             key={word}
             className={cn(base, "uppercase")}
              style={{
                 fontFamily: "'Impact', 'Comic Sans MS', 'Impact', sans-serif",
-                fontSize: `8px`,
+                fontSize: `9px`,
                 fontWeight: "900",
                 display: "inline-block",
                 transform: "skewX(-4deg)",
@@ -156,9 +156,43 @@ export function TemplateThumb({
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 WebkitTextStroke: `0.5px #000000`,
-                filter: `drop-shadow(0px 0px 0px ${shadowColor}) drop-shadow(0px 0px 0px #000000)`,
+                filter: `drop-shadow(1px 1px 0px ${shadowColor}) drop-shadow(2px 2px 0px #000000)`,
               }}
           >{word}</span>
+        ))}
+      </div>
+    );
+  }
+  if (id === "shadow") {
+    const shadowColor = active ? settings.highlightBg : "#facc15";
+    const textColor = active ? settings.highlightColor : "#ffffff";
+    return (
+      <div className="flex gap-0.5 items-center h-4">
+        {(["HI", "THERE"] as const).map((word, idx) => (
+          <span
+            key={word}
+            className={cn(base, "uppercase relative z-0 inline-flex", previewIndex === idx && "italic")}
+            style={{
+              color: previewIndex === idx ? textColor : col,
+              fontSize: previewIndex === idx ? "8px" : "7px",
+            }}
+          >
+            {previewIndex === idx && (
+              <span 
+                className="absolute top-[0.08em] left-[0.08em] -z-10 animate-line-shadow text-transparent bg-clip-text"
+                style={{
+                  WebkitTextStroke: "0px",
+                  backgroundImage: `linear-gradient(45deg, transparent 45%, ${shadowColor} 45%, ${shadowColor} 55%, transparent 0)`,
+                  backgroundSize: "0.06em 0.06em",
+                  WebkitBackgroundClip: "text",
+                  backgroundClip: "text",
+                }}
+              >
+                {word}
+              </span>
+            )}
+            {word}
+          </span>
         ))}
       </div>
     );

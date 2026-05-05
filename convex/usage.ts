@@ -378,6 +378,18 @@ export const getBurnLimit = internalQuery({
   },
 });
 
+/** Internal: max Zernio-connected accounts allowed (null = unlimited). Pro=2, Agency=∞, Starter=0. */
+export const getZernioAccountLimit = internalQuery({
+  args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
+  handler: async (ctx, { workspaceId, fallbackEntityId }) => {
+    const user = await ctx.db.get(fallbackEntityId as import("./_generated/dataModel").Id<"users">).catch(() => null);
+    const { tier } = await resolveWorkspaceTier(ctx, workspaceId, user ?? { _id: fallbackEntityId });
+    if (tier === "starter") return 0;
+    if (tier === "pro") return 2;
+    return null; // agency = unlimited
+  },
+});
+
 export const isPaidPlan = internalQuery({
   args: { workspaceId: v.optional(v.string()), fallbackEntityId: v.string() },
   handler: async (ctx, { workspaceId, fallbackEntityId }) => {

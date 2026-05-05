@@ -9,11 +9,13 @@ import MinimalTemplate from "./dashboard/subtitle-templates/MinimalTemplate";
 import BeastyTemplate from "./dashboard/subtitle-templates/BeastyTemplate";
 import KaraokeTemplate from "./dashboard/subtitle-templates/KaraokeTemplate";
 import ComicTemplate from "./dashboard/subtitle-templates/ComicTemplate";
+
 import { groupWords } from "@/lib/utils";
+import ShadowTemplate from "./dashboard/subtitle-templates/ShadowTemplate";
 
 export type { SubtitleWord };
 
-export type SubtitleTemplate = "classic" | "neon" | "cinematic" | "minimal" | "beasty" | "karaoke" | "comic";
+export type SubtitleTemplate = "classic" | "neon" | "cinematic" | "minimal" | "beasty" | "karaoke" | "comic" | "shadow";
 
 export interface SubtitleSettings {
   enabled: boolean;
@@ -140,6 +142,9 @@ export function SubtitleOverlay({
       )}
       {template === "comic" && (
         <ComicTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
+      )}
+      {template === "shadow" && (
+        <ShadowTemplate settings={settings} displayGroups={displayGroups} activeWord={activeWord} />
       )}
     </div>
   );

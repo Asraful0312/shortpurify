@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronDown, ChevronUp, Clapperboard, Copy, Download, Eye, EyeOff, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Cpu, Download, Eye, EyeOff, Loader2, Pause, Play, Send, Star, Volume2, VolumeX, Wand2, X } from "lucide-react";
 import ActionButton from "../shared/action-button";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
@@ -41,6 +41,7 @@ function FullscreenPlayer({
   const navThrottleRef = useRef(false);
   const videoBoxRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef(0);
+  const publishOpenRef = useRef(false);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
   const [videoSrc, setVideoSrc] = useState(clip.videoUrl);
@@ -49,7 +50,11 @@ function FullscreenPlayer({
   const [muted, setMuted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingCanvas, setDownloadingCanvas] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  // Keep a ref in sync so event handlers always read the current value
+  // without needing to re-register (avoids re-running the effect on modal open/close).
+  useEffect(() => { publishOpenRef.current = publishOpen; }, [publishOpen]);
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(
     initialSubtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
@@ -63,11 +68,24 @@ function FullscreenPlayer({
   const { isAuthenticated } = useConvexAuth();
   const { isAdmin, activeOrgId } = useWorkspace();
   const accountsQuery = useQuery(api.socialTokens.getAllTokens);
+  const zernioAccountsQuery = useQuery(api.zernio.getMyAccounts);
   const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
   // Use the same plan resolution as the sidebar: user's grantedTier only counts if they
   // OWN the workspace. An admin of a starter workspace stays on starter for feature gating.
   const workspaceTier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined });
-  const accounts = accountsQuery ?? [];
+  // Merge native + Zernio accounts for the publish modal
+  const accounts = [
+    ...(accountsQuery ?? []).map((a) => ({ ...a, source: "native" as const })),
+    ...(zernioAccountsQuery ?? []).map((a) => ({
+      id: a.id,
+      platform: a.platform,
+      accountId: a.accountId,
+      accountName: a.accountName,
+      accountPicture: a.accountPicture,
+      isExpired: false,
+      source: "zernio" as const,
+    })),
+  ];
   const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
   const refreshClipUrl = useAction(api.outputs.refreshClipUrl);
   const saveSubtitleSettingsMutation = useMutation(api.projects.saveSubtitleSettings);
@@ -147,7 +165,10 @@ function FullscreenPlayer({
     el?.addEventListener("error", suppressAbort, true);
 
     // Wheel — scroll down = next, scroll up = prev
+    // When a modal is open, skip navigation AND skip preventDefault so
+    // the modal's own scroll container works normally.
     const onWheel = (e: WheelEvent) => {
+      if (publishOpenRef.current) return;
       if (Math.abs(e.deltaY) < 20) return;
       e.preventDefault();
       navigate(e.deltaY > 0 ? 1 : -1);
@@ -156,6 +177,7 @@ function FullscreenPlayer({
     // Touch — swipe up = next, swipe down = prev
     const onTouchStart = (e: TouchEvent) => { touchStartYRef.current = e.touches[0].clientY; };
     const onTouchEnd = (e: TouchEvent) => {
+      if (publishOpenRef.current) return;
       const dy = touchStartYRef.current - e.changedTouches[0].clientY;
       if (Math.abs(dy) < 60) return;
       navigate(dy > 0 ? 1 : -1);
@@ -163,6 +185,7 @@ function FullscreenPlayer({
 
     // Keyboard — Arrow keys
     const onKeyDown = (e: KeyboardEvent) => {
+      if (publishOpenRef.current) return;
       if (e.key === "ArrowDown" || e.key === "ArrowRight") navigate(1);
       if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  navigate(-1);
       if (e.key === "Escape") onClose();
@@ -298,13 +321,11 @@ function FullscreenPlayer({
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           const clean = msg.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/)?.[1]?.trim() ?? msg;
-          // Burn limit / plan errors — show message, don't fall back silently
           if (clean.includes("re-renders") || clean.includes("Upgrade")) {
             setDownloadError(clean);
             setTimeout(() => setDownloadError(null), 6000);
             return;
           }
-          // Infra error (worker not configured etc.) — fall back to plain download
           setDownloadWarning("Subtitle export failed — downloading without subtitles.");
           setTimeout(() => setDownloadWarning(null), 5000);
         }
@@ -314,6 +335,8 @@ function FullscreenPlayer({
       setDownloading(false);
     }
   };
+
+
 
   const copyCaption = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -398,7 +421,7 @@ function FullscreenPlayer({
             {processing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3 z-10">
                 <div className="relative">
-                  <Clapperboard size={32} className="text-white/40" />
+                  <Loader2 size={32} className="text-white/40" />
                   <Loader2 size={16} className="text-primary animate-spin absolute -bottom-1 -right-1" />
                 </div>
                 <p className="text-white/80 text-xs font-semibold text-center px-4">
@@ -489,6 +512,7 @@ function FullscreenPlayer({
               small
               onClick={handleDownload}
             />
+            
           </div>
           </div>{/* end sliding panel */}
         </div>{/* end clip container */}
@@ -511,6 +535,7 @@ function FullscreenPlayer({
             small
             onClick={(e) => { e.stopPropagation(); handleDownload(e); }}
           />
+         
         </div>
         {/* Subtitle editor panel — now on the right of buttons */}
         {showSubtitleEditor && hasSubtitles && isAdmin && (
@@ -551,6 +576,7 @@ function FullscreenPlayer({
         defaultCaption={clip.caption}
         captions={clip.captions}
         canSchedule={usage?.limits.scheduledPublishing ?? false}
+        workspaceId={activeOrgId ?? undefined}
         onPublished={(count) => {
           setPublishOpen(false);
           setPublishToast(`Published to ${count} account${count !== 1 ? "s" : ""}!`);

@@ -42,6 +42,8 @@ import type * as workflow from "../workflow.js";
 import type * as workspaceMembers from "../workspaceMembers.js";
 import type * as xActions from "../xActions.js";
 import type * as youtubeActions from "../youtubeActions.js";
+import type * as zernio from "../zernio.js";
+import type * as zernioActions from "../zernioActions.js";
 
 import type {
   ApiFromModules,
@@ -84,6 +86,8 @@ declare const fullApi: ApiFromModules<{
   workspaceMembers: typeof workspaceMembers;
   xActions: typeof xActions;
   youtubeActions: typeof youtubeActions;
+  zernio: typeof zernio;
+  zernioActions: typeof zernioActions;
 }>;
 
 /**

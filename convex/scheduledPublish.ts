@@ -26,6 +26,7 @@ export const schedulePost = mutation({
     caption: v.string(),
     scheduledAt: v.number(), // ms timestamp
     clipTitle: v.optional(v.string()),
+    workspaceId: v.optional(v.string()), // active org from client — required for correct tier resolution
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -37,14 +38,11 @@ export const schedulePost = mutation({
       .unique();
     if (!user) throw new ConvexError("User not found");
 
-    // Plan check — scheduled publishing requires Pro+
-    const workspace = await ctx.db
-      .query("workspaceMembers")
-      .withIndex("by_clerk_workspace", (q) => q.eq("clerkId", identity.subject))
-      .first();
+    // Plan check — use the workspace the client is currently viewing so grantedTier
+    // and workspace subscriptions are resolved correctly (per CLAUDE.md).
     const check = await ctx.runQuery(internal.usage.canSchedulePost, {
       userId: user._id,
-      workspaceId: workspace?.workspaceId,
+      workspaceId: args.workspaceId,
     });
     if (!check.allowed) throw new ConvexError(check.reason);
 
@@ -118,15 +116,18 @@ export const executeScheduledPost = internalAction({
           title: post.clipTitle,
         });
         postId = r.postId;
-      } else if (post.platform === "tiktok") {
-        const r = await ctx.runAction(internal.tiktokActions.publishClipInternal, {
+      } else if (["tiktok", "instagram", "linkedin", "facebook", "threads", "twitter"].includes(post.platform)) {
+        // Zernio handles TikTok and all Pro platforms — Convex provides the timing,
+        // Zernio posts immediately (publishNow: true) when the job fires.
+        const r = await ctx.runAction(internal.zernioActions.publishClipInternal, {
           userId: post.userId as Id<"users">,
           outputId: post.outputId as Id<"outputs">,
           accountId: post.accountId,
+          platform: post.platform,
           caption: post.caption,
           title: post.clipTitle,
         });
-        postId = r.publishId;
+        postId = r.postId;
       } else {
         throw new ConvexError(`Platform "${post.platform}" scheduled publishing not supported`);
       }

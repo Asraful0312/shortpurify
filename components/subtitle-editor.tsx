@@ -65,6 +65,7 @@ export function SubtitleEditor({ settings, onChange, onClose, plan }: SubtitleEd
     beasty:       { text: "Text",       hl: "Active Word",    bg: "— (unused)" },
     karaoke:      { text: "Inactive",   hl: "Active Word",    bg: "— (unused)" },
     comic:        { text: "Dots",       hl: "3D Shadow",      bg: "Text Fill" },
+    shadow:       { text: "Text",       hl: "Active Text",    bg: "Line Shadow" },
   };
   const labels = colorLabels[template];
 

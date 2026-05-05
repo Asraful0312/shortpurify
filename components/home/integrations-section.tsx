@@ -1,13 +1,18 @@
 "use client"
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { Marquee } from "../ui/marquee";
 
 function IntegrationsSection() {
   const live = [
     { src: "/icons/youtube-short.png", label: "YouTube Shorts" },
     { src: "/icons/tik-tok.png", label: "TikTok" },
     { src: "/icons/bluesky-icon.png", label: "Bluesky" },
-    // { src: "/icons/threads.png", label: "Threads" },
+    { src: "/icons/threads.png", label: "Threads" },
+    { src: "/icons/instagram.png", label: "Instagram" },
+    { src: "/icons/facebook.png", label: "Facebook" },
+    { src: "/icons/twitter.png", label: "X/Twitter" },
+    { src: "/icons/linkedin.png", label: "LinkedIn" },
   ];
 
   const comingSoon = [
@@ -26,19 +31,19 @@ function IntegrationsSection() {
         className="container mx-auto px-4"
       >
         <p className="text-center text-sm font-bold tracking-widest text-muted-foreground uppercase mb-6">
-          Publish directly to 3 platforms, more coming soon
+          Publish directly to 8 platforms
         </p>
 
         {/* Live platforms */}
-        <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14 mb-6">
+        <Marquee pauseOnHover className="[--duration:30s]">
           {live.map(({ src, label }) => (
-            <div key={label} className="flex items-center gap-2 font-bold text-lg opacity-80 hover:opacity-100 transition-opacity">
-              <Image src={src} className={"size-7"} alt={label} width={28} height={28} />
+            <div key={label} className="flex items-center gap-2 font-bold text-lg opacity-80 hover:opacity-100 transition-opacity mx-4">
+              <Image src={src} className={label === "X/Twitter" ? "size-5" : "size-7"} alt={label} width={28} height={28} />
               {label}
             </div>
           ))}
          
-        </div>
+        </Marquee>
 
         {/* Coming soon */}
         {/* <div className="flex flex-wrap justify-center items-center gap-6 md:gap-10">

@@ -195,6 +195,25 @@ export default defineSchema({
     .index("by_user_platform", ["userId", "platform"])
     .index("by_user_platform_account", ["userId", "platform", "accountId"]),
 
+  // One Zernio profile per ShortPurify user — created lazily on first connect
+  zernioProfiles: defineTable({
+    userId: v.id("users"),
+    profileId: v.string(), // Zernio profile _id
+    createdAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  // Social accounts connected via Zernio OAuth (Instagram, LinkedIn, Facebook, Threads, X…)
+  zernioAccounts: defineTable({
+    userId: v.id("users"),
+    profileId: v.string(),
+    accountId: v.string(), // Zernio account _id
+    platform: v.string(),  // instagram | linkedin | facebook | threads | twitter
+    accountName: v.string(),
+    accountPicture: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_account", ["userId", "accountId"]),
+
   // User-submitted ratings and reviews shown on the landing page
   reviews: defineTable({
     userId: v.id("users"),

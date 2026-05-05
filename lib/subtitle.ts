@@ -93,6 +93,19 @@ export const SUBTITLE_TEMPLATES: TemplatePreset[] = [
       highlightBg: "#FACC15",
     },
   },
+  {
+    id: "shadow",
+    label: "Shadow",
+    description: "Animated line shadow on active word",
+    defaults: {
+      template: "shadow",
+      fontSize: 28,
+      fontFamily: "Impact, sans-serif",
+      textColor: "#ffffff",
+      highlightColor: "#00e0fe",
+      highlightBg: "#cfd8f5",
+    },
+  },
 ];
 
 export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {

@@ -17,15 +17,17 @@ const PLATFORM_META: Record<string, { name: string; image: string }> = {
   linkedin:  { name: "LinkedIn",        image: "/icons/linkedin.png" },
   threads:   { name: "Threads",         image: "/icons/threads.png" },
   bluesky:   { name: "Bluesky",         image: "/icons/bluesky-icon.png" },
+  twitter:   { name: "X (Twitter)",     image: "/icons/twitter.png" },
 };
 
 type SafeToken = {
-  id: Id<"socialTokens">;
+  id: string;
   platform: string;
   accountId: string;
   accountName: string;
   accountPicture?: string;
   isExpired: boolean;
+  source?: "native" | "zernio"; // undefined = native (backwards compat)
 };
 
 type AccountStatus = {
@@ -49,6 +51,8 @@ interface PublishModalProps {
   onPublished?: (successCount: number) => void;
   /** Whether the current plan allows scheduled publishing */
   canSchedule?: boolean;
+  /** Active workspace ID — passed to schedulePost for correct tier resolution */
+  workspaceId?: string;
 }
 
 export function PublishModal({
@@ -64,17 +68,11 @@ export function PublishModal({
   captions,
   onPublished,
   canSchedule = true,
+  workspaceId,
 }: PublishModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [platformCaptions, setPlatformCaptions] = useState<Record<string, string>>({});
   const [youtubeTitle, setYoutubeTitle] = useState(clipTitle ?? "");
-  const [tiktokSettings, setTiktokSettings] = useState({
-    privacyLevel: "SELF_ONLY" as "PUBLIC_TO_EVERYONE" | "MUTUAL_FOLLOW_FRIENDS" | "FOLLOWER_OF_CREATOR" | "SELF_ONLY",
-    disableComment: false,
-    disableDuet: false,
-    disableStitch: false,
-    brandedContent: false,
-  });
   const [accountStatuses, setAccountStatuses] = useState<Record<string, AccountStatus>>({});
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -82,9 +80,9 @@ export function PublishModal({
   const [scheduledDate, setScheduledDate] = useState("");
 
   const publishYouTube  = useAction(api.youtubeActions.publishClip);
-  const publishTikTok   = useAction(api.tiktokActions.publishClip);
   const publishBluesky  = useAction(api.blueskyActions.publishClip);
   const publishFacebook = useAction(api.facebookActions.publishClip);
+  const publishZernio   = useAction(api.zernioActions.publishClip);
   const schedulePost    = useMutation(api.scheduledPublish.schedulePost);
 
   // Show all accounts — publishing actions handle token refresh automatically.
@@ -113,7 +111,6 @@ export function PublishModal({
     }
     setPlatformCaptions(caps);
     setYoutubeTitle(clipTitle ?? "");
-    setTiktokSettings({ privacyLevel: "SELF_ONLY", disableComment: false, disableDuet: false, disableStitch: false, brandedContent: false });
     setAccountStatuses({});
     setIsPublishing(false);
     setIsDone(false);
@@ -164,6 +161,7 @@ export function PublishModal({
               accountId: acc.accountId,
               caption,
               scheduledAt,
+              workspaceId,
               clipTitle: acc.platform === "youtube"
                 ? (youtubeTitle.trim() || clipTitle || "Short Clip")
                 : (clipTitle ?? "Short Clip"),
@@ -211,21 +209,6 @@ export function PublishModal({
               title: youtubeTitle.trim() || clipTitle || "Short Clip",
             });
             postId = r.videoId;
-          } else if (acc.platform === "tiktok") {
-            const r = await publishTikTok({
-              outputId: outputId as Id<"outputs">,
-              accountId: acc.accountId,
-              clipUrl: clipUrl ?? "",
-              clipKey,
-              caption,
-              title: clipTitle ?? "Short Clip",
-              privacyLevel: tiktokSettings.privacyLevel,
-              disableComment: tiktokSettings.disableComment,
-              disableDuet: tiktokSettings.disableDuet,
-              disableStitch: tiktokSettings.disableStitch,
-              brandedContent: tiktokSettings.brandedContent,
-            });
-            postId = r.publishId;
           } else if (acc.platform === "bluesky") {
             const r = await publishBluesky({
               outputId: outputId as Id<"outputs">,
@@ -236,13 +219,23 @@ export function PublishModal({
               title: clipTitle ?? "Short Clip",
             });
             postId = r.postId;
-          } else if (acc.platform === "facebook") {
+          } else if (acc.platform === "facebook" && acc.source !== "zernio") {
             const r = await publishFacebook({
               outputId: outputId as Id<"outputs">,
               accountId: acc.accountId,
               clipUrl: clipUrl ?? "",
               clipKey,
               caption,
+            });
+            postId = r.postId;
+          } else if (acc.source === "zernio") {
+            const r = await publishZernio({
+              outputId: outputId as Id<"outputs">,
+              accountId: acc.accountId,
+              platform: acc.platform,
+              caption,
+              clipUrl: clipUrl ?? "",
+              clipKey,
             });
             postId = r.postId;
           } else {
@@ -447,63 +440,6 @@ export function PublishModal({
 
                     {/* Per-platform fields */}
                     <div className="px-4 py-3 border-b border-border bg-white space-y-2.5">
-                      {/* ── TikTok UX Guidelines (required for API approval) ── */}
-                      {platform === "tiktok" && (
-                        <div className="space-y-3">
-                          {/* Point 1: Privacy */}
-                          <div>
-                            <label className="text-xs font-bold text-muted-foreground mb-1 block">
-                              Who can view this video
-                            </label>
-                            <select
-                              value="SELF_ONLY"
-                              disabled
-                              className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-secondary/60 text-muted-foreground opacity-80 cursor-not-allowed"
-                            >
-                              <option value="SELF_ONLY">Only me (Private)</option>
-                            </select>
-                            <p className="text-[11px] text-amber-700 mt-1.5 font-medium">
-                              Only private posting is available until TikTok approves our app.
-                            </p>
-                          </div>
-                          {/* Points 2–4: Interaction toggles */}
-                          <div className="space-y-2">
-                            {([
-                              { key: "disableComment", label: "Allow comments" },
-                              { key: "disableDuet",    label: "Allow duet" },
-                              { key: "disableStitch",  label: "Allow stitch" },
-                            ] as const).map(({ key, label }) => (
-                              <label key={key} className={`flex items-center justify-between px-3 py-2 rounded-xl border border-border cursor-pointer select-none ${isPublishing ? "opacity-60 cursor-not-allowed" : "hover:bg-secondary/40"}`}>
-                                <span className="text-sm font-medium">{label}</span>
-                                <button
-                                  type="button"
-                                  disabled={isPublishing}
-                                  onClick={() => setTiktokSettings((p) => ({ ...p, [key]: !p[key] }))}
-                                  className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${!tiktokSettings[key] ? "bg-primary" : "bg-secondary"}`}
-                                >
-                                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${!tiktokSettings[key] ? "translate-x-4" : "translate-x-0"}`} />
-                                </button>
-                              </label>
-                            ))}
-                          </div>
-                          {/* Point 5: Branded content disclosure */}
-                          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                            <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={tiktokSettings.brandedContent}
-                                onChange={(e) => setTiktokSettings((p) => ({ ...p, brandedContent: e.target.checked }))}
-                                disabled={isPublishing}
-                                className="mt-0.5 accent-primary shrink-0"
-                              />
-                              <div>
-                                <p className="text-xs font-bold text-amber-800">Branded / Sponsored content</p>
-                                <p className="text-[11px] text-amber-700 mt-0.5">Check this if this video promotes a brand, product, or service. Required by TikTok's Branded Content Policy.</p>
-                              </div>
-                            </label>
-                          </div>
-                        </div>
-                      )}
                       {platform === "youtube" && (
                         <div>
                           <label className="text-xs font-bold text-muted-foreground mb-1 block">

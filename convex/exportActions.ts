@@ -2,14 +2,15 @@
 /**
  * exportActions.ts — Server-side subtitle burn export with R2 caching.
  *
- * Required env vars:
- *   BURN_SUBTITLES_URL   — Modal burn_subtitles endpoint URL
- *   VIDEO_WORKER_SECRET  — shared secret for Modal auth
+ * Required env vars (at least one worker URL must be set):
+ *   BURN_SUBTITLES_CANVAS_URL — node-canvas worker (fast, ~30-90s) — tried first
+ *   BURN_SUBTITLES_URL        — Python Modal worker (fallback)
+ *   VIDEO_WORKER_SECRET       — shared secret for worker auth
  *
  * Cache behaviour:
- *   On first export: runs Modal, stores (exportKey, settingsHash) on the output record.
- *   On re-download with same settings: returns signed URL for the cached R2 file — no Modal call.
- *   On re-download with changed settings: re-runs Modal, overwrites R2 file, updates hash.
+ *   On first export: runs worker, stores (exportKey, settingsHash) on the output record.
+ *   On re-download with same settings: returns signed URL for the cached R2 file — no worker call.
+ *   On re-download with changed settings: re-runs worker, overwrites R2 file, updates hash.
  */
 
 import { createHash } from "crypto";
@@ -43,6 +44,45 @@ const SETTINGS_VALIDATOR = v.object({
   template: v.optional(v.string()),
 });
 
+// ─── Worker call helper ───────────────────────────────────────────────────────
+
+async function callBurnWorker(url: string, payload: Record<string, unknown>): Promise<void> {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => resp.statusText);
+    throw new Error(`Burn worker error ${resp.status}: ${txt}`);
+  }
+  const result = (await resp.json()) as { ok: boolean; error?: string };
+  if (!result.ok) throw new Error(result.error ?? "Burn failed");
+}
+
+/** Tries canvas worker first; falls back to Python worker if canvas URL is set but fails. */
+async function burnSubtitles(
+  payload: Record<string, unknown>,
+  canvasUrl: string | undefined,
+  pythonUrl: string | undefined,
+): Promise<void> {
+  if (canvasUrl) {
+    try {
+      await callBurnWorker(canvasUrl, payload);
+      return;
+    } catch (err) {
+      if (!pythonUrl) throw err;
+      // Canvas failed — fall through to Python worker
+    }
+  }
+  if (pythonUrl) {
+    await callBurnWorker(pythonUrl, payload);
+    return;
+  }
+  throw new Error("No burn worker URL configured");
+}
+
+
 export const exportWithSubtitles = action({
   args: {
     outputId: v.optional(v.id("outputs")), // used for cache lookup/save
@@ -52,14 +92,16 @@ export const exportWithSubtitles = action({
       v.object({ text: v.string(), startMs: v.number(), endMs: v.number() }),
     ),
     settings: SETTINGS_VALIDATOR,
+    forceCanvas: v.optional(v.boolean()), // test flag: bypass Python fallback
   },
-  handler: async (ctx, { outputId, clipKey, subtitleWords, settings }) => {
+  handler: async (ctx, { outputId, clipKey, subtitleWords, settings, forceCanvas }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new ConvexError("Unauthorized");
 
-    const workerUrl = process.env.BURN_SUBTITLES_URL;
+    const canvasUrl = undefined; // canvas worker disabled — use Python only
+    const pythonUrl = process.env.BURN_SUBTITLES_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
-    if (!workerUrl) throw new ConvexError("BURN_SUBTITLES_URL env var is not set");
+    if (!pythonUrl) throw new ConvexError("No burn worker URL configured (set BURN_SUBTITLES_URL)");
 
     const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
 
@@ -98,19 +140,19 @@ export const exportWithSubtitles = action({
 
     // Hash includes watermark so a plan upgrade produces a different hash → cache miss → re-render
     const settingsHash = createHash("sha256")
-      .update(JSON.stringify({ ...settings, watermark, v: "7" }))
+      .update(JSON.stringify({ ...settings, watermark, v: "15" }))
       .digest("hex")
       .slice(0, 16);
 
     if (outputId) {
       const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
       if (output?.exportKey === exportKey && output?.exportSettingsHash === settingsHash) {
-        // Cache hit — same settings AND same watermark status — skip Modal entirely
+        // Cache hit — same settings AND same watermark status — skip worker entirely
         const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
         return { downloadUrl };
       }
 
-      // Cache miss — check burn limit before calling Modal
+      // Cache miss — check burn limit before calling worker
       if (output) {
         const project = await ctx.runQuery(api.projects.getProject, { projectId: output.projectId });
         if (project) {
@@ -127,33 +169,23 @@ export const exportWithSubtitles = action({
       }
     }
 
-    // Signed GET URL so Modal can download the clip
+    // Signed GET URL so worker can download the clip
     const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 });
 
     // Presigned PUT URL for the export output (deterministic key → overwrites old export)
     const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
 
-    const resp = await fetch(workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        workerSecret,
-        clipUrl,
-        uploadUrl,
-        subtitleWords,
-        settings,
-        watermark,
-      }),
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => resp.statusText);
-      throw new ConvexError(`Burn worker error ${resp.status}: ${txt}`);
+    const payload = { workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark };
+    try {
+      if (forceCanvas) {
+        if (!canvasUrl) throw new Error("Canvas worker not configured (BURN_SUBTITLES_CANVAS_URL is not set)");
+        await callBurnWorker(canvasUrl, payload);
+      } else {
+        await burnSubtitles(payload, canvasUrl, pythonUrl);
+      }
+    } catch (err) {
+      throw new ConvexError(String(err));
     }
-
-    const result = (await resp.json()) as { ok: boolean; error?: string };
-    if (!result.ok) throw new ConvexError(result.error ?? "Burn failed");
-
 
     if (outputId) {
       await ctx.runMutation(internal.outputs.saveExportCache, {
@@ -217,24 +249,21 @@ export const ensureExported = internalAction({
       return exportKey;
     }
 
-    // Cache miss — run burn worker
-    const workerUrl    = process.env.BURN_SUBTITLES_URL;
+    // Cache miss — run burn worker (silently skip if not configured)
+    const canvasUrl = undefined; // canvas worker disabled — use Python only
+    const pythonUrl = process.env.BURN_SUBTITLES_URL;
     const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
-    if (!workerUrl) return null; // skip silently if worker not configured
+    if (!pythonUrl) return null;
 
     const clipUrl            = await r2.getUrl(output.clipKey, { expiresIn: 60 * 60 });
     const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
 
-    const resp = await fetch(workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark }),
-    });
-
-    if (!resp.ok) return null; // skip silently — publish will use raw clip
-
-    const result = (await resp.json()) as { ok: boolean };
-    if (!result.ok) return null;
+    const payload = { workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark };
+    try {
+      await burnSubtitles(payload, canvasUrl, pythonUrl);
+    } catch {
+      return null; // skip silently — publish will use raw clip
+    }
 
     await ctx.runMutation(internal.outputs.saveExportCache, { outputId, exportKey, exportSettingsHash: settingsHash });
 

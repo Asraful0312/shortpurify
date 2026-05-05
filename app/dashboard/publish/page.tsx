@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Send, CheckCircle2, AlertCircle, Loader2, Link2, X, ShieldAlert, Lock } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Send, CheckCircle2, AlertCircle, Loader2, Link2, X, ShieldAlert, RefreshCw, Crown } from "lucide-react";
 import { PublishModal } from "@/components/dashboard/publish-modal";
 import { BlueskyConnectModal } from "@/components/dashboard/bluesky-connect-modal";
 import { useAction, useQuery } from "convex/react";
@@ -10,16 +10,20 @@ import { cn, friendlyError } from "@/lib/utils";
 import Image from "next/image";
 import { useWorkspace } from "@/components/workspace-context";
 
-/** Platforms available on the Starter (Free) plan. All others require Pro+. */
-// Platforms that are live vs coming soon
-const PLATFORMS = [
-  { id: "youtube",   name: "YouTube Shorts",  image: "/icons/youtube-short.png",  live: true },
-  { id: "bluesky",   name: "Bluesky",         image: "/icons/bluesky-icon.png", live: true },
-  { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png", live: true },
-  { id: "facebook",  name: "Facebook Pages",  image: "/icons/facebook.png", live: false },
-  { id: "instagram", name: "Instagram Reels", image: "/icons/instagram.png", live: false },
-  { id: "linkedin",  name: "LinkedIn",        image: "/icons/linkedin.png", live: false },
-  { id: "threads",   name: "Threads",         image: "/icons/threads.png", live: false },
+/** Native platforms — available to all users. */
+const NATIVE_PLATFORMS = [
+  { id: "youtube", name: "YouTube Shorts", image: "/icons/youtube-short.png" },
+  { id: "bluesky", name: "Bluesky",        image: "/icons/bluesky-icon.png"  },
+];
+
+/** Platforms accessible via Zernio — Pro/Agency only. */
+const ZERNIO_PLATFORMS = [
+  { id: "tiktok",    name: "TikTok",          image: "/icons/tik-tok.png"   },
+  { id: "instagram", name: "Instagram Reels", image: "/icons/instagram.png" },
+  { id: "linkedin",  name: "LinkedIn",        image: "/icons/linkedin.png"  },
+  { id: "facebook",  name: "Facebook",        image: "/icons/facebook.png"  },
+  { id: "threads",   name: "Threads",         image: "/icons/threads.png"   },
+  { id: "twitter",   name: "X (Twitter)",     image: "/icons/twitter.png"   },
 ];
 
 export default function PublishPage() {
@@ -28,29 +32,35 @@ export default function PublishPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [syncingZernio, setSyncingZernio] = useState(false);
   const [blueskyConnectOpen, setBlueskyConnectOpen] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const syncInProgressRef = useRef(false);
 
-  // Plan limits
-  const usage = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
-  const tier = usage?.tier ?? "starter";
+  // Plan tier — use getDirectWorkspaceTier per CLAUDE.md (matches sidebar)
+  const tier = useQuery(api.usage.getDirectWorkspaceTier, { workspaceId: activeOrgId ?? undefined });
+  const isFreePlan = !tier || tier === "starter";
   const accountsPerPlatform = tier === "agency" ? Infinity : tier === "pro" ? 3 : 1;
 
-  // Real-time list of connected accounts from Convex
-  const accounts = useQuery(api.socialTokens.getAllTokens);
-  const isLoading = accounts === undefined;
+  // Native accounts (socialTokens)
+  const nativeAccounts = useQuery(api.socialTokens.getAllTokens);
+  // Zernio accounts
+  const zernioAccountsRaw = useQuery(api.zernio.getMyAccounts);
 
-  const getFacebookAuthUrl = useAction(api.facebookActions.getAuthUrl);
-  const disconnectFacebookPage = useAction(api.facebookActions.disconnectPage);
-  const getYouTubeAuthUrl = useAction(api.youtubeActions.getAuthUrl);
-  const disconnectYouTubeChannel = useAction(api.youtubeActions.disconnectChannel);
-  const getTikTokAuthUrl = useAction(api.tiktokActions.getAuthUrl);
-  const disconnectTikTokAccount = useAction(api.tiktokActions.disconnectAccount);
-  const getThreadsAuthUrl = useAction(api.threadsActions.getAuthUrl);
-  const disconnectThreadsAccount = useAction(api.threadsActions.disconnectAccount);
-  const disconnectBlueskyAccount = useAction(api.blueskyActions.disconnectAccount);
+  const isLoading = nativeAccounts === undefined || zernioAccountsRaw === undefined;
 
-  // Handle ?connected=... and ?error=... redirects from OAuth callbacks
+  const getFacebookAuthUrl   = useAction(api.facebookActions.getAuthUrl);
+  const getYouTubeAuthUrl    = useAction(api.youtubeActions.getAuthUrl);
+  const getThreadsAuthUrl    = useAction(api.threadsActions.getAuthUrl);
+  const disconnectFacebook   = useAction(api.facebookActions.disconnectPage);
+  const disconnectYouTube    = useAction(api.youtubeActions.disconnectChannel);
+  const disconnectThreads    = useAction(api.threadsActions.disconnectAccount);
+  const disconnectBluesky    = useAction(api.blueskyActions.disconnectAccount);
+  const getZernioConnectUrl  = useAction(api.zernioActions.getConnectUrl);
+  const syncZernioAccounts   = useAction(api.zernioActions.syncAccounts);
+  const disconnectZernio     = useAction(api.zernioActions.disconnectAccount);
+
+  // Handle ?connected=... and ?error=... redirects from native OAuth callbacks
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -59,13 +69,13 @@ export default function PublishPage() {
     const detail = params.get("detail");
 
     if (connected) {
-      const name = PLATFORMS.find((p) => p.id === connected)?.name ?? connected;
+      const name = NATIVE_PLATFORMS.find((p) => p.id === connected)?.name ?? connected;
       setToast({ type: "success", msg: `${name} connected successfully!` });
       window.history.replaceState({}, "", window.location.pathname);
     } else if (error) {
       const denied = error?.endsWith("_denied") ?? false;
       const msg = denied
-        ? `${error!.split("_")[0].charAt(0).toUpperCase() + error!.split("_")[0].slice(1)} connection was cancelled.`
+        ? `Connection was cancelled.`
         : detail ?? "Failed to connect. Please try again.";
       setToast({ type: "error", msg });
       window.history.replaceState({}, "", window.location.pathname);
@@ -78,47 +88,37 @@ export default function PublishPage() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const handleConnect = async (platformId: string) => {
+  // ── Native connect ──────────────────────────────────────────────────────────
+  const handleNativeConnect = async (platformId: string) => {
     setConnecting(platformId);
     try {
-      if (platformId === "facebook") {
-        const { authUrl } = await getFacebookAuthUrl({});
-        window.location.href = authUrl;
-      } else if (platformId === "youtube") {
-        const { authUrl } = await getYouTubeAuthUrl({});
-        window.location.href = authUrl;
-      } else if (platformId === "tiktok") {
-        const { authUrl } = await getTikTokAuthUrl({});
-        window.location.href = authUrl;
-      } else if (platformId === "threads") {
-        const { authUrl } = await getThreadsAuthUrl({});
-        window.location.href = authUrl;
-      } else if (platformId === "bluesky") {
+      let authUrl: string;
+      if (platformId === "youtube")      { const r = await getYouTubeAuthUrl({});  authUrl = r.authUrl; }
+      else if (platformId === "facebook"){ const r = await getFacebookAuthUrl({}); authUrl = r.authUrl; }
+      else if (platformId === "threads") { const r = await getThreadsAuthUrl({});  authUrl = r.authUrl; }
+      else if (platformId === "bluesky") {
         setBlueskyConnectOpen(true);
         setConnecting(null);
         return;
+      } else {
+        setConnecting(null);
+        return;
       }
+      window.location.href = authUrl;
     } catch (err) {
       setToast({ type: "error", msg: friendlyError(err, "Failed to get connect URL") });
       setConnecting(null);
     }
   };
 
-  const handleDisconnect = async (platform: string, accountId: string, name: string) => {
+  const handleNativeDisconnect = async (platform: string, accountId: string, name: string) => {
     if (!confirm(`Disconnect "${name}"?`)) return;
     setDisconnecting(accountId);
     try {
-      if (platform === "facebook") {
-        await disconnectFacebookPage({ accountId });
-      } else if (platform === "youtube") {
-        await disconnectYouTubeChannel({ accountId });
-      } else if (platform === "tiktok") {
-        await disconnectTikTokAccount({ accountId });
-      } else if (platform === "threads") {
-        await disconnectThreadsAccount({ accountId });
-      } else if (platform === "bluesky") {
-        await disconnectBlueskyAccount({ accountId });
-      }
+      if (platform === "youtube")      await disconnectYouTube({ accountId });
+      else if (platform === "facebook")await disconnectFacebook({ accountId });
+      else if (platform === "threads") await disconnectThreads({ accountId });
+      else if (platform === "bluesky") await disconnectBluesky({ accountId });
     } catch (err) {
       setToast({ type: "error", msg: friendlyError(err, "Disconnect failed") });
     } finally {
@@ -126,14 +126,84 @@ export default function PublishPage() {
     }
   };
 
-  const hasAnyConnected = (accounts?.length ?? 0) > 0;
+  // ── Zernio connect (popup) ──────────────────────────────────────────────────
+  const handleZernioConnect = async (platformId: string) => {
+    setConnecting(`zernio-${platformId}`);
+    try {
+      const { authUrl } = await getZernioConnectUrl({ platform: platformId });
+      setConnecting(null);
+      const popup = window.open(authUrl, "zernio-oauth", "width=600,height=700,scrollbars=yes");
+      if (!popup) {
+        window.location.href = authUrl;
+        return;
+      }
+      setToast({ type: "success", msg: "Complete the connection in the popup, then click Refresh to sync your accounts." });
+    } catch (err) {
+      setToast({ type: "error", msg: friendlyError(err, "Failed to get connect URL") });
+      setConnecting(null);
+    }
+  };
 
-  // Group by platform — exclude removed platforms (x)
-  const byPlatform: Record<string, typeof accounts> = {};
-  for (const acc of (accounts ?? []).filter((a) => a.platform !== "x")) {
-    if (!byPlatform[acc.platform]) byPlatform[acc.platform] = [];
-    byPlatform[acc.platform]!.push(acc);
+  const handleZernioDisconnect = async (accountId: string, name: string) => {
+    if (!confirm(`Disconnect "${name}"?`)) return;
+    setDisconnecting(accountId);
+    try {
+      await disconnectZernio({ accountId });
+    } catch (err) {
+      setToast({ type: "error", msg: friendlyError(err, "Disconnect failed") });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  const handleRefreshZernio = async () => {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+    setSyncingZernio(true);
+    try {
+      const { synced } = await syncZernioAccounts({});
+      setToast({ type: "success", msg: `${synced} account${synced !== 1 ? "s" : ""} synced.` });
+    } catch (err) {
+      setToast({ type: "error", msg: friendlyError(err, "Refresh failed") });
+    } finally {
+      setSyncingZernio(false);
+      syncInProgressRef.current = false;
+    }
+  };
+
+  // ── Derived data ────────────────────────────────────────────────────────────
+  const nativeByPlatform: Record<string, typeof nativeAccounts> = {};
+  for (const acc of (nativeAccounts ?? []).filter((a) => a.platform !== "x")) {
+    if (!nativeByPlatform[acc.platform]) nativeByPlatform[acc.platform] = [];
+    nativeByPlatform[acc.platform]!.push(acc);
   }
+
+  const zernioByPlatform: Record<string, typeof zernioAccountsRaw> = {};
+  for (const acc of zernioAccountsRaw ?? []) {
+    if (!zernioByPlatform[acc.platform]) zernioByPlatform[acc.platform] = [];
+    zernioByPlatform[acc.platform]!.push(acc);
+  }
+
+  const totalZernioAccounts = (zernioAccountsRaw ?? []).length;
+  const zernioLimit = tier === "agency" ? null : tier === "pro" ? 2 : 0;
+  const atZernioLimit = zernioLimit !== null && totalZernioAccounts >= zernioLimit;
+
+  const hasAnyConnected =
+    (nativeAccounts?.length ?? 0) > 0 || (zernioAccountsRaw?.length ?? 0) > 0;
+
+  // Merged accounts list for publish modal (both native + Zernio)
+  const allAccounts = [
+    ...(nativeAccounts ?? []).map((a) => ({ ...a, source: "native" as const })),
+    ...(zernioAccountsRaw ?? []).map((a) => ({
+      id: a.id,
+      platform: a.platform,
+      accountId: a.accountId,
+      accountName: a.accountName,
+      accountPicture: a.accountPicture,
+      isExpired: false,
+      source: "zernio" as const,
+    })),
+  ];
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto w-full min-h-full flex flex-col gap-8">
@@ -157,15 +227,12 @@ export default function PublishPage() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Publish Hub</h1>
-          <p className="text-muted-foreground mt-1">Connect your social accounts and publish clips directly.</p>
-        </div>
-
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight">Publish Hub</h1>
+        <p className="text-muted-foreground mt-1">Connect your social accounts and publish clips directly.</p>
       </div>
 
-      {/* Platform grid */}
+      {/* ── Native platforms section ─────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-extrabold text-lg">Social Accounts</h2>
@@ -176,124 +243,230 @@ export default function PublishPage() {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {PLATFORMS.map((p) => {
-            const connected = byPlatform[p.id] ?? [];
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {NATIVE_PLATFORMS.map((p) => {
+            const connected = nativeByPlatform[p.id] ?? [];
             const isConnecting = connecting === p.id;
             const atLimit = accountsPerPlatform !== Infinity && connected.length >= accountsPerPlatform;
-            const maintenance = (p as any).maintenance === true;
 
             return (
-                  <div
-                    key={p.id}
-                    className={cn(
-                      "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
-                      (!p.live || maintenance) && "opacity-60",
-                      connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
-                    )}
-                  >
-                    {/* Platform header */}
-                    <div className="flex items-center gap-2.5">
-                      <Image className="size-5" alt={p.name} src={p.image} width={20} height={20} />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate">{p.name}</p>
-                        {isLoading ? (
-                          <div className="h-3 w-16 bg-secondary animate-pulse rounded mt-0.5" />
-                        ) : !p.live ? (
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coming soon</p>
-                        ) : maintenance ? (
-                          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Temporarily unavailable</p>
-                        ) : connected.length > 0 ? (
-                          <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
-                            <CheckCircle2 size={10} />
-                            {connected.length}{accountsPerPlatform !== Infinity ? `/${accountsPerPlatform}` : ""} account{connected.length !== 1 ? "s" : ""} connected
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">Not connected</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Connected account chips */}
-                    {connected.length > 0 && (
-                      <div className="flex flex-col gap-1">
-                        {connected.map((acc) => (
-                          <div key={acc.accountId} className="flex items-center gap-2 bg-white border border-green-200 rounded-lg px-2 py-1">
-                            {acc.accountPicture && (
-                              // eslint-disable-next-line @next/next-image
-                              <img src={acc.accountPicture} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
-                            )}
-                            <span className="text-xs font-semibold truncate flex-1">{acc.accountName}</span>
-                            {/* Only admins/owners can disconnect */}
-                            {isAdmin && (
-                              <button
-                                onClick={() => handleDisconnect(acc.platform, acc.accountId, acc.accountName)}
-                                disabled={disconnecting === acc.accountId}
-                                className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
-                                title="Disconnect"
-                              >
-                                {disconnecting === acc.accountId
-                                  ? <Loader2 size={12} className="animate-spin" />
-                                  : <X size={12} />}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* TikTok public account warning */}
-                    {p.id === "tiktok" && connected.length > 0 && (
-                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 font-semibold">
-                        ⚠️ TikTok only allows publishing to <strong>private accounts</strong> via the API. Make sure your TikTok account is set to private before publishing.
+              <div
+                key={p.id}
+                className={cn(
+                  "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
+                  connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
+                )}
+              >
+                {/* Platform header */}
+                <div className="flex items-center gap-2.5">
+                  <Image className="size-5" alt={p.name} src={p.image} width={20} height={20} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{p.name}</p>
+                    {isLoading ? (
+                      <div className="h-3 w-16 bg-secondary animate-pulse rounded mt-0.5" />
+                    ) : connected.length > 0 ? (
+                      <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 size={10} />
+                        {connected.length}{accountsPerPlatform !== Infinity ? `/${accountsPerPlatform}` : ""} account{connected.length !== 1 ? "s" : ""} connected
                       </p>
-                    )}
-
-                    {/* Maintenance notice */}
-                    {maintenance && (
-                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-center font-semibold">
-                        Back soon — under maintenance
-                      </p>
-                    )}
-
-                    {/* Connect button — admins/owners only, not at limit */}
-                    {p.live && !maintenance && isAdmin && !atLimit && (
-                      <button
-                        onClick={() => handleConnect(p.id)}
-                        disabled={isConnecting || isLoading}
-                        className={cn(
-                          "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-50",
-                          connected.length > 0
-                            ? "border-green-200 text-green-700 hover:bg-green-100"
-                            : "border-primary/30 text-primary hover:bg-primary/5",
-                        )}
-                      >
-                        {isConnecting
-                          ? <><Loader2 size={12} className="animate-spin" /> Connecting…</>
-                          : <><Link2 size={12} /> {connected.length > 0 ? "Add another account" : "Connect"}</>}
-                      </button>
-                    )}
-
-                    {/* At account limit */}
-                    {p.live && !maintenance && isAdmin && atLimit && (
-                      <a
-                        href="/dashboard/billing"
-                        className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all"
-                      >
-                        <Lock size={11} /> Upgrade for more accounts
-                      </a>
-                    )}
-
-                    {/* Members: show lock hint instead of connect */}
-                    {p.live && !maintenance && !isAdmin && connected.length === 0 && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground bg-secondary/60 rounded-xl px-3 py-1.5">
-                        <ShieldAlert size={11} /> Admin required to connect
-                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Not connected</p>
                     )}
                   </div>
+                </div>
+
+                {/* Connected account chips */}
+                {connected.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {connected.map((acc) => (
+                      <div key={acc.accountId} className="flex items-center gap-2 bg-white border border-green-200 rounded-lg px-2 py-1">
+                        {acc.accountPicture && (
+                          // eslint-disable-next-line @next/next-image
+                          <img src={acc.accountPicture} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold truncate flex-1">{acc.accountName}</span>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleNativeDisconnect(acc.platform, acc.accountId, acc.accountName)}
+                            disabled={disconnecting === acc.accountId}
+                            className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                            title="Disconnect"
+                          >
+                            {disconnecting === acc.accountId
+                              ? <Loader2 size={12} className="animate-spin" />
+                              : <X size={12} />}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Connect button */}
+                {isAdmin && !atLimit && (
+                  <button
+                    onClick={() => handleNativeConnect(p.id)}
+                    disabled={isConnecting || isLoading}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-50",
+                      connected.length > 0
+                        ? "border-green-200 text-green-700 hover:bg-green-100"
+                        : "border-primary/30 text-primary hover:bg-primary/5",
+                    )}
+                  >
+                    {isConnecting
+                      ? <><Loader2 size={12} className="animate-spin" /> Connecting…</>
+                      : <><Link2 size={12} /> {connected.length > 0 ? "Add another" : "Connect"}</>}
+                  </button>
+                )}
+
+                {isAdmin && atLimit && (
+                  <a href="/dashboard/billing" className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all">
+                    Upgrade for more accounts
+                  </a>
+                )}
+
+                {!isAdmin && connected.length === 0 && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground bg-secondary/60 rounded-xl px-3 py-1.5">
+                    <ShieldAlert size={11} /> Admin required to connect
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
+      </div>
+
+      {/* ── Zernio platforms section (Pro/Agency) ───────────────────────────── */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <h2 className="font-extrabold text-lg">Pro Platforms</h2>
+            <span className="text-[10px] font-extrabold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+              <Crown size={9} /> PRO
+            </span>
+          </div>
+          {!isFreePlan && isAdmin && (
+            <button
+              onClick={handleRefreshZernio}
+              disabled={syncingZernio}
+              className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              title="Sync accounts from Zernio"
+            >
+              <RefreshCw size={12} className={cn(syncingZernio && "animate-spin")} />
+              {syncingZernio ? "Syncing…" : "Refresh"}
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          {isFreePlan
+            ? "Upgrade to Pro to connect TikTok, Instagram, LinkedIn, Facebook, Threads, and X."
+            : `Powered by Zernio · ${zernioLimit !== null ? `${totalZernioAccounts}/${zernioLimit}` : totalZernioAccounts} account${totalZernioAccounts !== 1 ? "s" : ""} connected`}
+        </p>
+
+        {isFreePlan ? (
+          <a
+            href="/dashboard/billing"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-sm hover:bg-amber-600 transition-colors shadow-sm"
+          >
+            <Crown size={14} /> Upgrade to Pro
+          </a>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {ZERNIO_PLATFORMS.map((p) => {
+              const connected = zernioByPlatform[p.id] ?? [];
+              const isConnecting = connecting === `zernio-${p.id}`;
+
+              return (
+                <div
+                  key={p.id}
+                  className={cn(
+                    "bg-white border rounded-2xl p-4 shadow-sm flex flex-col gap-3 transition-colors",
+                    connected.length > 0 ? "border-green-200 bg-green-50/30" : "border-border",
+                  )}
+                >
+                  {/* Platform header */}
+                  <div className="flex items-center gap-2.5">
+                    <Image className="size-5" alt={p.name} src={p.image} width={20} height={20} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm truncate">{p.name}</p>
+                      {isLoading ? (
+                        <div className="h-3 w-16 bg-secondary animate-pulse rounded mt-0.5" />
+                      ) : connected.length > 0 ? (
+                        <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                          <CheckCircle2 size={10} />
+                          {connected.length} account{connected.length !== 1 ? "s" : ""} connected
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Not connected</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Connected account chips */}
+                  {connected.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      {connected.map((acc) => (
+                        <div key={acc.accountId} className="flex items-center gap-2 bg-white border border-green-200 rounded-lg px-2 py-1">
+                          {acc.accountPicture && (
+                            // eslint-disable-next-line @next/next-image
+                            <img src={acc.accountPicture} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
+                          )}
+                          <span className="text-xs font-semibold truncate flex-1">{acc.accountName}</span>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleZernioDisconnect(acc.accountId, acc.accountName)}
+                              disabled={disconnecting === acc.accountId}
+                              className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                              title="Disconnect"
+                            >
+                              {disconnecting === acc.accountId
+                                ? <Loader2 size={12} className="animate-spin" />
+                                : <X size={12} />}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Connect / limit buttons */}
+                  {isAdmin && !atZernioLimit && (
+                    <button
+                      onClick={() => handleZernioConnect(p.id)}
+                      disabled={isConnecting || syncingZernio}
+                      className={cn(
+                        "flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 disabled:opacity-50",
+                        connected.length > 0
+                          ? "border-green-200 text-green-700 hover:bg-green-100"
+                          : "border-primary/30 text-primary hover:bg-primary/5",
+                      )}
+                    >
+                      {isConnecting
+                        ? <><Loader2 size={12} className="animate-spin" /> Opening…</>
+                        : <><Link2 size={12} /> {connected.length > 0 ? "Add another" : "Connect"}</>}
+                    </button>
+                  )}
+
+                  {isAdmin && atZernioLimit && connected.length === 0 && (
+                    <a
+                      href="/dashboard/billing"
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-300 text-amber-700 hover:bg-amber-50 transition-all"
+                    >
+                      <Crown size={11} /> Upgrade for more accounts
+                    </a>
+                  )}
+
+                  {!isAdmin && connected.length === 0 && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground bg-secondary/60 rounded-xl px-3 py-1.5">
+                      <ShieldAlert size={11} /> Admin required to connect
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Empty state */}
@@ -303,13 +476,20 @@ export default function PublishPage() {
           <div>
             <p className="font-extrabold text-amber-800">No accounts connected yet</p>
             <p className="text-sm text-amber-700 mt-0.5">
-              Click <strong>Connect</strong> on YouTube Shorts above to link your Pages and start publishing clips.
+              Click <strong>Connect</strong> above to link your social accounts and start publishing clips.
             </p>
           </div>
         </div>
       )}
 
-      <PublishModal open={publishOpen} onClose={() => setPublishOpen(false)} accounts={accounts ?? []} isLoadingAccounts={accounts === undefined} canSchedule={tier !== "starter"} />
+      <PublishModal
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        accounts={allAccounts}
+        isLoadingAccounts={isLoading}
+        canSchedule={tier !== "starter"}
+        workspaceId={activeOrgId ?? undefined}
+      />
       <BlueskyConnectModal
         open={blueskyConnectOpen}
         onClose={() => setBlueskyConnectOpen(false)}

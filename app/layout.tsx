@@ -108,17 +108,46 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "name": "ShortPurify",
-              "url": "https://shortpurify.com",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://shortpurify.com/?q={search_term_string}",
-                "query-input": "required name=search_term_string"
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "ShortPurify",
+                "url": "https://shortpurify.com",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://shortpurify.com/?q={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                "name": "ShortPurify",
+                "url": "https://shortpurify.com",
+                "applicationCategory": "VideoApplication",
+                "operatingSystem": "Web",
+                "description": "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
+                "offers": [
+                  { "@type": "Offer", "name": "Starter", "price": "0", "priceCurrency": "USD" },
+                  { "@type": "Offer", "name": "Pro Creator", "price": "24", "priceCurrency": "USD" },
+                  { "@type": "Offer", "name": "Agency", "price": "79", "priceCurrency": "USD" }
+                ]
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                "name": "ShortPurify Navigation",
+                "itemListElement": [
+                  { "@type": "SiteLinksSearchBox", "url": "https://shortpurify.com" },
+                  { "@type": "ListItem", "position": 1, "name": "Pricing", "url": "https://shortpurify.com/#pricing" },
+                  { "@type": "ListItem", "position": 2, "name": "Features", "url": "https://shortpurify.com/#features" },
+                  { "@type": "ListItem", "position": 3, "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
+                  { "@type": "ListItem", "position": 4, "name": "Sign In", "url": "https://shortpurify.com/sign-in" },
+                  { "@type": "ListItem", "position": 5, "name": "Contact", "url": "https://shortpurify.com/contact" }
+                ]
               }
-            }),
+            ]),
           }}
         />
       </head>

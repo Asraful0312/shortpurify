@@ -142,9 +142,10 @@ export default function RootLayout({
                   { "@type": "SiteLinksSearchBox", "url": "https://shortpurify.com" },
                   { "@type": "ListItem", "position": 1, "name": "Pricing", "url": "https://shortpurify.com/#pricing" },
                   { "@type": "ListItem", "position": 2, "name": "Features", "url": "https://shortpurify.com/#features" },
-                  { "@type": "ListItem", "position": 3, "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
-                  { "@type": "ListItem", "position": 4, "name": "Sign In", "url": "https://shortpurify.com/sign-in" },
-                  { "@type": "ListItem", "position": 5, "name": "Contact", "url": "https://shortpurify.com/contact" }
+                  { "@type": "ListItem", "position": 3, "name": "Free Tools", "url": "https://shortpurify.com/tools" },
+                  { "@type": "ListItem", "position": 4, "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
+                  { "@type": "ListItem", "position": 5, "name": "Sign In", "url": "https://shortpurify.com/sign-in" },
+                  { "@type": "ListItem", "position": 6, "name": "Contact", "url": "https://shortpurify.com/contact" }
                 ]
               }
             ]),

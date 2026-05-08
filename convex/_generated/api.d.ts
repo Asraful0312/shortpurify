@@ -34,6 +34,7 @@ import type * as socialTokens from "../socialTokens.js";
 import type * as tenants from "../tenants.js";
 import type * as threadsActions from "../threadsActions.js";
 import type * as tiktokActions from "../tiktokActions.js";
+import type * as toolsActions from "../toolsActions.js";
 import type * as transcription from "../transcription.js";
 import type * as usage from "../usage.js";
 import type * as users from "../users.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   tenants: typeof tenants;
   threadsActions: typeof threadsActions;
   tiktokActions: typeof tiktokActions;
+  toolsActions: typeof toolsActions;
   transcription: typeof transcription;
   usage: typeof usage;
   users: typeof users;

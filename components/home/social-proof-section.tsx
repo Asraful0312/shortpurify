@@ -32,13 +32,16 @@ function ReviewCard({
   image?: string;
 }) {
   return (
-    <div className="p-5 sm:p-8 rounded-3xl bg-white border border-border/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] relative transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group">
+    <div className="p-5 sm:p-8 rounded-3xl bg-white border border-border/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] relative transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group flex justify-between flex-col">
+      <div>
+
       <div className="flex text-yellow-500 mb-6 drop-shadow-sm transition-transform group-hover:scale-105 origin-left">
         {[1, 2, 3, 4, 5].map((s) => (
           <Star key={s} size={18} fill={s <= rating ? "currentColor" : "none"} className={s <= rating ? "" : "text-border"} />
         ))}
       </div>
       <p className="text-lg text-foreground mb-8 font-medium leading-relaxed">"{quote}"</p>
+      </div>
       <div className="flex items-center gap-4 mt-auto">
         {image ? (
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary/20 shadow-sm shrink-0">
@@ -62,7 +65,7 @@ function SocialProofSection() {
   const rawReviews = useQuery(api.reviews.getApprovedReviews);
 
   // Don't render at all until we have data and there are 3+ approved reviews
-  if (!rawReviews || rawReviews.length < 1) return null;
+  if (!rawReviews || rawReviews.length < 3) return null;
 
   const reviews: ReviewItem[] = rawReviews.map((r) => ({
     quote: r.reviewText,

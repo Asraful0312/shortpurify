@@ -133,7 +133,7 @@ export function ReviewPrompt({ delayMs = 3000 }: { delayMs?: number }) {
                 maxLength={280}
                 className="w-full text-sm border border-border rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
               />
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <input
                   value={authorName}
                   onChange={(e) => setAuthorName(e.target.value)}

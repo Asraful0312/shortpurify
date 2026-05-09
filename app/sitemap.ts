@@ -105,6 +105,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: "https://shortpurify.com/tools/youtube-shorts-title-length-checker",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: "https://shortpurify.com/tools/video-aspect-ratio-calculator",
       lastModified: new Date(),
       changeFrequency: "monthly",
@@ -112,6 +118,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: "https://shortpurify.com/tools/tiktok-coins-calculator",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/tiktok-caption-character-counter",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/tiktok-hashtag-counter",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
@@ -136,6 +154,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: "https://shortpurify.com/tools/instagram-reels-size-calculator",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-reels-safe-zone-checker",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-reels-caption-length-checker",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-reels-cover-size-calculator",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,

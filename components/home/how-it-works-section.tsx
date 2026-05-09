@@ -108,7 +108,7 @@ const AnimatedTutorialUI = ({ step }: { step: number }) => {
             <div className="w-full p-6 flex flex-col gap-4 bg-white z-20">
               <div className="flex items-center gap-3">
                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Image src="/logo-small.png" alt="logo" width={24} height={24} />
+                    <Image src="/logo.png" alt="logo" width={24} height={24} />
                  </div>
                  <div>
                    <p className="font-extrabold text-sm text-foreground">Claude AI is analyzing...</p>
@@ -294,7 +294,7 @@ export default function HowItWorksSection() {
           </div>
           
           <div className="lg:w-1/2 w-full">
-            <div className="aspect-square md:aspect-video lg:aspect-square bg-secondary/30 rounded-[2rem] border border-border overflow-hidden relative  flex flex-col group">
+            <div className="aspect-1/1.5 md:aspect-video lg:aspect-square bg-secondary/30 rounded-[2rem] border border-border overflow-hidden relative  flex flex-col group">
               {/* Safari Fake UI mockup */}
               <div className="h-12 border-b border-border bg-white flex items-center px-4 gap-2 shrink-0 z-20">
                 <div className="w-3.5 h-3.5 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>

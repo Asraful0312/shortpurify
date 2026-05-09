@@ -67,14 +67,20 @@ export const getMyReview = query({
   },
 });
 
-/** Public query — returns all approved reviews (shown on landing page). */
+/** Public query — returns all approved reviews with author avatar (shown on landing page). */
 export const getApprovedReviews = query({
   args: {},
   handler: async (ctx) => {
-    return ctx.db
+    const reviews = await ctx.db
       .query("reviews")
       .withIndex("by_approved", (q) => q.eq("approved", true))
       .order("desc")
       .collect();
+    return Promise.all(
+      reviews.map(async (r) => {
+        const user = await ctx.db.get(r.userId);
+        return { ...r, imageUrl: user?.imageUrl ?? null };
+      })
+    );
   },
 });

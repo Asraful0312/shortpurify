@@ -9,6 +9,7 @@ import { ProjectCard } from "@/components/project-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { FeatureAnnouncement } from "@/components/dashboard/feature-announcement";
 import { useWorkspace } from "@/components/workspace-context";
+import { useUser } from "@clerk/clerk-react";
 
 const PAGE_SIZE = 12;
 
@@ -16,6 +17,10 @@ export default function DashboardPage() {
   const { activeOrgId, activeOrg, isLoading: workspaceLoading } = useWorkspace();
 
   const isPersonalView = !activeOrgId;
+
+    const user = useUser()
+
+  console.log("user", user)
 
   const {
     results: personalResults,

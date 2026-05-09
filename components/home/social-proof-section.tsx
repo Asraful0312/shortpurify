@@ -61,6 +61,8 @@ function ReviewCard({
 function SocialProofSection() {
   const rawReviews = useQuery(api.reviews.getApprovedReviews);
 
+
+
   // Don't render at all until we have data and there are 3+ approved reviews
   if (!rawReviews || rawReviews.length < 3) return null;
 
@@ -69,6 +71,7 @@ function SocialProofSection() {
     authorName: r.authorName,
     authorRole: r.authorRole,
     rating: r.rating,
+    image: r.imageUrl ?? undefined,
   }));
 
   return (

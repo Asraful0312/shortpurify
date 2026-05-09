@@ -26,11 +26,14 @@ export function ReviewPrompt({ delayMs = 3000 }: { delayMs?: number }) {
   const [authorRole, setAuthorRole] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [image, setImage] = useState(user?.imageUrl);
 
   // Pre-fill name from Clerk
   useEffect(() => {
     if (user?.fullName) setAuthorName(user.fullName);
   }, [user?.fullName]);
+
+
 
   useEffect(() => {
     // Don't show if already dismissed this session or already reviewed

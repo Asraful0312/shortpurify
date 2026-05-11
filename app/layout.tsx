@@ -118,11 +118,6 @@ export default function RootLayout({
                 "@type": "WebSite",
                 "name": "ShortPurify",
                 "url": "https://shortpurify.com",
-                "potentialAction": {
-                  "@type": "SearchAction",
-                  "target": "https://shortpurify.com/?q={search_term_string}",
-                  "query-input": "required name=search_term_string"
-                }
               },
               {
                 "@context": "https://schema.org",
@@ -138,20 +133,6 @@ export default function RootLayout({
                   { "@type": "Offer", "name": "Agency", "price": "79", "priceCurrency": "USD" }
                 ]
               },
-              {
-                "@context": "https://schema.org",
-                "@type": "ItemList",
-                "name": "ShortPurify Navigation",
-                "itemListElement": [
-                  { "@type": "SiteLinksSearchBox", "url": "https://shortpurify.com" },
-                  { "@type": "ListItem", "position": 1, "name": "Pricing", "url": "https://shortpurify.com/#pricing" },
-                  { "@type": "ListItem", "position": 2, "name": "Features", "url": "https://shortpurify.com/#features" },
-                  { "@type": "ListItem", "position": 3, "name": "Free Tools", "url": "https://shortpurify.com/tools" },
-                  { "@type": "ListItem", "position": 4, "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
-                  { "@type": "ListItem", "position": 5, "name": "Sign In", "url": "https://shortpurify.com/sign-in" },
-                  { "@type": "ListItem", "position": 6, "name": "Contact", "url": "https://shortpurify.com/contact" }
-                ]
-              }
             ]),
           }}
         />

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Link from "next/link";
 import { Calculator, ArrowRight, Copy, Check } from "lucide-react";
 import ToolsCta from "@/components/tools-cta";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
@@ -67,10 +66,7 @@ export default function VideoAspectRatioCalculator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-    
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="Video Aspect Ratio Calculator" toolHref="/tools/video-aspect-ratio-calculator" />
         <div className="text-center mb-10">
@@ -278,21 +274,6 @@ export default function VideoAspectRatioCalculator() {
         />
      
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Video aspect ratios explained</h2>
-          <p>An aspect ratio describes the proportional relationship between a video&apos;s width and height. The most common ratios in 2025 are 9:16 (vertical/portrait), 16:9 (landscape), and 1:1 (square). Getting the ratio wrong means black bars, auto-cropping, or rejection by the platform&apos;s uploader.</p>
-          <h3 className="text-foreground font-bold">Why 9:16 dominates short-form video</h3>
-          <p>TikTok, YouTube Shorts, Instagram Reels, and Snapchat all default to 9:16 because it fills a smartphone screen edge-to-edge. Uploading a 16:9 video to any of these platforms results in letterboxing (black bars on the sides) which dramatically reduces engagement.</p>
-          <h3 className="text-foreground font-bold">How to convert 16:9 to 9:16</h3>
-          <p>To crop a 1920×1080 video to 9:16, keep the height at 1080 and set the width to 607 — or keep the width at 1080 and set the height to 1920. ShortPurify does this automatically with smart cropping that follows the speaker&apos;s face.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/tiktok-caption-generator" className="text-primary">TikTok Caption Generator</Link> — viral captions + hashtags</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

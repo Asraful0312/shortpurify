@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Sparkles, Copy, Check, Loader2, FileText, Clock, Lightbulb } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -88,9 +87,7 @@ export default function YouTubeShortsScriptGenerator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="YouTube Shorts Script Generator" toolHref="/tools/youtube-shorts-script-generator" />
         <div className="text-center mb-10">
@@ -218,26 +215,6 @@ export default function YouTubeShortsScriptGenerator() {
           subText="Paste Youtube video URL, ShortPurify turns your long videos into short clips automatically with AI captions, smart crop, and one-click publishing to YouTube Shorts, TikTok, and Instagram Reels."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to write a YouTube Shorts script that keeps viewers watching</h2>
-          <p>YouTube Shorts are won or lost in the first 3 seconds. Unlike long-form videos, you have no time to warm up your hook must be the very first thing viewers hear or see.</p>
-          <h3 className="text-foreground font-bold">The 3-part Short script structure</h3>
-          <ul>
-            <li><strong>Hook (0–3s)</strong> — Start mid-thought. &quot;I can&apos;t believe this works...&quot; or &quot;Nobody talks about this.&quot; Avoid intros and name drops.</li>
-            <li><strong>Body (3s–end)</strong> — Deliver the value fast. One idea per sentence. Cut anything that doesn&apos;t move the story forward.</li>
-            <li><strong>CTA (last 3s)</strong> — Ask for one thing: follow, comment, or link. Never ask for multiple actions in one Short.</li>
-          </ul>
-          <h3 className="text-foreground font-bold">How long should a YouTube Shorts script be?</h3>
-          <p>An average speaking pace is 130–150 words per minute. For a 30-second Short, write ~65 words. For 60 seconds, ~130 words. Keep it tight the algorithm rewards high retention, and shorter scripts typically perform better because viewers loop them.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/youtube-shorts-duration-calculator" className="text-primary">YouTube Shorts Duration Calculator</Link> — find the optimal clip length</li>
-            <li><Link href="/tools/youtube-thumbnail-prompt-generator" className="text-primary">YouTube Thumbnail Prompt Generator</Link> — AI prompts for Midjourney & DALL·E</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

@@ -25,7 +25,7 @@ function CTASection() {
             <Zap className="text-accent ml-2 group-hover:scale-110 transition-transform" fill="currentColor" size={20} />
           </button>
         </SignUpButton>
-        <p className="mt-8 text-sm font-medium text-muted-foreground">5 free projects, no credit card required. Cancel anytime.</p>
+        <p className="mt-8 text-sm font-medium text-muted-foreground">2 free projects, no credit card required. Cancel anytime.</p>
       </motion.div>
     </section>
   );

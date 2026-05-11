@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Timer, Star } from "lucide-react";
 import ToolsNavBar from "@/components/tools-nav-bar";
 import ToolsCta from "@/components/tools-cta";
@@ -50,9 +49,7 @@ export default function YouTubeShortsDurationCalculator() {
   const recommendedLength = contentType ? CONTENT_TIPS[contentType]?.recommended : null;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="YouTube Shorts Duration Calculator" toolHref="/tools/youtube-shorts-duration-calculator" />
         <div className="text-center mb-10">
@@ -79,7 +76,7 @@ export default function YouTubeShortsDurationCalculator() {
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
                 placeholder="0"
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
+                className="w-full border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
               />
             </div>
             <span className="text-muted-foreground font-bold text-xl mt-5">:</span>
@@ -92,7 +89,7 @@ export default function YouTubeShortsDurationCalculator() {
                 value={minutes}
                 onChange={(e) => setMinutes(e.target.value)}
                 placeholder="30"
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
+                className="w-full border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
               />
             </div>
             <span className="text-muted-foreground font-bold text-xl mt-5">:</span>
@@ -105,7 +102,7 @@ export default function YouTubeShortsDurationCalculator() {
                 value={seconds}
                 onChange={(e) => setSeconds(e.target.value)}
                 placeholder="00"
-                className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
+                className="w-full border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-secondary/30 text-center font-bold text-lg"
               />
             </div>
           </div>
@@ -227,29 +224,6 @@ export default function YouTubeShortsDurationCalculator() {
           subText="Paste Youtube Video URL, ShortPurify automatically cuts your video at the best moments, adds captions, and publishes to YouTube Shorts no manual editing needed."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">YouTube Shorts timer everything you need to know in 2025</h2>
-          <p>YouTube Shorts now supports videos up to <strong>3 minutes (180 seconds)</strong>, up from the previous 60-second limit. However, longer doesn&apos;t always mean better the algorithm still favors videos with high audience retention, which typically means shorter clips.</p>
-          <h3 className="text-foreground font-bold">Best YouTube Shorts length by content type</h3>
-          <ul>
-            <li><strong>15–30 seconds</strong> — Hooks, reactions, memes, satisfying clips. Highest loop rate.</li>
-            <li><strong>30–60 seconds</strong> — Tips, tutorials, product showcases. Best balance of retention and value.</li>
-            <li><strong>60–90 seconds</strong> — Mini-tutorials, storytelling, before/after. Good for educational content.</li>
-            <li><strong>90s–3 minutes</strong> — In-depth explainers, vlogs, mini-docs. Use only if the full time is necessary.</li>
-          </ul>
-          <h3 className="text-foreground font-bold">How to use the YouTube Shorts timer in the app</h3>
-          <p>When recording in the YouTube app, tap the timer icon to set a countdown before recording starts. You can also set a clip duration so recording stops automatically. For best results, plan your script to fit within 30–45 seconds and record in one take.</p>
-          <h3 className="text-foreground font-bold">How many Shorts can you make from a 1-hour video?</h3>
-          <p>A 60-minute video contains 3,600 seconds of content. At 30 seconds per clip, that&apos;s up to 120 Shorts. At 60 seconds per clip, that&apos;s 60 Shorts. Tools like ShortPurify automatically identify the best moments so you don&apos;t have to watch the whole video manually.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/youtube-thumbnail-prompt-generator" className="text-primary">YouTube Thumbnail Prompt Generator</Link> — AI prompts for Midjourney & DALL·E</li>
-            <li><Link href="/tools/hashtag-generator" className="text-primary">Hashtag Generator</Link> — Instagram, TikTok & YouTube hashtags</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

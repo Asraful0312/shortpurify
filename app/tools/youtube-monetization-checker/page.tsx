@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Loader2, Search, CheckCircle2, XCircle, AlertCircle, Users, Video, Eye, ExternalLink } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -152,9 +151,7 @@ export default function YouTubeMonetizationChecker() {
   const reqs = channel ? getRequirements(channel) : null;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="YouTube Monetization Checker" toolHref="/tools/youtube-monetization-checker" />
         <div className="text-center mb-10">
@@ -295,31 +292,6 @@ export default function YouTubeMonetizationChecker() {
           subText="Paste Youtube video URL, ShortPurify turns your long videos into viral short clips automatically helping you hit watch hours and Shorts views faster with zero editing effort."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">YouTube Partner Program requirements in 2025</h2>
-          <p>YouTube has two tiers of monetization Early Access YPP and Standard YPP. Both require your channel to comply with YouTube&apos;s monetization policies and be in good standing.</p>
-          <h3 className="text-foreground font-bold">Standard YPP (full monetization)</h3>
-          <ul>
-            <li>1,000 subscribers</li>
-            <li>4,000 public watch hours in the past 12 months <strong>OR</strong> 10 million valid public Shorts views in the past 90 days</li>
-          </ul>
-          <h3 className="text-foreground font-bold">Early Access YPP (fan funding only)</h3>
-          <ul>
-            <li>500 subscribers</li>
-            <li>3 public uploads in the last 90 days</li>
-            <li>3,000 public watch hours in the past 12 months <strong>OR</strong> 3 million valid public Shorts views in the past 90 days</li>
-          </ul>
-          <h3 className="text-foreground font-bold">How to reach 4,000 watch hours faster</h3>
-          <p>4,000 watch hours = 240,000 minutes of watchtime. Focus on longer videos (10–20 min) with high retention, and use YouTube Shorts to drive subscribers to your long-form content. ShortPurify can clip your existing long videos into Shorts automatically to grow both metrics simultaneously.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/youtube-shorts-script-generator" className="text-primary">YouTube Shorts Script Generator</Link> — complete scripts with hook, body & CTA</li>
-            <li><Link href="/tools/youtube-shorts-duration-calculator" className="text-primary">YouTube Shorts Duration Calculator</Link> — optimal clip length for your video</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

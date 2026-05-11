@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { CheckCircle2, Hash } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -24,8 +23,7 @@ export default function TikTokHashtagCounter() {
   }, [caption]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="TikTok Hashtag Counter" toolHref="/tools/tiktok-hashtag-counter" />
 
         <div className="text-center mb-10">
@@ -75,16 +73,6 @@ export default function TikTokHashtagCounter() {
 
         <ToolsCta headerText="Hashtags ready? Make the clip." subText="ShortPurify turns long videos into captioned TikToks, Reels, and Shorts." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How many hashtags should you use on TikTok?</h2>
-          <p>Most TikTok captions do not need a large hashtag block. A focused set of 3-5 relevant hashtags is usually easier for viewers and algorithms to understand.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/tiktok-caption-character-counter" className="text-primary">TikTok Caption Character Counter</Link></li>
-            <li><Link href="/tools/hashtag-generator" className="text-primary">Hashtag Generator</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

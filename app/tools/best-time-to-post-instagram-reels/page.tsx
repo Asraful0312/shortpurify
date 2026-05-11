@@ -49,8 +49,7 @@ export default function BestTimeToPostInstagramReels() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-4xl mx-auto px-4 py-14">
+    <main className="max-w-4xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Best Time to Post Instagram Reels" toolHref="/tools/best-time-to-post-instagram-reels" />
 
         <div className="text-center mb-10">
@@ -162,19 +161,6 @@ export default function BestTimeToPostInstagramReels() {
           subText="ShortPurify turns long videos into Instagram Reels with smart crop, captions, and ready-to-post short clips."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Best time to post Reels on Instagram</h2>
-          <p>The best time to post Instagram Reels is usually when your audience is already opening the app: lunch breaks, early evening, and late evening. These windows help your Reel earn early views, saves, comments, and shares.</p>
-          <h3 className="text-foreground font-bold">Is there a best time to post Reels today?</h3>
-          <p>Yes, but it depends on your audience location. Use the calculator above for a timezone-adjusted starting point, then confirm it with your own Instagram Insights.</p>
-          <h3 className="text-foreground font-bold">Related free Instagram tools</h3>
-          <ul>
-            <li><Link href="/tools/instagram-reels-size-calculator" className="text-primary">Instagram Reels Size Calculator</Link> for 9:16 dimensions</li>
-            <li><Link href="/tools/instagram-reels-length-calculator" className="text-primary">Instagram Reels Length Calculator</Link> for duration checks</li>
-            <li><Link href="/tools/instagram-trending-songs-finder" className="text-primary">Instagram Trending Songs Finder</Link> for Reels audio research</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

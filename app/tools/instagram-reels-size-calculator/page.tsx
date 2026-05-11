@@ -47,8 +47,7 @@ export default function InstagramReelsSizeCalculator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-4xl mx-auto px-4 py-14">
+    <main className="max-w-4xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels Size Calculator" toolHref="/tools/instagram-reels-size-calculator" />
 
         <div className="text-center mb-10">
@@ -127,18 +126,6 @@ export default function InstagramReelsSizeCalculator() {
           subText="ShortPurify smart-crops long videos into vertical Instagram Reels, adds captions, and keeps the subject framed."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Instagram Reels size and aspect ratio</h2>
-          <p>The best Instagram Reels size is 1080 x 1920 pixels with a 9:16 aspect ratio. This fills the vertical phone screen and also works for TikTok and YouTube Shorts.</p>
-          <h3 className="text-foreground font-bold">What happens if your Reel is not 9:16?</h3>
-          <p>Instagram may add empty space, crop the frame, or show the Reel differently in the feed, profile grid, and Reels tab. Use the calculator above before exporting.</p>
-          <h3 className="text-foreground font-bold">Related free tools</h3>
-          <ul>
-            <li><Link href="/tools/video-aspect-ratio-calculator" className="text-primary">Video Aspect Ratio Calculator</Link> for every platform</li>
-            <li><Link href="/tools/instagram-reels-length-calculator" className="text-primary">Instagram Reels Length Calculator</Link> for duration checks</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Sparkles, Copy, Check, Loader2, ImageIcon, ExternalLink } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -119,9 +118,7 @@ export default function YouTubeThumbnailPromptGenerator() {
   const hasResults = result && AI_TOOLS.some((t) => result.prompts[t]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="YouTube Thumbnail Prompt Generator" toolHref="/tools/youtube-thumbnail-prompt-generator" />
         <div className="text-center mb-10">
@@ -241,28 +238,6 @@ export default function YouTubeThumbnailPromptGenerator() {
           subText="Paste Youtube video URL, ShortPurify cuts your long video into viral short clips, adds captions, and publishes directly to YouTube Shorts in minutes."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to create the perfect YouTube thumbnail with AI</h2>
-          <p>A great YouTube thumbnail is responsible for up to 90% of your click-through rate. AI image generators like Midjourney and DALL·E 3 can create professional thumbnails in seconds but only if you give them the right prompt.</p>
-          <h3 className="text-foreground font-bold">What makes a high-CTR YouTube thumbnail?</h3>
-          <ul>
-            <li><strong>Bold contrast</strong> use colors that pop against YouTube&apos;s white background (red, yellow, bright blue)</li>
-            <li><strong>Expressive face</strong> thumbnails with a surprised or excited face get significantly more clicks</li>
-            <li><strong>Minimal text</strong> 3-4 words maximum, large enough to read on mobile</li>
-            <li><strong>Clear focal point</strong> one main subject, no clutter</li>
-            <li><strong>16:9 ratio</strong> always design at 1280×720 pixels</li>
-          </ul>
-          <h3 className="text-foreground font-bold">Midjourney vs DALL·E 3 for YouTube thumbnails</h3>
-          <p>Midjourney produces more cinematic, stylized results and handles lighting exceptionally well. DALL·E 3 (via ChatGPT) is better at following detailed text instructions and is more accessible without a subscription. Stable Diffusion gives you the most control via tools like ComfyUI, and Leonardo.ai offers a free tier with good quality.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary underline">YouTube Shorts Title Generator</Link> 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/hashtag-generator" className="text-primary underline">Hashtag Generator</Link> Instagram, TikTok & YouTube hashtags</li>
-            <li><Link href="/tools/tiktok-caption-generator" className="text-primary underline">TikTok Caption Generator</Link> viral captions + hashtags</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

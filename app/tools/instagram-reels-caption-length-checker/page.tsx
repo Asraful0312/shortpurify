@@ -27,8 +27,7 @@ export default function InstagramReelsCaptionLengthChecker() {
   }, [caption]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels Caption Length Checker" toolHref="/tools/instagram-reels-caption-length-checker" />
 
         <div className="text-center mb-10">
@@ -81,16 +80,6 @@ export default function InstagramReelsCaptionLengthChecker() {
 
         <ToolsCta headerText="Caption ready? Make the Reel next." subText="ShortPurify turns long videos into short, captioned clips for Instagram Reels, TikTok, and YouTube Shorts." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Instagram Reels caption length</h2>
-          <p>Instagram captions can be long, but Reels usually perform better when the first line is short and useful. Use this counter to keep your caption readable while staying within platform limits.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/hashtag-generator" className="text-primary">Hashtag Generator</Link></li>
-            <li><Link href="/tools/instagram-reels-safe-zone-checker" className="text-primary">Instagram Reels Safe Zone Checker</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

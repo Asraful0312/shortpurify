@@ -82,9 +82,7 @@ export default function HashtagGenerator() {
   const hasResults = hashtags && PLATFORMS.some((p) => hashtags[p].length > 0);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="Hashtag Generator" toolHref="/tools/hashtag-generator" />
         <div className="text-center mb-10">
@@ -199,36 +197,6 @@ export default function HashtagGenerator() {
           subText="Paste Youtube video URL or upload your video. ShortPurify cuts your long video into short clips, adds captions, and publishes directly to Instagram, TikTok, and YouTube Shorts in minutes."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to use hashtags effectively in 2025</h2>
-          <p>Hashtags work differently on each platform. On Instagram, a mix of niche and mid-size hashtags outperforms spamming 30 broad ones. On TikTok, hashtags influence the For You Page algorithm. On YouTube Shorts, they help with topic categorization rather than direct discovery.</p>
-          <h3 className="text-foreground font-bold">Instagram hashtag strategy</h3>
-          <ul>
-            <li>Use 5–15 targeted hashtags, not the maximum 30 quality over quantity</li>
-            <li>Mix: 3–4 niche tags (under 100K posts), 5–7 medium (100K–1M), 2–3 broad (1M+)</li>
-            <li>Avoid banned or overused hashtags they can suppress your reach</li>
-          </ul>
-          <h3 className="text-foreground font-bold">TikTok hashtag strategy</h3>
-          <ul>
-            <li>3–5 hashtags is enough TikTok&apos;s algorithm relies more on content than tags</li>
-            <li>Always include at least one trending hashtag relevant to your niche</li>
-            <li>#FYP and #ForYou are too saturated use niche-specific tags instead</li>
-          </ul>
-          <h3 className="text-foreground font-bold">YouTube Shorts hashtag strategy</h3>
-          <ul>
-            <li>Add 3–5 hashtags in the description YouTube shows the first 3 above the title</li>
-            <li>Use your main keyword as the first hashtag</li>
-            <li>Too many hashtags can result in YouTube ignoring all of them</li>
-          </ul>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/tiktok-caption-generator" className="text-primary">TikTok Caption Generator</Link> — viral captions + hashtags</li>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/video-aspect-ratio-calculator" className="text-primary">Video Aspect Ratio Calculator</Link> — perfect size for every platform</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

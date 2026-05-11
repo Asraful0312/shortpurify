@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { AtSign, CheckCircle2, MessageCircle } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -27,8 +26,7 @@ export default function TikTokCaptionCharacterCounter() {
   }, [caption]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="TikTok Caption Character Counter" toolHref="/tools/tiktok-caption-character-counter" />
 
         <div className="text-center mb-10">
@@ -81,16 +79,6 @@ export default function TikTokCaptionCharacterCounter() {
 
         <ToolsCta headerText="Need a captioned TikTok clip?" subText="ShortPurify turns long videos into short clips with captions for TikTok, Reels, and Shorts." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">TikTok caption length checker</h2>
-          <p>TikTok captions can carry hashtags, context, and a call to action. This counter helps keep captions readable while giving the algorithm clear topic signals.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/tiktok-hashtag-counter" className="text-primary">TikTok Hashtag Counter</Link></li>
-            <li><Link href="/tools/tiktok-caption-generator" className="text-primary">TikTok Caption Generator</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { CheckCircle2, Clock, TimerReset } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -33,8 +32,7 @@ export default function InstagramReelsLengthCalculator() {
   }[result.tone];
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels Length Calculator" toolHref="/tools/instagram-reels-length-calculator" />
 
         <div className="text-center mb-10">
@@ -96,18 +94,6 @@ export default function InstagramReelsLengthCalculator() {
           subText="ShortPurify finds short, high-retention moments in long videos and turns them into captioned Instagram Reels."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How long can Instagram Reels be?</h2>
-          <p>Instagram Reels can be up to 3 minutes for standard creation. For reach, many creators still keep Reels under 90 seconds because shorter videos are easier to finish, replay, save, and share.</p>
-          <h3 className="text-foreground font-bold">What is the best Instagram Reels length?</h3>
-          <p>For most creators, 15-30 seconds is the safest starting point. Use 3-15 seconds for trend-based clips and 30-90 seconds for tutorials that need context.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/instagram-reels-size-calculator" className="text-primary">Instagram Reels Size Calculator</Link></li>
-            <li><Link href="/tools/best-time-to-post-instagram-reels" className="text-primary">Best Time to Post Instagram Reels</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

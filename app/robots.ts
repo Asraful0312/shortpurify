@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard/", "/api/", "/invite/", "/dashboard"],
+        disallow: ["/dashboard/", "/api/", "/invite/", "/dashboard", "/_next/static/"],
       },
     ],
     sitemap: "https://shortpurify.com/sitemap.xml",

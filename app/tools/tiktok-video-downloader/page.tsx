@@ -47,8 +47,7 @@ export default function TikTokVideoDownloader() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-4xl mx-auto px-4 py-14">
+    <main className="max-w-4xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="TikTok Video Downloader" toolHref="/tools/tiktok-video-downloader" />
         
         {/* Header */}
@@ -179,36 +178,6 @@ export default function TikTokVideoDownloader() {
           />
         </div>
 
-        {/* SEO Content */}
-        <div className="prose prose-sm max-w-none text-muted-foreground border-t border-border pt-12">
-          <h2 className="text-foreground font-extrabold text-2xl">How to try downloading a TikTok video</h2>
-          <p>TikTok download tools can be unreliable because public extraction services go offline, get rate-limited, or lose support for TikTok changes. This helper is free and best-effort: it works when the link is public and an available extractor can process it.</p>
-          
-          <h3 className="text-foreground font-bold text-lg mt-8">Simple steps to save TikTok videos to MP4:</h3>
-          <ol>
-            <li><strong>Copy Link:</strong> Find the TikTok video you want to download, click the &quot;Share&quot; button, and select &quot;Copy Link&quot;.</li>
-            <li><strong>Paste URL:</strong> Open ShortPurify&apos;s TikTok Downloader and paste the link into the input box above.</li>
-            <li><strong>Try Download:</strong> Click the button. If a free extractor can process the link, you&apos;ll get a downloadable file.</li>
-          </ol>
-
-          <h3 className="text-foreground font-bold text-lg mt-8">What to do if download fails</h3>
-          <p>If this free helper cannot extract your TikTok link, it usually means the public extraction service is unavailable or TikTok blocked that request. You can still try:</p>
-          <ul>
-            <li><strong>Use TikTok&apos;s own save option:</strong> Open the video, tap Share, then Save video when available.</li>
-            <li><strong>Check the link:</strong> Make sure the video is public, still online, and not region-blocked.</li>
-            <li><strong>Try later:</strong> Free extraction services often recover after rate limits or temporary outages.</li>
-          </ul>
-
-          <div className="bg-secondary/30 rounded-2xl p-6 mt-10">
-            <h3 className="text-foreground font-bold text-lg mb-4 mt-0">More Viral Creator Tools</h3>
-            <ul className="grid sm:grid-cols-2 gap-4 list-none p-0 m-0">
-              <li><Link href="/tools/tiktok-caption-generator" className="text-primary font-bold hover:underline">TikTok Caption Generator →</Link></li>
-              <li><Link href="/tools/best-time-to-post-on-tiktok" className="text-primary font-bold hover:underline">Best Time to Post (2025) →</Link></li>
-              <li><Link href="/tools/hashtag-generator" className="text-primary font-bold hover:underline">Viral Hashtag Generator →</Link></li>
-            </ul>
-          </div>
-        </div>
       </main>
-    </div>
   );
 }

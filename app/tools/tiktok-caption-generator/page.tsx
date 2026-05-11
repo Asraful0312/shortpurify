@@ -58,9 +58,7 @@ export default function TikTokCaptionGenerator() {
   const hasResult = caption || hashtags;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="TikTok Caption Generator" toolHref="/tools/tiktok-caption-generator" />
         <div className="text-center mb-10">
@@ -173,27 +171,6 @@ export default function TikTokCaptionGenerator() {
           subText="Paste Youtube video URL, ShortPurify cuts your long video into viral short clips, adds captions, and publishes directly to TikTok in minutes."
         />
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to write TikTok captions that go viral</h2>
-          <p>TikTok captions are limited to 2,200 characters but shorter is almost always better. The first line is the most important — it appears before the &quot;more&quot; cutoff and determines whether someone keeps watching or scrolls away.</p>
-          <h3 className="text-foreground font-bold">TikTok caption best practices</h3>
-          <ul>
-            <li>Lead with a hook — a question, bold claim, or relatable statement in the first line</li>
-            <li>Keep the main caption to 1-3 sentences; save detail for the comments</li>
-            <li>End with a call to action: &quot;Save this for later&quot;, &quot;Comment your answer&quot;, &quot;Follow for part 2&quot;</li>
-            <li>Use 3-5 niche hashtags + 1-2 broad hashtags (avoid spamming 30 hashtags)</li>
-            <li>Tag trending sounds or topics to ride discovery waves</li>
-          </ul>
-          <h3 className="text-foreground font-bold">How many hashtags should I use on TikTok?</h3>
-          <p>Research suggests 3-8 targeted hashtags outperform 20+ generic ones. Mix niche hashtags (under 500K posts), medium hashtags (500K–5M), and one or two broad ones (5M+) to hit multiple discovery layers.</p>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link> — 10 click-worthy titles instantly</li>
-            <li><Link href="/tools/video-aspect-ratio-calculator" className="text-primary">Video Aspect Ratio Calculator</Link> — perfect size for every platform</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

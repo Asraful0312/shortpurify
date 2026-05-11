@@ -58,8 +58,7 @@ export default function InstagramReelsHistoryFinder() {
   const Icon = current.icon;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels History Finder" toolHref="/tools/instagram-reels-history-finder" />
 
         <div className="text-center mb-10">
@@ -124,18 +123,6 @@ export default function InstagramReelsHistoryFinder() {
           subText="ShortPurify turns long videos into short, captioned clips designed for Instagram Reels, TikTok, and YouTube Shorts."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Can you see recently watched Reels on Instagram?</h2>
-          <p>Instagram does not show a simple complete watch history for every Reel. The best workaround is to check liked Reels, saved Reels, comments, shared links, audio pages, and creator profiles you remember.</p>
-          <h3 className="text-foreground font-bold">Can you disable Reels on Instagram?</h3>
-          <p>You cannot fully remove Reels from the main Instagram app. You can reduce unwanted recommendations by tapping Not interested, muting accounts, and using Following or Favorites feeds more often.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/instagram-trending-songs-finder" className="text-primary">Instagram Trending Songs Finder</Link></li>
-            <li><Link href="/tools/instagram-reels-size-calculator" className="text-primary">Instagram Reels Size Calculator</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

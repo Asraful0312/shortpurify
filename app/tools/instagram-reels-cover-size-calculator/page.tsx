@@ -21,8 +21,7 @@ export default function InstagramReelsCoverSizeCalculator() {
   const feedHeight = Math.round(baseWidth * 5 / 4);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-4xl mx-auto px-4 py-14">
+    <main className="max-w-4xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels Cover Size Calculator" toolHref="/tools/instagram-reels-cover-size-calculator" />
 
         <div className="text-center mb-10">
@@ -70,7 +69,7 @@ export default function InstagramReelsCoverSizeCalculator() {
 
           <div className="bg-white border border-border rounded-3xl p-6 shadow-sm">
             <h2 className="font-extrabold mb-4 flex items-center gap-2"><LayoutGrid size={18} className="text-pink-600" /> Text placement rule</h2>
-            <div className="mx-auto max-w-[220px] aspect-[9/16] rounded-2xl bg-slate-950 relative overflow-hidden">
+            <div className="mx-auto max-w-[220px] aspect-9/16 rounded-2xl bg-slate-950 relative overflow-hidden">
               <div className="absolute inset-x-0 top-[12.5%] bottom-[12.5%] bg-pink-500/20 border-y-2 border-pink-300" />
               <div className="absolute inset-x-0 top-[21.875%] bottom-[21.875%] bg-emerald-400/20 border-y-2 border-emerald-300" />
               <p className="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-white text-sm font-black">Title stays here</p>
@@ -81,16 +80,6 @@ export default function InstagramReelsCoverSizeCalculator() {
 
         <ToolsCta headerText="Need Reels covers from long videos?" subText="ShortPurify helps turn long videos into short clips with captions and vertical framing for Reels." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Instagram Reels cover size</h2>
-          <p>A full Instagram Reels cover uses the same vertical 9:16 canvas as the Reel. The tricky part is that Instagram may crop the cover in the feed and profile grid, so the title should stay near the center.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/instagram-reels-size-calculator" className="text-primary">Instagram Reels Size Calculator</Link></li>
-            <li><Link href="/tools/instagram-reels-safe-zone-checker" className="text-primary">Instagram Reels Safe Zone Checker</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

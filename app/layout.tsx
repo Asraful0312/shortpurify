@@ -51,6 +51,10 @@ export const metadata: Metadata = {
     "video to clips",
     "auto captions",
     "viral clips",
+    "video to clips generator",
+    "video to shorts generator",
+    "youtube video to shorts",
+    "podcast to shorts",
   ],
   applicationName: "ShortPurify",
   authors: [{ name: "ShortPurify" }],
@@ -70,7 +74,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "ShortPurify",
-    title: "ShortPurify – AI Short Clip Generator",
+    title: "ShortPurify | AI Short Clip Generator",
     description:
       "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
     url: "https://shortpurify.com",
@@ -79,13 +83,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "ShortPurify – AI Short-Form Clip Generator",
+        alt: "ShortPurify | AI Short-Form Clip Generator",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ShortPurify – AI Short-Form Clip Generator",
+    title: "ShortPurify | AI Short-Form Clip Generator",
     description:
       "Turn long-form videos into viral short clips with AI. Auto-generate captions and publish to TikTok, Instagram, YouTube Shorts and more.",
     images: ["/og-image.png"],

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { CheckCircle2, Frame, Ruler } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -20,8 +19,7 @@ export default function InstagramReelsSafeZoneChecker() {
   }), [height, width]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-4xl mx-auto px-4 py-14">
+    <main className="max-w-4xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Reels Safe Zone Checker" toolHref="/tools/instagram-reels-safe-zone-checker" />
 
         <div className="text-center mb-10">
@@ -54,7 +52,7 @@ export default function InstagramReelsSafeZoneChecker() {
 
           <div className="bg-white border border-border rounded-3xl p-6 shadow-sm">
             <h2 className="font-extrabold mb-4 flex items-center gap-2"><Frame size={18} className="text-pink-600" /> Safe area preview</h2>
-            <div className="mx-auto max-w-[220px] aspect-[9/16] rounded-[2rem] bg-slate-950 p-4 relative overflow-hidden">
+            <div className="mx-auto max-w-[220px] aspect-9/16 rounded-[2rem] bg-slate-950 p-4 relative overflow-hidden">
               <div className="absolute inset-x-4 top-10 bottom-24 rounded-2xl border-2 border-emerald-400 bg-emerald-400/10" />
               <div className="absolute left-4 right-4 top-4 h-8 rounded-xl bg-red-500/25 border border-red-300/70" />
               <div className="absolute left-4 right-4 bottom-4 h-16 rounded-xl bg-red-500/25 border border-red-300/70" />
@@ -93,16 +91,6 @@ export default function InstagramReelsSafeZoneChecker() {
 
         <ToolsCta headerText="Need safe captions automatically?" subText="ShortPurify crops and captions long videos into vertical clips for Instagram Reels, TikTok, and YouTube Shorts." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">Instagram Reels safe zone guide</h2>
-          <p>The Instagram Reels safe zone is the center area where captions, logos, and key visuals are least likely to be covered by app controls. For 1080x1920 Reels, keep important text away from the top, bottom, and right-side action buttons.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/instagram-reels-size-calculator" className="text-primary">Instagram Reels Size Calculator</Link></li>
-            <li><Link href="/tools/instagram-reels-caption-length-checker" className="text-primary">Instagram Reels Caption Length Checker</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

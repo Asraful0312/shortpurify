@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { Music2, Search, TrendingUp } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -22,8 +21,7 @@ export default function InstagramTrendingSongsFinder() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Trending Songs Finder" toolHref="/tools/instagram-trending-songs-finder" />
 
         <div className="text-center mb-10">
@@ -84,18 +82,6 @@ export default function InstagramTrendingSongsFinder() {
           subText="ShortPurify turns long videos into short Instagram Reels so you can pair them with trending audio faster."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to find trending songs on Instagram Reels today</h2>
-          <p>Instagram trending songs change daily and can vary by country, niche, and account type. The most reliable method is to check the audio page in Instagram, look for the trending arrow, and confirm that recent Reels in your niche are using the sound.</p>
-          <h3 className="text-foreground font-bold">Should every Reel use trending audio?</h3>
-          <p>No. Trending audio helps discovery when it supports the video. If the sound distracts from the hook or voiceover, use a low-volume track or original audio instead.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/hashtag-generator" className="text-primary">Hashtag Generator</Link></li>
-            <li><Link href="/tools/best-time-to-post-instagram-reels" className="text-primary">Best Time to Post Instagram Reels</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

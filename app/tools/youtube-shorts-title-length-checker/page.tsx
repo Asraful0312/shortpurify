@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { CheckCircle2, Heading1 } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -22,8 +21,7 @@ export default function YouTubeShortsTitleLengthChecker() {
   }, [title]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="YouTube Shorts Title Length Checker" toolHref="/tools/youtube-shorts-title-length-checker" />
 
         <div className="text-center mb-10">
@@ -72,16 +70,6 @@ export default function YouTubeShortsTitleLengthChecker() {
 
         <ToolsCta headerText="Title ready? Make the Short." subText="ShortPurify turns long videos into short clips with captions and smart vertical framing." />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">YouTube Shorts title length</h2>
-          <p>YouTube titles can be up to 100 characters, but Shorts viewers usually scan quickly on mobile. Shorter titles with the keyword near the front are easier to read.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/youtube-shorts-title-generator" className="text-primary">YouTube Shorts Title Generator</Link></li>
-            <li><Link href="/tools/youtube-shorts-script-generator" className="text-primary">YouTube Shorts Script Generator</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

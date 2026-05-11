@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Sparkles, Copy, Check, ArrowRight, Loader2, Youtube } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -51,8 +50,7 @@ export default function YouTubeShortsTitleGenerator() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         {/* Header */}
         <ToolsBreadcrumb toolName="YouTube Shorts Title Generator" toolHref="/tools/youtube-shorts-title-generator" />
         <div className="text-center mb-10">
@@ -139,25 +137,6 @@ export default function YouTubeShortsTitleGenerator() {
         />
       
 
-        {/* SEO content */}
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">How to write great YouTube Shorts titles</h2>
-          <p>A great YouTube Shorts title does three things: stops the scroll, sets expectations, and triggers curiosity. The best performing titles in 2025 use numbers (&quot;5 ways…&quot;), strong action verbs, and a clear benefit.</p>
-          <h3 className="text-foreground font-bold">Tips for higher click-through rates</h3>
-          <ul>
-            <li>Keep titles under 60 characters so they don&apos;t get cut off</li>
-            <li>Front-load the most important keyword in the first 3 words</li>
-            <li>Use brackets like [SHOCKING] or (Must Watch) sparingly but effectively</li>
-            <li>Ask a question your target audience is already wondering</li>
-            <li>Test 2-3 different titles by re-uploading or using A/B tools</li>
-          </ul>
-          <h3 className="text-foreground font-bold">Other free tools you might like</h3>
-          <ul>
-            <li><Link href="/tools/tiktok-caption-generator" className="text-primary">TikTok Caption Generator</Link> — viral captions + hashtags</li>
-            <li><Link href="/tools/video-aspect-ratio-calculator" className="text-primary">Video Aspect Ratio Calculator</Link> — get the perfect size for every platform</li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

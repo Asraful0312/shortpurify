@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { Beaker, CheckCircle2, HelpCircle, Users } from "lucide-react";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
@@ -27,8 +26,7 @@ export default function InstagramTrialReelsGuide() {
       : "Post normally";
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
-      <main className="max-w-3xl mx-auto px-4 py-14">
+    <main className="max-w-3xl mx-auto px-4 py-14">
         <ToolsBreadcrumb toolName="Instagram Trial Reels Guide" toolHref="/tools/instagram-trial-reels-guide" />
 
         <div className="text-center mb-10">
@@ -87,18 +85,6 @@ export default function InstagramTrialReelsGuide() {
           subText="ShortPurify helps you create more short clips from every long video, so you can test formats without editing from scratch."
         />
 
-        <div className="mt-12 prose prose-sm max-w-none text-muted-foreground">
-          <h2 className="text-foreground font-extrabold text-xl">What are Trial Reels on Instagram?</h2>
-          <p>Trial Reels are an Instagram testing option for creators who want to show a Reel to non-followers first. They are useful when you want to experiment without immediately pushing the content to your existing audience.</p>
-          <h3 className="text-foreground font-bold">Are Trial Reels good for growth?</h3>
-          <p>They can help when you are testing a new niche or format. For proven content, a normal Reel may be better because your followers can help with early engagement.</p>
-          <h3 className="text-foreground font-bold">Related tools</h3>
-          <ul>
-            <li><Link href="/tools/best-time-to-post-instagram-reels" className="text-primary">Best Time to Post Instagram Reels</Link></li>
-            <li><Link href="/tools/instagram-reels-length-calculator" className="text-primary">Instagram Reels Length Calculator</Link></li>
-          </ul>
-        </div>
       </main>
-    </div>
   );
 }

@@ -6,6 +6,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import HotJar from "@/components/hotjar";
 import GoogleAnalytics from "@/components/google-analytics";
 import CookieConsentBanner from "@/components/cookie-consent";
+import RedditPixelEvents from "@/components/reddit-pixel";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -136,6 +137,12 @@ export default function RootLayout({
             ]),
           }}
         />
+        {/* Reddit Pixel */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `!function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js?pixel_id=a2_iw26alqs6d0f",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);rdt('init','a2_iw26alqs6d0f');rdt('track','PageVisit');`,
+          }}
+        />
       </head>
       <body
         className={`${outfit.variable} ${geistMono.variable} ${bangers.variable} ${comicRelief.variable} antialiased`}
@@ -148,6 +155,7 @@ export default function RootLayout({
           signUpFallbackRedirectUrl="/dashboard"
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
+          <RedditPixelEvents />
           <HotJar />
           <GoogleAnalytics />
           <CookieConsentBanner />

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 /**
@@ -29,12 +30,18 @@ export const upsertUser = mutation({
       return { userId: existing._id, isNew: false };
     }
 
+    const now = Date.now();
     const userId = await ctx.db.insert("users", {
       clerkId: args.clerkId,
       email: args.email,
       name: args.name,
       imageUrl: args.imageUrl,
-      createdAt: Date.now(),
+      createdAt: now,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.redditConversions.trackSignUp, {
+      email: args.email || undefined,
+      eventAt: now,
     });
 
     return { userId, isNew: true };

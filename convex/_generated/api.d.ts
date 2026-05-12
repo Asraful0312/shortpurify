@@ -28,6 +28,7 @@ import type * as r2 from "../r2.js";
 import type * as r2Actions from "../r2Actions.js";
 import type * as r2storage from "../r2storage.js";
 import type * as rateLimits from "../rateLimits.js";
+import type * as redditConversions from "../redditConversions.js";
 import type * as reviews from "../reviews.js";
 import type * as scheduledPublish from "../scheduledPublish.js";
 import type * as socialTokens from "../socialTokens.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   r2Actions: typeof r2Actions;
   r2storage: typeof r2storage;
   rateLimits: typeof rateLimits;
+  redditConversions: typeof redditConversions;
   reviews: typeof reviews;
   scheduledPublish: typeof scheduledPublish;
   socialTokens: typeof socialTokens;

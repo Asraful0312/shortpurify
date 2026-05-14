@@ -157,6 +157,7 @@ def process_video(body: dict) -> dict:
     clip_upload_url: str = body.get("clipUploadUrl", "")
     thumb_upload_url: str = body.get("thumbUploadUrl", "")
     crop_mode: str = body.get("cropMode", "smart_crop")  # "smart_crop" | "blur_background"
+    crop_keyframes = body.get("cropKeyframes")  # optional [{time, cropX}] list from review UI
     duration = max(1.0, end - start)
 
     if not video_url:
@@ -168,6 +169,7 @@ def process_video(body: dict) -> dict:
 
     pipeline._LR_ASD_DIR = Path(MODEL_DIR) / "LR-ASD"
     os.environ["YOLO_CONFIG_DIR"] = "/opt"
+    # pyrefly: ignore [missing-import]
     import ultralytics.utils as _ult_utils
     _ult_utils.SETTINGS["weights_dir"] = "/opt"
 
@@ -190,6 +192,7 @@ def process_video(body: dict) -> dict:
                 thumb_path=thumb,
                 dynamic_crop=True,
                 crop_mode=crop_mode,
+                crop_keyframes=crop_keyframes,
             )
         except Exception as exc:
             logging.exception("Pipeline error")
@@ -405,6 +408,7 @@ def _render_subtitle_frames(
     Supports 5 templates: classic | bold | neon | cinematic | minimal
     Returns [(ev_start_s, ev_end_s, png_path), ...]
     """
+    # pyrefly: ignore [missing-import]
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
     LONG_PAUSE_MS  = 800
@@ -984,6 +988,7 @@ def _render_subtitle_frames(
             
             # Pass frame_idx to render_fn if it supports it
             try:
+                # pyrefly: ignore [unexpected-keyword]
                 render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks, frame_idx=frame_idx)
             except TypeError:
                 render_fn(img, draw, shadow_draw, display_chunks, num_rows, word, display_full_chunks)
@@ -1069,6 +1074,7 @@ def burn_subtitles(body: dict) -> dict:
             if not words:
                 shutil.copy(input_path, output_path)
             else:
+                # pyrefly: ignore [missing-import]
                 from PIL import Image
 
                 # Render one transparent RGBA PNG per word-event.

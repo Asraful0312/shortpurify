@@ -6,24 +6,8 @@ import { api, internal } from "./_generated/api";
 import { r2 } from "./r2storage";
 import { Id } from "./_generated/dataModel";
 import { projectsAggregate } from "./aggregates";
-import { creem } from "./billing";
 import { PLAN_LIMITS } from "./usage";
 import { rateLimiter } from "./rateLimits";
-
-const PRODUCT_PLAN_MAP: Record<string, "pro" | "agency"> = {
-  prod_Y9tigUuiNrmSvwHwikJhb: "pro",
-  prod_16zm9hSnU7sIDUiL2xnqta: "pro",
-  prod_6Dzfw7cKFtti6Ok8XSSMkr: "agency",
-  prod_4ys826ufB69smQJCq4kD0o: "agency",
-};
-function tierFromId(id: string | null | undefined): "starter" | "pro" | "agency" {
-  if (!id) return "starter";
-  return PRODUCT_PLAN_MAP[id] ?? "starter";
-}
-function monthStart(): number {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-}
 
 /**
  * Creates a project record and schedules the AI pipeline.
@@ -69,50 +53,14 @@ export const createProjectAndStart = mutation({
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Plan limit enforcement ─────────────────────────────────────────────────
-    // Check manual granted tier override before hitting Creem
-    const now = Date.now();
-    const hasOverride = user.grantedTier &&
-      (user.grantedTierExpiry == null || user.grantedTierExpiry > now);
-    let tier: "starter" | "pro" | "agency";
-    if (hasOverride) {
-      tier = user.grantedTier as "pro" | "agency";
-    } else {
-      const entityId = args.workspaceId ?? user._id;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const subscription = await creem.subscriptions.getCurrent(ctx as any, { entityId });
-      tier = tierFromId(subscription?.productId ?? null);
-    }
+    const check = (await ctx.runQuery(internal.usage.canCreateProject, {
+      userId: user._id,
+      workspaceId: args.workspaceId,
+      estimatedDurationMinutes: args.estimatedDurationMinutes,
+    })) as { allowed: boolean; tier?: "starter" | "pro" | "agency"; reason?: string };
+    if (!check.allowed) throw new ConvexError(check.reason ?? "Plan limit reached");
+    const tier: "starter" | "pro" | "agency" = check.tier ?? "starter";
     const limits = PLAN_LIMITS[tier];
-    const planName = tier === "starter" ? "Free" : tier === "pro" ? "Pro Creator" : "Agency";
-    const ms = monthStart();
-
-    const projectsThisMonth = await ctx.db
-      .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .filter((q) => q.gte(q.field("createdAt"), ms))
-      .collect();
-
-    // Project count limit
-    if (limits.projects !== Infinity && projectsThisMonth.length >= limits.projects) {
-      throw new ConvexError(
-        `${planName} plan limit of ${limits.projects} projects/month reached. Upgrade to continue.`
-      );
-    }
-
-    // Minute limit — only enforced when duration is known upfront
-    if (args.estimatedDurationMinutes !== undefined) {
-      const minutesUsed = Math.round(
-        projectsThisMonth.reduce((sum, p) => sum + (p.durationSeconds ?? 0), 0) / 60
-      );
-      const remaining = limits.minutes - minutesUsed;
-      if (args.estimatedDurationMinutes > remaining) {
-        throw new ConvexError(
-          remaining <= 0
-            ? `You've used all ${limits.minutes} video minutes on the ${planName} plan this month.`
-            : `This video is ~${args.estimatedDurationMinutes} min but you only have ${remaining} min left this month on the ${planName} plan.`
-        );
-      }
-    }
     // ─────────────────────────────────────────────────────────────────────────
 
     const retentionDays = limits.clipRetentionDays;
@@ -580,6 +528,7 @@ const pendingClipSchema = v.object({
   platform: v.string(),
   reason: v.optional(v.string()),
   captions: v.record(v.string(), v.string()),
+  cropKeyframes: v.optional(v.array(v.object({ time: v.number(), cropX: v.number() }))),
 });
 
 /** Called by the workflow when reviewMode=true — saves AI clip suggestions and pauses pipeline. */

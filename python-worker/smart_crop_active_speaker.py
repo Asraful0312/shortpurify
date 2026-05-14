@@ -885,6 +885,7 @@ def process_video(
     thumb_path: Optional[str] = None,
     dynamic_crop: bool = True,
     crop_mode: str = "smart_crop",  # "smart_crop" | "blur_background"
+    crop_keyframes: Optional[list] = None,  # [{time, cropX}] 0-1 fractions; overrides AI when set
 ) -> None:
     """
     Full end-to-end pipeline.  Raises on any failure.
@@ -927,21 +928,38 @@ def process_video(
             tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=0.35,
         )
 
-        cx_std = float(np.std(cx_per_frame))
-        use_dynamic = dynamic_crop and _SCIPY_AVAIL and cx_std > 5.0
-
-        if use_dynamic:
-            LOG.info("Crop mode: dynamic (cx_std=%.1fpx)", cx_std)
+        if crop_keyframes:
+            # User-defined keyframes — step function (instant cut, no panning between positions)
+            sorted_kfs = sorted(crop_keyframes, key=lambda k: k.get("time", 0))
+            kf_times = np.array([kf["time"] for kf in sorted_kfs], dtype=float)
+            kf_xs    = np.array([kf["cropX"] * vid_w for kf in sorted_kfs], dtype=float)
+            frame_times = np.arange(n_frames) / fps
+            # searchsorted gives the insertion index; subtract 1 to get the last kf at or before t
+            indices = np.searchsorted(kf_times, frame_times, side="right") - 1
+            indices = np.clip(indices, 0, len(kf_xs) - 1)
+            cx_kf = kf_xs[indices]
+            cx_kf = np.clip(cx_kf, crop_w / 2, vid_w - crop_w / 2)
+            LOG.info("Keyframe crop (step): %d keyframe(s)", len(sorted_kfs))
             apply_dynamic_crop_encode(
-                seg_path, cx_per_frame, crop_w, crop_h, fps, vid_w,
+                seg_path, cx_kf, crop_w, crop_h, fps, vid_w,
                 output_path, thumb_path,
             )
         else:
-            LOG.info("Crop mode: static (cx_std=%.1fpx)", cx_std)
-            cx_mean = float(np.nanmean(cx_per_frame))
-            apply_static_crop_encode(
-                seg_path, cx_mean, crop_w, crop_h, output_path, thumb_path,
-            )
+            cx_std = float(np.std(cx_per_frame))
+            use_dynamic = dynamic_crop and _SCIPY_AVAIL and cx_std > 5.0
+
+            if use_dynamic:
+                LOG.info("Crop mode: dynamic (cx_std=%.1fpx)", cx_std)
+                apply_dynamic_crop_encode(
+                    seg_path, cx_per_frame, crop_w, crop_h, fps, vid_w,
+                    output_path, thumb_path,
+                )
+            else:
+                LOG.info("Crop mode: static (cx_std=%.1fpx)", cx_std)
+                cx_mean = float(np.nanmean(cx_per_frame))
+                apply_static_crop_encode(
+                    seg_path, cx_mean, crop_w, crop_h, output_path, thumb_path,
+                )
 
     LOG.info("Output: %s", output_path)
 

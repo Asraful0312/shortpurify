@@ -38,6 +38,7 @@ export default defineSchema({
       platform: v.string(),
       reason: v.optional(v.string()),
       captions: v.record(v.string(), v.string()),
+      cropKeyframes: v.optional(v.array(v.object({ time: v.number(), cropX: v.number() }))),
     }))),
     // Current pipeline step label shown in UI during processing
     processingStep: v.optional(v.string()),

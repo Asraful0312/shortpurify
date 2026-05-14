@@ -32,7 +32,7 @@ const ToolsCta = ({headerText, subText}: {headerText: string, subText: string}) 
           <p className="text-primary-foreground/80 mb-6 max-w-md mx-auto">
             {subText}
           </p>
-          <div className='flex items-center justify-center gap-2'>
+          <div className='flex items-center flex-wrap justify-center gap-2'>
 
           <Link
             href="/"

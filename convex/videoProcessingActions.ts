@@ -32,6 +32,7 @@ async function callWorker(
   clipUploadUrl: string,
   thumbUploadUrl: string,
   cropMode: string = "smart_crop",
+  cropKeyframes?: { time: number; cropX: number }[],
 ): Promise<WorkerResponse> {
   const workerUrl = process.env.VIDEO_WORKER_URL;
   const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
@@ -58,6 +59,7 @@ async function callWorker(
         clipUploadUrl,
         thumbUploadUrl,
         cropMode,
+        ...(cropKeyframes?.length && { cropKeyframes }),
       }),
     });
 
@@ -89,6 +91,7 @@ export const saveClipsToDb = internalAction({
         platform: v.string(),
         reason: v.optional(v.string()),
         captions: v.record(v.string(), v.string()),
+        cropKeyframes: v.optional(v.array(v.object({ time: v.number(), cropX: v.number() }))),
       }),
     ),
   },
@@ -141,6 +144,7 @@ export const saveClipsToDb = internalAction({
               clipUploadUrl,
               thumbUploadUrl,
               cropMode,
+              clip.cropKeyframes,
             );
             return { clip, i, result, clipKey, thumbKey };
           } catch (err) {
@@ -216,6 +220,7 @@ export const runApprovedClips = internalAction({
       platform: v.string(),
       reason: v.optional(v.string()),
       captions: v.record(v.string(), v.string()),
+      cropKeyframes: v.optional(v.array(v.object({ time: v.number(), cropX: v.number() }))),
     })),
     cropMode: v.optional(v.string()),
   },

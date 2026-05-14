@@ -41,6 +41,7 @@ function FullscreenPlayer({
   const navThrottleRef = useRef(false);
   const videoBoxRef = useRef<HTMLDivElement>(null);
   const touchStartYRef = useRef(0);
+  const touchOnVideoRef = useRef(false);
   const publishOpenRef = useRef(false);
   const [playing, setPlaying] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
@@ -169,15 +170,20 @@ function FullscreenPlayer({
     // the modal's own scroll container works normally.
     const onWheel = (e: WheelEvent) => {
       if (publishOpenRef.current) return;
+      if (!videoBoxRef.current?.contains(e.target as Node)) return;
       if (Math.abs(e.deltaY) < 20) return;
       e.preventDefault();
       navigate(e.deltaY > 0 ? 1 : -1);
     };
 
     // Touch — swipe up = next, swipe down = prev
-    const onTouchStart = (e: TouchEvent) => { touchStartYRef.current = e.touches[0].clientY; };
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartYRef.current = e.touches[0].clientY;
+      touchOnVideoRef.current = videoBoxRef.current?.contains(e.target as Node) ?? false;
+    };
     const onTouchEnd = (e: TouchEvent) => {
       if (publishOpenRef.current) return;
+      if (!touchOnVideoRef.current) return;
       const dy = touchStartYRef.current - e.changedTouches[0].clientY;
       if (Math.abs(dy) < 60) return;
       navigate(dy > 0 ? 1 : -1);

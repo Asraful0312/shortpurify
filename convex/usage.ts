@@ -87,18 +87,20 @@ function tierFromProductId(productId: string | null | undefined): PlanTier {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveEntityId(ctx: any, workspaceId: string | undefined, fallbackId: string): Promise<string> {
   if (!workspaceId) {
-    // No workspaceId provided — check if the user owns a workspace with an active subscription
-    // (platform actions don't pass workspaceId, so we cascade from userId → owned workspace)
-    const ownedMembership = await ctx.db
-      .query("workspaceMembers")
-      .filter((q: any) => q.and(
-        q.eq(q.field("userId"), fallbackId),
-        q.eq(q.field("role"), "owner")
-      ))
-      .first();
-    if (ownedMembership) {
-      const sub = await creem.subscriptions.getCurrent(ctx, { entityId: ownedMembership.workspaceId }).catch(() => null);
-      if (sub) return ownedMembership.workspaceId;
+    // No workspaceId provided — cascade from userId → clerkId → owned workspaces.
+    // Use the indexed clerkId path (by_clerk_workspace) rather than an unindexed userId
+    // filter to ensure the lookup is reliable regardless of workspaceMembers table size.
+    const user = await ctx.db.get(fallbackId as any).catch(() => null);
+    if (user?.clerkId) {
+      const ownedMemberships: { workspaceId: string; role: string }[] = await ctx.db
+        .query("workspaceMembers")
+        .withIndex("by_clerk_workspace", (q: any) => q.eq("clerkId", user.clerkId))
+        .collect();
+      for (const m of ownedMemberships) {
+        if (m.role !== "owner") continue;
+        const sub = await creem.subscriptions.getCurrent(ctx, { entityId: m.workspaceId }).catch(() => null);
+        if (sub) return m.workspaceId;
+      }
     }
     return fallbackId;
   }

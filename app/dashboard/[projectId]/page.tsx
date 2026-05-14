@@ -430,6 +430,8 @@ export default function ProjectDetailsPage() {
             projectId={projectId}
             pendingClips={project.pendingClips}
             transcriptWords={project.transcriptWords}
+            originalUrl={project.originalUrl}
+            cropMode={project.cropMode}
           />
         </div>
       )}

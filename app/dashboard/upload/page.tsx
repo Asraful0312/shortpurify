@@ -147,20 +147,6 @@ export default function UploadPage() {
         </div>
       </div>
 
-      {/* Title input */}
-      {/* <div className="relative z-10 w-full max-w-2xl mb-4">
-        <label className="block text-sm font-bold text-foreground mb-1.5">
-          Project Title
-        </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={tab === "youtube" ? "Leave blank to use the video title" : "e.g. Podcast Ep #45 – React 19 Deep Dive"}
-          maxLength={120}
-          className="w-full border border-border rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white placeholder:text-muted-foreground"
-        />
-      </div> */}
 
       {/* Platform toggles */}
       <div className="relative z-10 w-full max-w-2xl mb-4">
@@ -263,7 +249,7 @@ export default function UploadPage() {
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm">Review clips before processing</p>
             <p className="text-xs text-muted-foreground leading-snug mt-0.5">
-              Pause after AI analysis — edit timing, rename, or skip clips you don&apos;t want before the video is encoded.
+              Pause after AI analysis edit timing, rename, manually crop clips, or skip clips you don&apos;t want before the video is encoded.
             </p>
           </div>
           <div className={cn(

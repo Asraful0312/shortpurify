@@ -765,6 +765,59 @@ def apply_dynamic_crop_encode(
         _extract_thumbnail(dst, thumb_path)
 
 
+def apply_step_crop_encode(
+    src: str,
+    kf_times: list,   # seconds from clip start, sorted ascending
+    kf_xs: list,      # pixel x-center values (already clamped), same length
+    crop_w: int,
+    crop_h: int,
+    vid_w: int,
+    dst: str,
+    thumb_path: Optional[str] = None,
+) -> None:
+    """
+    Instant-cut (step function) crop using a native FFmpeg filter expression.
+
+    Builds a nested if(gte(t,T),X,prev) expression evaluated per-frame by
+    FFmpeg's own engine — no sendcmd timing ambiguity, no intermediate frames.
+    Commas inside the expression are escaped as \\, so FFmpeg's filter-graph
+    parser treats them as expression argument separators, not filter separators.
+    """
+    half_crop = crop_w / 2.0
+    x_vals = [int(np.clip(cx - half_crop, 0, vid_w - crop_w)) for cx in kf_xs]
+
+    # Build nested expression from innermost (first keyframe = default) outward.
+    # Result for [t0=0,x0=100] + [t1=15,x1=250]:
+    #   if(gte(t\,15.000000)\,250\,100)
+    # The \, escapes are required for FFmpeg's filter-graph parser.
+    expr = str(x_vals[0])
+    for i in range(1, len(kf_times)):
+        t_str = f"{kf_times[i]:.6f}"
+        x_str = str(x_vals[i])
+        expr = f"if(gte(t\\,{t_str})\\,{x_str}\\,{expr})"
+
+    vf = (
+        f"crop={crop_w}:{crop_h}:{expr}:0,"
+        f"scale={TARGET_W}:{TARGET_H}:flags=lanczos"
+    )
+    LOG.info("Step crop encode: %d keyframe(s), expr=%s…", len(kf_times), expr[:60])
+    _ffmpeg_run([
+        "ffmpeg", "-y",
+        "-i", src,
+        "-vf", vf,
+        "-map", "0:v",
+        "-map", "0:a",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        "-loglevel", "error",
+        dst,
+    ])
+
+    if thumb_path:
+        _extract_thumbnail(dst, thumb_path)
+
+
 def apply_blur_background_encode(
     src: str,
     dst: str,
@@ -929,19 +982,16 @@ def process_video(
         )
 
         if crop_keyframes:
-            # User-defined keyframes — step function (instant cut, no panning between positions)
+            # User-defined keyframes — instant cut via FFmpeg filter expression
             sorted_kfs = sorted(crop_keyframes, key=lambda k: k.get("time", 0))
-            kf_times = np.array([kf["time"] for kf in sorted_kfs], dtype=float)
-            kf_xs    = np.array([kf["cropX"] * vid_w for kf in sorted_kfs], dtype=float)
-            frame_times = np.arange(n_frames) / fps
-            # searchsorted gives the insertion index; subtract 1 to get the last kf at or before t
-            indices = np.searchsorted(kf_times, frame_times, side="right") - 1
-            indices = np.clip(indices, 0, len(kf_xs) - 1)
-            cx_kf = kf_xs[indices]
-            cx_kf = np.clip(cx_kf, crop_w / 2, vid_w - crop_w / 2)
-            LOG.info("Keyframe crop (step): %d keyframe(s)", len(sorted_kfs))
-            apply_dynamic_crop_encode(
-                seg_path, cx_kf, crop_w, crop_h, fps, vid_w,
+            kf_times_list = [float(kf["time"]) for kf in sorted_kfs]
+            kf_xs_list = [
+                float(np.clip(kf["cropX"] * vid_w, crop_w / 2, vid_w - crop_w / 2))
+                for kf in sorted_kfs
+            ]
+            LOG.info("Keyframe step crop: %d keyframe(s)", len(sorted_kfs))
+            apply_step_crop_encode(
+                seg_path, kf_times_list, kf_xs_list, crop_w, crop_h, vid_w,
                 output_path, thumb_path,
             )
         else:

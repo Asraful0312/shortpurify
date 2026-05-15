@@ -6,6 +6,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
+  Book,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -18,6 +19,8 @@ import {
   Wand2,
   X,
 } from "lucide-react";
+import { Button } from "../ui/button";
+import VideoModal from "../VideoModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,7 +87,7 @@ function ScorePill({ score }: { score: number }) {
   return <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", color)}>{score}</span>;
 }
 
-// ─── CropPreview ──────────────────────────────────────────────────────────────
+// CropPreview
 
 function CropPreview({
   videoUrl,
@@ -394,7 +397,7 @@ function CropPreview({
   );
 }
 
-// ─── ClipCard ─────────────────────────────────────────────────────────────────
+// ClipCard
 
 function ClipCard({
   clip,
@@ -419,6 +422,7 @@ function ClipCard({
   const [editingTitle, setEditingTitle] = useState(false);
   const [startInput,   setStartInput]   = useState(formatSecs(clip.startTime));
   const [endInput,     setEndInput]     = useState(formatSecs(clip.endTime));
+  const [showVideo, setShowVideo] = useState(false);
 
   function commitTime(field: "startTime" | "endTime", raw: string) {
     const v = parseSecs(raw);
@@ -496,6 +500,8 @@ function ClipCard({
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-border/50 space-y-4">
           {/* Timing */}
+
+          <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <Timer size={13} className="text-muted-foreground shrink-0" />
             <div className="flex items-center gap-2 text-sm">
@@ -523,6 +529,26 @@ function ClipCard({
               <span className="text-xs text-muted-foreground">({Math.round(clip.endTime - clip.startTime)}s)</span>
             </div>
           </div>
+
+   <Button
+   variant="outline" 
+            onClick={() => setShowVideo(true)}
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2"
+          >
+            <Book size={20} className="text-muted-foreground" />
+          Manual Crop Tutorial
+          </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Drag left or right to set crop position or leave it, AI will auto crop the clip.
+        </p>
+
+<VideoModal 
+showVideo={showVideo}
+setShowVideo={setShowVideo}
+videoId="cSZx9WgE40U"
+/>
 
           {/* Crop editor */}
           {showCrop && (
@@ -575,14 +601,14 @@ function ClipCard({
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers 
 
 function clipTranscript(words: TranscriptWord[], startSecs: number, endSecs: number): string {
   const s = startSecs * 1000, e = endSecs * 1000;
   return words.filter((w) => w.start >= s && w.end <= e).map((w) => w.text).join(" ");
 }
 
-// ─── ClipReview ───────────────────────────────────────────────────────────────
+// ClipReview
 
 export function ClipReview({
   projectId,

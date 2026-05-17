@@ -14,6 +14,7 @@ const PRODUCT_LINKS = [
   { href: "/sign-up", label: "Get Started Free" },
   { href: "/sign-in", label: "Sign In" },
   { href: "/contact", label: "Contact" },
+  { href: "/affiliates", label: "Affiliate Program" },
 ];
 
 const LEGAL_LINKS = [

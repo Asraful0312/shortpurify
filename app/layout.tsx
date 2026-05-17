@@ -7,6 +7,7 @@ import HotJar from "@/components/hotjar";
 import GoogleAnalytics from "@/components/google-analytics";
 import CookieConsentBanner from "@/components/cookie-consent";
 import RedditPixelEvents from "@/components/reddit-pixel";
+import ReferralCapture from "@/components/referral-capture";
 
 const outfit = Outfit({
   variable: "--font-sans",
@@ -119,6 +120,18 @@ export default function RootLayout({
                 "@type": "WebSite",
                 "name": "ShortPurify",
                 "url": "https://shortpurify.com",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://shortpurify.com/tools?q={search_term_string}",
+                  "query-input": "required name=search_term_string",
+                },
+                "siteNavigationElement": [
+                  { "@type": "SiteNavigationElement", "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
+                  { "@type": "SiteNavigationElement", "name": "Pricing", "url": "https://shortpurify.com/#pricing" },
+                  { "@type": "SiteNavigationElement", "name": "Affiliate Program", "url": "https://shortpurify.com/affiliates" },
+                  { "@type": "SiteNavigationElement", "name": "Free Tools", "url": "https://shortpurify.com/tools" },
+                  { "@type": "SiteNavigationElement", "name": "Contact", "url": "https://shortpurify.com/contact" },
+                ],
               },
               {
                 "@context": "https://schema.org",
@@ -155,6 +168,7 @@ export default function RootLayout({
           signUpFallbackRedirectUrl="/dashboard"
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
+          <ReferralCapture />
           <RedditPixelEvents />
           <HotJar />
           <GoogleAnalytics />

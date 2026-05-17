@@ -69,8 +69,9 @@ export const createPlanCheckout = action({
     productId: v.string(),
     workspaceId: v.optional(v.string()),
     billingCycle: v.union(v.literal("monthly"), v.literal("yearly")),
+    referralCode: v.optional(v.string()),
   },
-  handler: async (ctx, { productId, workspaceId, billingCycle: _billingCycle }) => {
+  handler: async (ctx, { productId, workspaceId, billingCycle: _billingCycle, referralCode }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
@@ -88,6 +89,7 @@ export const createPlanCheckout = action({
       email: user.email,
       productId,
       successUrl: `${appUrl}/dashboard/billing?checkout=success`,
+      ...(referralCode ? { referralCode } : {}),
       metadata: {
         workspaceId: workspaceId ?? "",
         userId: user._id,

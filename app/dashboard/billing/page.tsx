@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Confetti, type ConfettiRef } from "@/components/ui/confetti";
+import { getReferralCode } from "@/components/referral-capture";
 
 type PlanFeature = { text: string; included: boolean; tooltip?: string };
 
@@ -166,6 +167,7 @@ export default function BillingPage() {
         productId,
         workspaceId: activeOrgId ?? undefined,
         billingCycle: billing,
+        referralCode: getReferralCode() ?? undefined,
       });
       window.location.href = url;
     } catch (err) {

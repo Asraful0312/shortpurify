@@ -427,7 +427,14 @@ export const purgeProjectData = internalMutation({
     // Soft-delete: keep the row so monthly usage counts (project count + minutes)
     // remain accurate after deletion. The aggregate is updated so UI lists don't show it.
     const projectDoc = await ctx.db.get(projectId);
-    if (projectDoc) await projectsAggregate.delete(ctx, projectDoc);
+    if (projectDoc) {
+      try {
+        await projectsAggregate.delete(ctx, projectDoc);
+      } catch {
+        // Aggregate may not have this entry if the project pre-dates the aggregate.
+        // Safe to ignore — deletion still proceeds.
+      }
+    }
     await ctx.db.patch(projectId, { deletedAt: Date.now() });
   },
 });

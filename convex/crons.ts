@@ -44,6 +44,7 @@ export const deleteOutput = internalMutation({
 /**
  * Returns up to `limit` projects whose expiresAt has passed and haven't been soft-deleted yet.
  * gte(1) excludes rows where expiresAt is undefined.
+ * Returns userId + workspaceId so the cron can verify the owner's current tier before deleting.
  */
 export const getExpiredProjects = internalQuery({
   args: { now: v.number(), limit: v.number() },
@@ -53,5 +54,13 @@ export const getExpiredProjects = internalQuery({
       .withIndex("by_expires", (q) => q.gte("expiresAt", 1).lt("expiresAt", now))
       .filter((q) => q.eq(q.field("deletedAt"), undefined))
       .take(limit);
+  },
+});
+
+/** Clears expiresAt on a project that was set incorrectly (e.g. created under wrong tier). */
+export const clearProjectExpiry = internalMutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, { projectId }) => {
+    await ctx.db.patch(projectId, { expiresAt: undefined });
   },
 });

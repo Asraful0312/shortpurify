@@ -18,6 +18,7 @@ export const transcribeVideo = internalAction({
       speaker_labels: true,
       punctuate: true,
       format_text: true,
+      language_detection: true,
     });
 
     if (transcript.status === "error" || !transcript.text) {

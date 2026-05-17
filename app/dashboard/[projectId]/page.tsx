@@ -9,6 +9,7 @@ import { ReviewPrompt } from "@/components/dashboard/review-prompt";
 import { ClipsGallery } from "@/components/output-preview";
 
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWorkspace } from "@/components/workspace-context";
 import { api } from "@/convex/_generated/api";
@@ -508,9 +509,17 @@ export default function ProjectDetailsPage() {
                   };
                 })}
               />
-            ) : (
-              <p className="text-muted-foreground text-sm">No clips generated yet.</p>
-            )}
+            ) : isProcessing ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex flex-col gap-3">
+                    <Skeleton className="w-full aspect-9/16 rounded-2xl" />
+                    <Skeleton className="h-4 w-3/4 rounded" />
+                    <Skeleton className="h-3 w-1/2 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </TabsContent>
 
           {/* Captions — all platforms per clip */}

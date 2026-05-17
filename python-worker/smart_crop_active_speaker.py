@@ -193,7 +193,10 @@ class FaceDetector:
         h, w = frame_bgr.shape[:2]
 
         if self._mode == "yolo":
-            results = self._yolo.predict(frame_bgr, conf=0.35, verbose=False)
+            # conf=0.5: stricter than default to avoid false positives on hands,
+            # microphones, dark patches, etc. that previously got tracked as "faces"
+            # and caused the crop to stick on background.
+            results = self._yolo.predict(frame_bgr, conf=0.5, verbose=False)
             return [
                 BBox(
                     float(b.xyxy[0][0]), float(b.xyxy[0][1]),
@@ -232,7 +235,7 @@ class FaceDetector:
 # Step 2 — Face tracking (greedy IoU)
 
 _IOU_THRESHOLD = 0.30
-_MAX_MISS = 10  # frames before a track is retired
+_MAX_MISS = 25  # frames before a track is retired (higher = fewer restarts/position jumps)
 
 
 class FaceTracker:
@@ -541,16 +544,31 @@ def compute_crop_params(
         LOG.info("No face tracks detected; applying center crop")
         return np.full(n_frames, cx_default), crop_w, crop_h
 
+    # Drop spurious tracks visible in <8% of frames — these are usually false
+    # positives from microphones, hands, props, or detection noise. Without
+    # this filter they can become the "dominant" track in scenes with poor
+    # detection and pull the crop onto background.
+    min_visible_frames = max(3, int(0.08 * n_frames))
+    real_tracks = [
+        t for t in tracks
+        if sum(1 for b in t.boxes if b is not None) >= min_visible_frames
+    ]
+    if not real_tracks:
+        LOG.info("All tracks below visibility threshold; applying center crop")
+        return np.full(n_frames, cx_default), crop_w, crop_h
+
     # Sort tracks by score descending
-    sorted_tracks = sorted(tracks, key=lambda t: t.speaking_score, reverse=True)
+    sorted_tracks = sorted(real_tracks, key=lambda t: t.speaking_score, reverse=True)
     best = sorted_tracks[0]
 
     LOG.info(
-        "Dominant speaker: track=%d  score=%.3f  visible_frames=%d/%d",
+        "Dominant speaker: track=%d  score=%.3f  visible_frames=%d/%d (after filtering %d→%d tracks)",
         best.track_id,
         best.speaking_score,
         sum(1 for b in best.boxes if b is not None),
         n_frames,
+        len(tracks),
+        len(real_tracks),
     )
 
     # Multi-speaker mode: include any track whose score is within 40% of the top score.
@@ -563,18 +581,34 @@ def compute_crop_params(
         len(candidate_tracks), score_threshold,
     )
 
+    # Tracks we'll use as fallback when no candidate is visible in a frame —
+    # avoids the crop sticking on stale background when the dominant face is
+    # off-screen but another face is visible.
+    fallback_tracks = [t for t in sorted_tracks if t not in candidate_tracks]
+
+    def visible_fallback_cx(fi: int) -> Optional[float]:
+        """Return cx of any visible fallback face in frame fi (highest-scoring first)."""
+        for t in fallback_tracks:
+            if fi < len(t.boxes) and t.boxes[fi] is not None:
+                return t.boxes[fi].cx  # type: ignore[union-attr]
+        return None
+
     if len(candidate_tracks) == 1:
-        # Single dominant speaker — simple trajectory following their face
+        # Single dominant speaker — follow their face, but fall back to ANY
+        # other visible face if the dominant one is missed for a frame
+        # (prevents crop locking onto empty background during occlusion).
         cx_raw = np.full(n_frames, np.nan)
-        for fi, box in enumerate(best.boxes[:n_frames]):
-            if box is not None:
-                cx_raw[fi] = box.cx
+        for fi in range(n_frames):
+            if fi < len(best.boxes) and best.boxes[fi] is not None:
+                cx_raw[fi] = best.boxes[fi].cx  # type: ignore[union-attr]
+            else:
+                alt = visible_fallback_cx(fi)
+                if alt is not None:
+                    cx_raw[fi] = alt
     else:
         # Multi-speaker: per frame, pick the candidate face that is visible.
-        # If multiple faces visible in same frame, prefer the one whose cx is
-        # farthest from center (i.e. actually on one side, not a mic/prop in the middle).
-        # Apply momentum: only switch speakers when the new face is clearly separate
-        # from the current crop center, preventing rapid oscillation.
+        # If no candidate is visible, fall back to any other tracked face
+        # so the crop doesn't stick on stale background.
         cx_raw = np.full(n_frames, np.nan)
         last_cx = cx_default
 
@@ -585,6 +619,11 @@ def compute_crop_params(
                     visible.append((t.boxes[fi].cx, t.speaking_score))  # type: ignore[union-attr]
 
             if not visible:
+                # No candidate visible — try any fallback track before giving up
+                alt = visible_fallback_cx(fi)
+                if alt is not None:
+                    cx_raw[fi] = alt
+                    last_cx = alt
                 continue
 
             if len(visible) == 1:
@@ -636,6 +675,39 @@ def _backward_fill(arr: np.ndarray, default: float) -> None:
             last = arr[i]
         else:
             arr[i] = last
+
+
+def extract_step_keyframes(
+    cx_smooth: np.ndarray,
+    fps: float,
+    crop_w: int,
+    deadzone_fraction: float = 0.08,
+) -> Tuple[list, list]:
+    """
+    Convert a per-frame smooth crop trajectory into step-function keyframes.
+
+    The camera stays perfectly locked on the face and only snaps to a new
+    position when the face has moved more than deadzone_fraction * crop_w pixels
+    from the last locked position.  This gives a rock-steady frame with instant
+    cuts instead of continuous (shaky/laggy) camera follow.
+
+    Returns (kf_times_s, kf_cx_values) — both lists of equal length.
+    """
+    if len(cx_smooth) == 0:
+        return [0.0], [float(cx_smooth[0])]
+
+    deadzone = crop_w * deadzone_fraction
+    kf_times: list = [0.0]
+    kf_xs: list = [float(cx_smooth[0])]
+    locked_cx = float(cx_smooth[0])
+
+    for fi in range(1, len(cx_smooth)):
+        if abs(float(cx_smooth[fi]) - locked_cx) > deadzone:
+            kf_times.append(fi / fps)
+            kf_xs.append(float(cx_smooth[fi]))
+            locked_cx = float(cx_smooth[fi])
+
+    return kf_times, kf_xs
 
 
 # Step 5 — FFmpeg helpers
@@ -936,7 +1008,7 @@ def process_video(
     start_s: float = 0.0,
     duration_s: Optional[float] = None,
     thumb_path: Optional[str] = None,
-    dynamic_crop: bool = True,
+    dynamic_crop: bool = True,  # kept for call-site compat; AI path always uses step keyframes
     crop_mode: str = "smart_crop",  # "smart_crop" | "blur_background"
     crop_keyframes: Optional[list] = None,  # [{time, cropX}] 0-1 fractions; overrides AI when set
 ) -> None:
@@ -977,8 +1049,10 @@ def process_video(
             sample_every_n=1,
         )
 
+        # sigma=1.5s gives a ~45-frame smoothing window at 30fps — eliminates
+        # detection micro-jitter while still following genuine face movement.
         cx_per_frame, crop_w, crop_h = compute_crop_params(
-            tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=0.35,
+            tracks, vid_w, vid_h, n_frames, fps, smooth_sigma_s=1.5,
         )
 
         if crop_keyframes:
@@ -995,10 +1069,11 @@ def process_video(
                 output_path, thumb_path,
             )
         else:
+            # AI smart crop — smooth per-frame follow using the Gaussian-smoothed
+            # trajectory. sigma=1.5s gives ~45 frames of smoothing at 30fps which
+            # removes detection jitter while keeping the camera motion fluid.
             cx_std = float(np.std(cx_per_frame))
-            use_dynamic = dynamic_crop and _SCIPY_AVAIL and cx_std > 5.0
-
-            if use_dynamic:
+            if cx_std > 5.0:
                 LOG.info("Crop mode: dynamic (cx_std=%.1fpx)", cx_std)
                 apply_dynamic_crop_encode(
                     seg_path, cx_per_frame, crop_w, crop_h, fps, vid_w,

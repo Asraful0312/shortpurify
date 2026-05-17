@@ -69,21 +69,29 @@ export const deleteExpiredClips = internalAction({
     if (expired.length === 0) return;
     console.log(`[cron] Deleting ${expired.length} expired clips`);
 
+    let succeeded = 0;
+    let failed = 0;
     for (const output of expired) {
-      for (const key of [output.clipKey, output.thumbnailKey, output.exportKey]) {
-        if (!key) continue;
-        try {
-          await r2.deleteObject(ctx, key);
-        } catch (err) {
-          console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+      try {
+        for (const key of [output.clipKey, output.thumbnailKey, output.exportKey]) {
+          if (!key) continue;
+          try {
+            await r2.deleteObject(ctx, key);
+          } catch (err) {
+            console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+          }
         }
+        await ctx.runMutation(internal.crons.deleteOutput, {
+          outputId: output._id as import("./_generated/dataModel").Id<"outputs">,
+        });
+        succeeded++;
+      } catch (err) {
+        console.error(`[cron] Failed to delete output ${output._id}:`, err);
+        failed++;
       }
-      await ctx.runMutation(internal.crons.deleteOutput, {
-        outputId: output._id as import("./_generated/dataModel").Id<"outputs">,
-      });
     }
 
-    console.log(`[cron] Expired clip cleanup done — ${expired.length} removed`);
+    console.log(`[cron] Expired clip cleanup done — ${succeeded} removed, ${failed} failed`);
   },
 });
 
@@ -99,6 +107,8 @@ export const deleteExpiredProjects = internalAction({
     const now = Date.now();
     const expired: {
       _id: string;
+      userId: string;
+      workspaceId?: string;
       originalKey?: string;
       thumbnailKey?: string;
     }[] = await ctx.runQuery(internal.crons.getExpiredProjects, { now, limit: 50 });
@@ -106,23 +116,48 @@ export const deleteExpiredProjects = internalAction({
     if (expired.length === 0) return;
     console.log(`[cron] Expiring ${expired.length} projects`);
 
+    let succeeded = 0;
+    let skipped = 0;
+    let failed = 0;
     for (const project of expired) {
-      // Delete project-level R2 files (outputs have their own expiry cron)
-      for (const key of [project.originalKey, project.thumbnailKey]) {
-        if (!key) continue;
-        try {
-          await r2.deleteObject(ctx, key);
-        } catch (err) {
-          console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+      try {
+        // Before deleting, verify the owner is still on a plan that requires this expiry.
+        // If they've since upgraded (e.g. starter→pro), clear expiresAt and skip deletion.
+        const currentTier = await ctx.runQuery(internal.usage.getTierForUser, {
+          userId: project.userId as import("./_generated/dataModel").Id<"users">,
+          workspaceId: project.workspaceId,
+        });
+        if (currentTier !== "starter") {
+          await ctx.runMutation(internal.crons.clearProjectExpiry, {
+            projectId: project._id as import("./_generated/dataModel").Id<"projects">,
+          });
+          console.log(`[cron] Skipped project ${project._id} — owner is now on ${currentTier} plan, expiresAt cleared`);
+          skipped++;
+          continue;
         }
+
+        // Delete project-level R2 files (outputs have their own expiry cron)
+        for (const key of [project.originalKey, project.thumbnailKey]) {
+          if (!key) continue;
+          try {
+            await r2.deleteObject(ctx, key);
+          } catch (err) {
+            console.warn(`[cron] R2 delete failed for key ${key}:`, err);
+          }
+        }
+        // purgeProjectData soft-deletes the project row and hard-deletes outputs/posts
+        await ctx.runMutation(internal.projects.purgeProjectData, {
+          projectId: project._id as import("./_generated/dataModel").Id<"projects">,
+        });
+        succeeded++;
+      } catch (err) {
+        // Catch per-project so one bad row never blocks the rest
+        console.error(`[cron] Failed to expire project ${project._id}:`, err);
+        failed++;
       }
-      // purgeProjectData soft-deletes the project row and hard-deletes outputs/posts
-      await ctx.runMutation(internal.projects.purgeProjectData, {
-        projectId: project._id as import("./_generated/dataModel").Id<"projects">,
-      });
     }
 
-    console.log(`[cron] Project expiry done — ${expired.length} cleaned up`);
+    console.log(`[cron] Project expiry done — ${succeeded} deleted, ${skipped} upgraded-plan skipped, ${failed} failed`);
   },
 });
 

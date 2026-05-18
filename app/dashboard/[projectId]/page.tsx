@@ -506,6 +506,7 @@ export default function ProjectDetailsPage() {
                     endTime: clip.endTime,
                     clipKey: clip.clipKey,
                     subtitleWords: subtitleWords.length > 0 ? subtitleWords : undefined,
+                    exportStatus: clip.exportStatus,
                   };
                 })}
               />

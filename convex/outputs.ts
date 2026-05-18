@@ -67,8 +67,38 @@ export const saveExportCache = internalMutation({
     await ctx.db.patch(outputId, {
       exportKey,
       exportSettingsHash,
+      exportStatus: "ready",
       ...(incrementBurn && { burnCount: (output?.burnCount ?? 0) + 1 }),
     });
+  },
+});
+
+/** Set exportStatus on an output — used by background export job to signal pending/ready/failed. */
+export const patchExportStatus = internalMutation({
+  args: {
+    outputId: v.id("outputs"),
+    status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+  },
+  handler: async (ctx, { outputId, status }) => {
+    await ctx.db.patch(outputId, { exportStatus: status });
+  },
+});
+
+/** Schedule a background export job and mark the output as pending. Called from triggerExport action. */
+export const scheduleExportJob = internalMutation({
+  args: {
+    outputId: v.id("outputs"),
+    clipKey: v.string(),
+    subtitleWords: v.array(
+      v.object({ text: v.string(), startMs: v.number(), endMs: v.number() }),
+    ),
+    settings: v.any(),
+    watermark: v.string(),
+    settingsHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.outputId, { exportStatus: "pending" });
+    await ctx.scheduler.runAfter(0, internal.exportActions.runExportBackground, args);
   },
 });
 

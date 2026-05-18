@@ -17,7 +17,7 @@ function ActionButton({
 }) {
   const size = small ? "w-10 h-10 sm:w-11 sm:h-11" : "w-12 h-12 sm:w-14 sm:h-14";
   return (
-    <button className="flex flex-col items-center gap-1.5 pointer-events-auto" onClick={onClick}>
+    <button className="group flex flex-col items-center gap-1.5 pointer-events-auto" onClick={onClick}>
       <div
         className={cn(
           size,

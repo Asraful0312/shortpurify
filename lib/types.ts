@@ -20,6 +20,7 @@ export interface OutputClipProps {
   endTime?: number;
   clipKey?: string;
   subtitleWords?: SubtitleWord[];
+  exportStatus?: "pending" | "ready" | "failed";
 }
 
 export interface TemplateProps {

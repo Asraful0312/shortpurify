@@ -112,6 +112,10 @@ export default defineSchema({
     // Cached subtitle export — R2 key + settings hash to skip Modal on re-download
     exportKey: v.optional(v.string()),
     exportSettingsHash: v.optional(v.string()),
+    // Background export job state — pending while worker runs, ready when downloadable
+    exportStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+    ),
     // Number of unique subtitle renders (cache misses) — used to enforce per-plan burn limits
     burnCount: v.optional(v.number()),
     // Clip window inside the source video (seconds)

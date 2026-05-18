@@ -52,6 +52,8 @@ function FullscreenPlayer({
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadingCanvas, setDownloadingCanvas] = useState(false);
+  // Restore pending state if the user closed and reopened while an export was running
+  const [exportTriggered, setExportTriggered] = useState(() => clip.exportStatus === "pending");
   const [publishOpen, setPublishOpen] = useState(false);
   // Keep a ref in sync so event handlers always read the current value
   // without needing to re-register (avoids re-running the effect on modal open/close).
@@ -87,7 +89,8 @@ function FullscreenPlayer({
       source: "zernio" as const,
     })),
   ];
-  const exportWithSubtitles = useAction(api.exportActions.exportWithSubtitles);
+  const triggerExport = useAction(api.exportActions.triggerExport);
+  const getExportDownloadUrl = useAction(api.exportActions.getExportDownloadUrl);
   const refreshClipUrl = useAction(api.outputs.refreshClipUrl);
   const saveSubtitleSettingsMutation = useMutation(api.projects.saveSubtitleSettings);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -152,7 +155,30 @@ function FullscreenPlayer({
     setShowSubtitleEditor(false);
     setDownloadError(null);
     setDownloadWarning(null);
+    setExportTriggered(clips[currentIndex].exportStatus === "pending");
   }, [currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-download when a background export completes
+  useEffect(() => {
+    if (!exportTriggered) return;
+    if (clip.exportStatus === "ready") {
+      (async () => {
+        try {
+          const url = await getExportDownloadUrl({ outputId: clip.id as Id<"outputs"> });
+          await downloadVideo(url, clip.title);
+        } catch {
+          setDownloadError("Export completed but download failed. Please try again.");
+          setTimeout(() => setDownloadError(null), 6000);
+        } finally {
+          setExportTriggered(false);
+        }
+      })();
+    } else if (clip.exportStatus === "failed") {
+      setDownloadError("Export failed. Please try downloading again.");
+      setTimeout(() => setDownloadError(null), 6000);
+      setExportTriggered(false);
+    }
+  }, [clip.exportStatus, exportTriggered]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -308,34 +334,48 @@ function FullscreenPlayer({
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (exportTriggered) {
+      setExportTriggered(false);
+      return;
+    }
     if (downloading) return;
-    setDownloading(true);
     setDownloadError(null);
     setDownloadWarning(null);
-    try {
-      if (subtitleSettings.enabled && (clip.subtitleWords?.length ?? 0) > 0 && clip.clipKey) {
-        try {
-          const { downloadUrl } = await exportWithSubtitles({
-            outputId: clip.id as import("@/convex/_generated/dataModel").Id<"outputs">,
-            clipKey: clip.clipKey,
-            clipTitle: clip.title,
-            subtitleWords: clip.subtitleWords!,
-            settings: subtitleSettings,
-          });
-          await downloadVideo(downloadUrl, clip.title);
-          return;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          const clean = msg.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/)?.[1]?.trim() ?? msg;
-          if (clean.includes("re-renders") || clean.includes("Upgrade")) {
-            setDownloadError(clean);
-            setTimeout(() => setDownloadError(null), 6000);
-            return;
-          }
+
+    if (subtitleSettings.enabled && (clip.subtitleWords?.length ?? 0) > 0 && clip.clipKey) {
+      setDownloading(true);
+      try {
+        const result = await triggerExport({
+          outputId: clip.id as Id<"outputs">,
+          clipKey: clip.clipKey,
+          subtitleWords: clip.subtitleWords!,
+          settings: subtitleSettings,
+        });
+        if ("downloadUrl" in result) {
+          await downloadVideo(result.downloadUrl, clip.title);
+        } else {
+          // Background job scheduled — spinner will persist via exportTriggered
+          setExportTriggered(true);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const clean = msg.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/)?.[1]?.trim() ?? msg;
+        if (clean.includes("re-renders") || clean.includes("Upgrade")) {
+          setDownloadError(clean);
+          setTimeout(() => setDownloadError(null), 6000);
+        } else {
           setDownloadWarning("Subtitle export failed — downloading without subtitles.");
           setTimeout(() => setDownloadWarning(null), 5000);
+          await downloadVideo(clip.videoUrl, clip.title);
         }
+      } finally {
+        setDownloading(false);
       }
+      return;
+    }
+
+    setDownloading(true);
+    try {
       await downloadVideo(clip.videoUrl, clip.title);
     } finally {
       setDownloading(false);
@@ -514,11 +554,18 @@ function FullscreenPlayer({
             <ActionButton icon={<Send size={22} className="ml-0.5" />} primary onClick={(e) => { e.stopPropagation(); setPublishOpen(true); }} />
             <ActionButton icon={copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />} small onClick={copyCaption} />
             <ActionButton
-              icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              icon={
+                downloading ? <Loader2 size={18} className="animate-spin" /> :
+                exportTriggered ? (
+                  <span className="relative flex items-center justify-center w-[18px] h-[18px]">
+                    <Loader2 size={18} className="animate-spin absolute transition-opacity group-hover:opacity-0" />
+                    <X size={18} className="absolute opacity-0 transition-opacity group-hover:opacity-100" />
+                  </span>
+                ) : <Download size={18} />
+              }
               small
               onClick={handleDownload}
             />
-            
           </div>
           </div>{/* end sliding panel */}
         </div>{/* end clip container */}
@@ -537,7 +584,16 @@ function FullscreenPlayer({
           <ActionButton icon={<Send size={22} className="ml-0.5" />} label="Post" primary onClick={(e) => { e.stopPropagation(); setPublishOpen(true); }} />
           <ActionButton icon={copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} />} small onClick={copyCaption} />
           <ActionButton
-            icon={downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            icon={
+              downloading ? <Loader2 size={18} className="animate-spin" /> :
+              exportTriggered ? (
+                <span className="relative flex items-center justify-center w-[18px] h-[18px]">
+                  <Loader2 size={18} className="animate-spin absolute transition-opacity group-hover:opacity-0" />
+                  <X size={18} className="absolute opacity-0 transition-opacity group-hover:opacity-100" />
+                </span>
+              ) : <Download size={18} />
+            }
+            label={exportTriggered ? "Cancel" : undefined}
             small
             onClick={(e) => { e.stopPropagation(); handleDownload(e); }}
           />

@@ -202,6 +202,164 @@ export const exportWithSubtitles = action({
 });
 
 /**
+ * Trigger a subtitle export for a single clip.
+ * - Cache hit (same settings, status=ready): returns { downloadUrl } immediately.
+ * - Already pending: returns { pending: true } without scheduling a second job.
+ * - Cache miss: validates burn limit, schedules a background job, returns { pending: true }.
+ */
+export const triggerExport = action({
+  args: {
+    outputId: v.id("outputs"),
+    clipKey: v.string(),
+    subtitleWords: v.array(
+      v.object({ text: v.string(), startMs: v.number(), endMs: v.number() }),
+    ),
+    settings: SETTINGS_VALIDATOR,
+  },
+  handler: async (ctx, { outputId, clipKey, subtitleWords, settings }): Promise<
+    { downloadUrl: string } | { pending: true }
+  > => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Unauthorized");
+
+    if (!process.env.BURN_SUBTITLES_URL)
+      throw new ConvexError("No burn worker URL configured (set BURN_SUBTITLES_URL)");
+
+    const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
+
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    const project = output
+      ? await ctx.runQuery(api.projects.getProject, { projectId: output.projectId })
+      : null;
+
+    let isPaid = false;
+    let watermark = "shortpurify.com";
+    if (project) {
+      isPaid = await ctx.runQuery(internal.usage.isPaidPlan, {
+        workspaceId: project.workspaceId ?? undefined,
+        fallbackEntityId: project.userId,
+      });
+      if (isPaid) watermark = "";
+    } else if (output) {
+      const user = await ctx.runQuery(internal.users.getUserByClerkId, { clerkId: identity.subject });
+      if (user) {
+        isPaid = await ctx.runQuery(internal.usage.isPaidPlan, { fallbackEntityId: user._id });
+        if (isPaid) watermark = "";
+      }
+    }
+
+    if (settings.template === "comic" && !isPaid) {
+      throw new ConvexError(
+        "The Comic subtitle template requires a Pro or Agency plan. Upgrade to export with this style."
+      );
+    }
+
+    const settingsHash = createHash("sha256")
+      .update(JSON.stringify({ ...settings, watermark, v: "15" }))
+      .digest("hex")
+      .slice(0, 16);
+
+    // Cache hit — same export key, same settings hash, export is ready
+    if (
+      output?.exportKey === exportKey &&
+      output?.exportSettingsHash === settingsHash &&
+      output?.exportStatus === "ready"
+    ) {
+      const downloadUrl = await r2.getUrl(exportKey, { expiresIn: 60 * 60 });
+      return { downloadUrl };
+    }
+
+    // Background job already running — don't start a second one
+    if (output?.exportStatus === "pending") {
+      return { pending: true };
+    }
+
+    // Burn limit check before scheduling
+    if (output && project) {
+      const burnLimit = await ctx.runQuery(internal.usage.getBurnLimit, {
+        workspaceId: project.workspaceId ?? undefined,
+        fallbackEntityId: project.userId,
+      });
+      if (burnLimit !== null && (output.burnCount ?? 0) >= burnLimit) {
+        throw new ConvexError(
+          `You've used all ${burnLimit} subtitle re-renders on your plan for this clip. Upgrade to Pro Creator for more.`
+        );
+      }
+    }
+
+    await ctx.runMutation(internal.outputs.scheduleExportJob, {
+      outputId,
+      clipKey,
+      subtitleWords,
+      settings,
+      watermark,
+      settingsHash,
+    });
+
+    return { pending: true };
+  },
+});
+
+/**
+ * Background action invoked by scheduleExportJob. Calls the burn worker,
+ * then marks the output as ready (or failed). Runs with no timeout constraint
+ * because it's scheduled via ctx.scheduler, not a direct HTTP action.
+ */
+export const runExportBackground = internalAction({
+  args: {
+    outputId: v.id("outputs"),
+    clipKey: v.string(),
+    subtitleWords: v.array(
+      v.object({ text: v.string(), startMs: v.number(), endMs: v.number() }),
+    ),
+    settings: v.any(),
+    watermark: v.string(),
+    settingsHash: v.string(),
+  },
+  handler: async (ctx, { outputId, clipKey, subtitleWords, settings, watermark, settingsHash }) => {
+    const pythonUrl = process.env.BURN_SUBTITLES_URL;
+    const workerSecret = process.env.VIDEO_WORKER_SECRET ?? "";
+
+    if (!pythonUrl) {
+      await ctx.runMutation(internal.outputs.patchExportStatus, { outputId, status: "failed" });
+      return;
+    }
+
+    const exportKey = `exports/${clipKey.replace(/\.mp4$/, "")}-subtitled.mp4`;
+
+    try {
+      const clipUrl = await r2.getUrl(clipKey, { expiresIn: 60 * 60 });
+      const { url: uploadUrl } = await r2.generateUploadUrl(exportKey);
+      await burnSubtitles({ workerSecret, clipUrl, uploadUrl, subtitleWords, settings, watermark }, undefined, pythonUrl);
+      await ctx.runMutation(internal.outputs.saveExportCache, {
+        outputId,
+        exportKey,
+        exportSettingsHash: settingsHash,
+        incrementBurn: true,
+      });
+    } catch {
+      await ctx.runMutation(internal.outputs.patchExportStatus, { outputId, status: "failed" });
+    }
+  },
+});
+
+/**
+ * Generate a fresh signed download URL for a clip whose background export is ready.
+ * Called after the UI detects exportStatus === "ready" on the output record.
+ */
+export const getExportDownloadUrl = action({
+  args: { outputId: v.id("outputs") },
+  handler: async (ctx, { outputId }): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new ConvexError("Unauthorized");
+    const output = await ctx.runQuery(internal.outputs.getOutput, { outputId });
+    if (!output?.exportKey || output.exportStatus !== "ready")
+      throw new ConvexError("Export not ready");
+    return r2.getUrl(output.exportKey, { expiresIn: 60 * 60 });
+  },
+});
+
+/**
  * Internal action called by publishClip handlers to auto-export a clip with
  * subtitles before uploading to social platforms.
  *

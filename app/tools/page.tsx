@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { TOOL_CATEGORIES, TOOLS } from "@/lib/tools";
 import ToolsCta from "@/components/tools-cta";
+import { AdsterraNativeBanner } from "@/components/ads/adsterra-ad";
 
 export const metadata: Metadata = {
   title: "Free Video Creator Tools",
@@ -48,44 +49,47 @@ export default function ToolsPage() {
 
         {/* Tool cards */}
         <div className="flex flex-col gap-12 mb-14">
-          {groupedTools.map((group) => (
-            <section key={group.name}>
-              <div className="mb-5">
-                <h2 className="text-2xl font-extrabold tracking-tight">{group.title}</h2>
-                <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-                  {group.description}
-                </p>
-              </div>
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {group.tools.map((tool) => (
-                  <Link
-                    key={tool.href}
-                    href={tool.href}
-                    className="group bg-white border border-border rounded-3xl p-6 shadow-sm hover:shadow-md hover:border-primary/20 transition-all flex flex-col gap-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-secondary/60 flex items-center justify-center shrink-0">
-                        {tool.icon}
+          {groupedTools.map((group, index) => (
+            <div key={group.name} className="contents">
+              <section>
+                <div className="mb-5">
+                  <h2 className="text-2xl font-extrabold tracking-tight">{group.title}</h2>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+                    {group.description}
+                  </p>
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.tools.map((tool) => (
+                    <Link
+                      key={tool.href}
+                      href={tool.href}
+                      className="group bg-white border border-border rounded-3xl p-6 shadow-sm hover:shadow-md hover:border-primary/20 transition-all flex flex-col gap-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-secondary/60 flex items-center justify-center shrink-0">
+                          {tool.icon}
+                        </div>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${tool.badgeColor}`}>
+                          {tool.badge}
+                        </span>
                       </div>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${tool.badgeColor}`}>
-                        {tool.badge}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-extrabold text-base mb-1.5 group-hover:text-primary transition-colors">
-                        {tool.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {tool.description}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm font-bold text-primary">
-                      {tool.cta} <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
+                      <div className="flex-1">
+                        <h3 className="font-extrabold text-base mb-1.5 group-hover:text-primary transition-colors">
+                          {tool.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {tool.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm font-bold text-primary">
+                        {tool.cta} <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+              {index === 0 && <AdsterraNativeBanner />}
+            </div>
           ))}
         </div>
 

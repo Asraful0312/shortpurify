@@ -12,7 +12,7 @@ import CTASection from "@/components/home/cta-section";
 import Footer from "@/components/shared/footer";
 
 export const metadata: Metadata = {
-  title: "ShortPurify – AI Short-Form Clip Generator",
+  title: "ShortPurify | AI Short-Form Clip Generator",
   description:
     "Turn long-form videos into viral short clips with AI. Auto-generate captions, smart crop for 9:16, and publish directly to TikTok, Instagram Reels, YouTube Shorts and more.",
   alternates: {

@@ -1,10 +1,10 @@
 "use client"
 
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, PlayCircle, X } from 'lucide-react'
+import { ArrowRight, PlayCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react';
 import VideoModal from './VideoModal';
+import { AdsterraResponsiveBanner } from './ads/adsterra-ad';
 
 
 
@@ -28,6 +28,8 @@ const ToolsCta = ({headerText, subText}: {headerText: string, subText: string}) 
   
   return (
     <>
+     <AdsterraResponsiveBanner className="my-10" />
+
      <div className="bg-primary rounded-3xl p-8 text-primary-foreground text-center">
           <h2 className="text-2xl font-extrabold mb-2">{headerText}</h2>
           <p className="text-primary-foreground/80 mb-6 max-w-md mx-auto">

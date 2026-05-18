@@ -1,5 +1,6 @@
 import Footer from '@/components/shared/footer';
 import ToolsNavBar from '@/components/tools-nav-bar'
+import { AdsterraToolsBottomAd } from '@/components/ads/adsterra-ad';
 import { TOOLS } from '@/lib/tools';
 import { Metadata } from 'next';
 import { ReactNode } from 'react'
@@ -41,6 +42,8 @@ const layout = ({ children }: { children: ReactNode }) => {
             }),
           }}
         />
+
+        <AdsterraToolsBottomAd />
 
         <Footer/>
     </div>

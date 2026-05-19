@@ -15,12 +15,26 @@ export function cn(...inputs: ClassValue[]) {
  * This extracts "Your message" (or falls back to a generic string).
  */
 export function friendlyError(err: unknown, fallback = "Something went wrong"): string {
+  // ConvexError thrown from an action — .data holds the user-facing string directly
+  if (err && typeof (err as any).data === "string" && (err as any).data) {
+    return (err as any).data;
+  }
+
   const raw = err instanceof Error ? err.message : String(err ?? fallback);
   // Extract the text after "Uncaught ConvexError:" or "Uncaught Error:"
   const match = raw.match(/Uncaught (?:Convex)?Error:\s*([\s\S]+?)(?:\n\s*at |\n\s*Called by|$)/);
   if (match) return match[1].trim();
-  // If there's no envelope prefix at all, return the raw message
+
+  // Convex envelope header with no extractable user message — don't show raw noise
+  if (/^\[CONVEX/.test(raw)) return fallback;
+
   return raw.trim() || fallback;
+}
+
+/** Returns true if the error message indicates a plan limit that requires upgrading. */
+export function isUpgradeError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return lower.includes("upgrade") || lower.includes("plan") || lower.includes("limit");
 }
 
 export const PIPELINE_STEPS = [

@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/components/workspace-context";
 import SingleVideoUploader from "@/components/upload-dropzone";
 import { ChevronDown, ChevronUp, Upload, LucideYoutube, Loader2, AlertCircle, Crop, Layers, Play, X, ScanSearch } from "lucide-react";
-import { cn, friendlyError } from "@/lib/utils";
+import { cn, friendlyError, isUpgradeError } from "@/lib/utils";
 import Image from "next/image";
 
 const ALL_PLATFORMS = [
@@ -321,9 +321,11 @@ export default function UploadPage() {
                 <AlertCircle size={15} className="mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <p className="text-xs font-semibold">{uploadError}</p>
-                  <a href="/dashboard/billing" className="text-xs font-bold underline mt-0.5 inline-block">
-                    Upgrade plan →
-                  </a>
+                  {isUpgradeError(uploadError) && (
+                    <a href="/dashboard/billing" className="text-xs font-bold underline mt-0.5 inline-block">
+                      Upgrade plan →
+                    </a>
+                  )}
                 </div>
               </div>
             )}
@@ -351,9 +353,16 @@ export default function UploadPage() {
             />
 
             {ytError && (
-              <div className="flex items-start gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                <AlertCircle size={15} className="mt-0.5 shrink-0" />
-                <p className="text-xs font-medium">{ytError}</p>
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <AlertCircle size={15} className="mt-0.5 shrink-0 text-red-600" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-red-700">{ytError}</p>
+                  {isUpgradeError(ytError) && (
+                    <a href="/dashboard/billing" className="text-xs font-bold text-red-700 underline mt-0.5 inline-block">
+                      Upgrade plan →
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 

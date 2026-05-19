@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     "instagram reels caption safe zone",
     "instagram reels overlay guide",
     "instagram reels ui safe area",
+    "instagram reels ui safe zone",
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-safe-zone-checker" },
   openGraph: {

@@ -11,6 +11,12 @@ export const metadata: Metadata = {
     "can you disable reels on instagram",
     "instagram reels history",
     "instagram reels not working",
+    "how to see reels watch history",
+    "how to check reels watch history",
+    "how to view reels watch history",
+    "how to find watch history in instagram reels",
+    "how to see ig reels history",
+    
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-history-finder" },
   openGraph: {

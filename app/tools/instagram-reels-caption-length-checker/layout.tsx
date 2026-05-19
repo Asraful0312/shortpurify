@@ -10,6 +10,11 @@ export const metadata: Metadata = {
     "reels caption character counter",
     "instagram caption counter",
     "instagram reels caption checker",
+    "what is the ideal length for an instagram reels caption",
+    "how long should an instagram reels caption be",
+    "instagram reels caption length guidelines",
+    "reels caption character limit",
+    "can you use long captions on instagram reels"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-caption-length-checker" },
   openGraph: {

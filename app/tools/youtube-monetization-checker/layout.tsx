@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     "can I monetize my youtube channel",
     "youtube 1000 subscribers checker",
     "youtube monetization requirements",
+    "how to check youtube monetization",
+    "youtube monetization checker free",
+    "how to check youtube monetization eligibility"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-monetization-checker" },
   openGraph: {

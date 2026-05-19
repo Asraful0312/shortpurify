@@ -6,13 +6,15 @@ export const metadata: Metadata = {
   description: "Find the best time to post on TikTok for your specific timezone. Based on 2025 algorithm research. Maximize your views and engagement on the FYP today.",
   keywords: [
     "best time to post on tiktok",
-    "best time to post on tiktok 2025",
+    "best time to post on tiktok 2026",
     "best time to post on tiktok wednesday",
     "tiktok posting schedule",
     "when to post on tiktok",
     "best times for tiktok engagement",
     "tiktok algorithm timing",
     "global tiktok posting times",
+    "what is the best time to post on tiktok",
+    
   ],
   alternates: { canonical: "https://shortpurify.com/tools/best-time-to-post-on-tiktok" },
   openGraph: {

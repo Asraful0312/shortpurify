@@ -12,6 +12,15 @@ export const metadata: Metadata = {
     "free TikTok caption tool",
     "AI caption generator",
     "TikTok content ideas",
+    "how generate tiktok caption",
+    "free tiktok caption generator",
+    "viral tiktok caption generator",
+    "tiktok caption generator ai",
+    "tiktok caption ideas for instagram",
+    "how to write tiktok captions",
+    "best tiktok captions",
+    "how many hashtags on tiktok",
+    "tiktok caption generator free"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/tiktok-caption-generator" },
   openGraph: {

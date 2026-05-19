@@ -11,6 +11,9 @@ export const metadata: Metadata = {
     "instagram reels aspect ratio",
     "aspect ratio for instagram reels",
     "instagram reels size calculator",
+    "best size for instagram reels",
+    "what size make instagram reel viral",
+    "what is the best size for instagram"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-size-calculator" },
   openGraph: {

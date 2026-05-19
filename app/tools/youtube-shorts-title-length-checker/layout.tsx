@@ -10,6 +10,8 @@ export const metadata: Metadata = {
     "youtube title length checker",
     "youtube shorts title character limit",
     "shorts title checker",
+    "what is the best lenght for youtube title",
+    "youtube titile limit checker free"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-shorts-title-length-checker" },
   openGraph: {

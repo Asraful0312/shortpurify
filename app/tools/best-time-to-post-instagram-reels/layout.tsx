@@ -11,6 +11,10 @@ export const metadata: Metadata = {
     "best time to post reels on instagram today",
     "instagram reels posting time",
     "when to post reels on instagram",
+    "how to find best time to post on instagram reels",
+    "what is the best time to post on instagram reels",
+    "best day to post instagram reels",
+    "best time to post instagram reels by niche",
   ],
   alternates: { canonical: "https://shortpurify.com/tools/best-time-to-post-instagram-reels" },
   openGraph: {

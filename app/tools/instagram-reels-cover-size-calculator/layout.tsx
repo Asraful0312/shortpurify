@@ -10,6 +10,11 @@ export const metadata: Metadata = {
     "instagram reels thumbnail size",
     "instagram reels cover dimensions",
     "reels profile grid crop",
+    "instagram reels cover size guide",
+    "instagram reels cover size chart",
+    "instagram reels cover size template",
+    "instagram reels cover size png",
+    "instagram reels cover size psd"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-cover-size-calculator" },
   openGraph: {

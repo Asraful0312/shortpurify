@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     "AI thumbnail prompt",
     "YouTube thumbnail ideas",
     "thumbnail prompt generator",
+    "free youtube thumbnail generator",
+    "youtube thumbnail prompt generator free",
+    "best youtube thumbnail prompts"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-thumbnail-prompt-generator" },
   openGraph: {

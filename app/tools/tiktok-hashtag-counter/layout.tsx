@@ -10,6 +10,11 @@ export const metadata: Metadata = {
     "how many hashtags on tiktok",
     "tiktok hashtags count",
     "tiktok hashtag tool",
+    "best hashtag for tiktok",
+    "viral tiktok hashtags",
+    "free tiktok hashtag generator",
+    "tiktok hashtag ai",
+    "ai tiktok hashtag generator"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/tiktok-hashtag-counter" },
   openGraph: {

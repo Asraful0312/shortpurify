@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     "how many shorts from long video",
     "youtube shorts optimal length",
     "youtube shorts 3 minutes",
+    "what is the best time for youtube shorts"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-shorts-duration-calculator" },
   openGraph: {

@@ -10,6 +10,14 @@ export const metadata: Metadata = {
     "tiktok character counter",
     "tiktok caption counter",
     "tiktok caption checker",
+    "tiktok caption limit",
+    "tiktok caption length",
+    "tiktok caption character limit",
+    "tiktok caption length limit",
+    "tiktok caption character limit",
+    "what is the best caption limit for tiktok",
+    "best caption limit for tiktok",
+    "best length for tiktok caption"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/tiktok-caption-character-counter" },
   openGraph: {

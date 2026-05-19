@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react";
-import { Menu } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 import Link from "next/link";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/clerk-react";
@@ -10,6 +10,9 @@ import useClickOutside from "../motion-primitives/useClickOutside";
 import { api } from "@/convex/_generated/api";
 import { ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AnimatedGradientText } from "../ui/animated-gradient-text";
+import { PulsatingButton } from "../ui/pulsating-button";
+import { RainbowButton } from "../ui/rainbow-button";
 
 const AFFILIATE_JOIN_URL = "https://affiliates.creem.io/join/shortpurify";
 
@@ -37,8 +40,8 @@ function Navbar() {
     <div className="fixed top-0 left-0 right-0 z-50 animate-in slide-in-from-top-4 duration-700">
       {/* Affiliate announcement banner */}
       {visible && (
-        <div className="relative bg-linear-to-r from-violet-600 to-indigo-600 text-white text-sm">
-          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-center gap-3">
+        <div className="relative">
+          {/* <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-center gap-3">
             <span className="font-semibold hidden sm:inline bg-black px-2 py-1 rounded-full">New:</span>
             <span>
               Earn{" "}
@@ -60,7 +63,52 @@ function Navbar() {
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/20 transition-colors"
           >
             <X size={15} />
-          </button>
+          </button> */}
+
+           <div className="group relative mx-auto flex bg-background items-center justify-center flex-wrap gap-2 px-4 py-1.5 shadow-[inset_0_-8px_10px_#8fdfff1f] transition-shadow duration-500 ease-out hover:shadow-[inset_0_-5px_10px_#8fdfff3f]">
+     <span
+        className={cn(
+          "animate-gradient absolute inset-0 block h-full w-full rounded-[inherit] bg-linear-to-r from-[#ffaa40]/50 via-[#9c40ff]/50 to-[#ffaa40]/50 bg-size-[300%_100%] p-1"
+        )}
+        style={{
+          WebkitMask:
+            "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          WebkitMaskComposite: "destination-out",
+          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+          maskComposite: "subtract",
+          WebkitClipPath: "padding-box",
+        }}
+      />
+      <span className="hidden md:inline">
+🎉
+      </span>
+      
+      <hr className="mx-2 h-4 w-px shrink-0 bg-neutral-500 hidden md:inline" />
+      <AnimatedGradientText className="text-sm font-medium">
+         Earn{" "}
+              <span className="font-bold underline underline-offset-2">30% recurring commission</span>
+              {" "}for every customer you refer.
+      </AnimatedGradientText>
+    
+        <RainbowButton className="ml-2 text-center" >
+         <a
+              href={AFFILIATE_JOIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center text-center gap-1 text-xs whitespace-nowrap w-full"
+            >
+              Join affiliate program <ArrowRight size={12} />
+            </a>
+         </RainbowButton>
+    </div>
+
+    <button
+            onClick={dismiss}
+            aria-label="Dismiss"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/20 transition-colors cursor-pointer"
+          >
+            <X size={15} />
+          </button> 
         </div>
       )}
 

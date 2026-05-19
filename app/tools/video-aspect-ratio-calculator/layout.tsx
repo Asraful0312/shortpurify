@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     "Instagram Reels dimensions",
     "aspect ratio converter",
     "video size calculator",
+    "video size calculate",
+    "best video size",
+    "what is the best video size"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/video-aspect-ratio-calculator" },
   openGraph: {

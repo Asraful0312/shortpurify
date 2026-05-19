@@ -13,7 +13,11 @@ export const metadata: Metadata = {
     "tiktok to mp4",
     "save tiktok video",
     "tiktok download helper",
-  ],
+    "how to download tiktok video free",
+    "how to download tiktok no watermark",
+    "tiktok downloader ios",
+    "tiktok downloader android"
+ ],
   alternates: { canonical: "https://shortpurify.com/tools/tiktok-video-downloader" },
   openGraph: {
     title: "Free TikTok Video Download Helper | Best-Effort Tool",

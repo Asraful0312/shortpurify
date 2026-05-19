@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     "viral YouTube Shorts titles",
     "free YouTube title generator",
     "YouTube Shorts SEO",
+    "youtube shorts title generator free",
+    "best youtube title generator"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-shorts-title-generator" },
   openGraph: {

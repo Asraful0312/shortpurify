@@ -10,6 +10,9 @@ export const metadata: Metadata = {
     "what are trial reels on instagram",
     "instagram trial reels guide",
     "should i use trial reels",
+    "what is trial reels on instagram",
+    "when to use trial reels",
+    "how to use trial reels",
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-trial-reels-guide" },
   openGraph: {

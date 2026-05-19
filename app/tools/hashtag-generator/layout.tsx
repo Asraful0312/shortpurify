@@ -14,6 +14,12 @@ export const metadata: Metadata = {
     "best hashtags for Instagram",
     "viral hashtags",
     "hashtag tool",
+    "instagram hashtag generator free",
+    "free hashtag generator for instagram",
+    "free hashtag generator for tiktok",
+    "free hashtag generator for youtube",
+    "free instagram hashtag generator",
+    "hashtag generator without ads"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/hashtag-generator" },
   openGraph: {

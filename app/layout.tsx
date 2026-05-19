@@ -57,6 +57,8 @@ export const metadata: Metadata = {
     "video to shorts generator",
     "youtube video to shorts",
     "podcast to shorts",
+    "auto long video crop",
+    "video reframing"
   ],
   applicationName: "ShortPurify",
   authors: [{ name: "ShortPurify" }],

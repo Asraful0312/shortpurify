@@ -10,6 +10,11 @@ export const metadata: Metadata = {
     "trending audio instagram reels",
     "instagram reels songs today",
     "reels audio finder",
+    "trending songs for reels 2026",
+    "trending audio for reels 2026",
+    "how to find instagram trending songs",
+    "reels trending audio 2026",
+    "instagram trending songs today",
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-trending-songs-finder" },
   openGraph: {

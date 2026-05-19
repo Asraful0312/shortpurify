@@ -11,6 +11,11 @@ export const metadata: Metadata = {
     "instagram reels length",
     "instagram reels duration",
     "reels length calculator",
+    "reels length calculator",
+    "how long can reels be on instagram 2026",
+    "instagram reels length 2026",
+    "instagram reels duration 2026",
+    'how to get viral on instagram 2026'
   ],
   alternates: { canonical: "https://shortpurify.com/tools/instagram-reels-length-calculator" },
   openGraph: {

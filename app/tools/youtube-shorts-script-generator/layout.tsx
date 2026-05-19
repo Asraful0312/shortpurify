@@ -13,6 +13,8 @@ export const metadata: Metadata = {
     "viral video script",
     "youtube shorts script template",
     "free script generator",
+    "free youtube script generator",
+    "script generator for youtube free"
   ],
   alternates: { canonical: "https://shortpurify.com/tools/youtube-shorts-script-generator" },
   openGraph: {

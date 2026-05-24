@@ -562,9 +562,24 @@ export default function ProjectDetailsPage() {
 
       {/* Empty clips while complete */}
       {isComplete && outputs?.length === 0 && (
-        <p className="text-muted-foreground text-sm">
-          No clips were generated for this project.
-        </p>
+        project.clipsCount && project.clipsCount > 0 ? (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-5 max-w-lg">
+            <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-800">Clips have expired</p>
+              <p className="text-sm text-amber-700 mt-1">
+                The {project.clipsCount} clip{project.clipsCount !== 1 ? "s" : ""} from this project were deleted after your plan&apos;s retention period ended. Upgrade to Pro for 90-day clip retention.
+              </p>
+              <a href="/dashboard/billing" className="text-sm font-bold text-amber-800 underline mt-2 inline-block">
+                Upgrade plan →
+              </a>
+            </div>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            No clips were generated for this project.
+          </p>
+        )
       )}
 
       {/* Delete confirmation dialog */}

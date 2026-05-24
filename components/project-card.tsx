@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { Video, Clock, CheckCircle2, AlertCircle, Loader2, Sparkles, Play, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TextShimmerWave } from "./motion-primitives/text-shimmer-wave";
 import { TextShimmer } from "./motion-primitives/text-shimmer";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -56,17 +55,16 @@ const statusConfig = {
 
 export function ProjectCard({ project }: { project: ProjectCardProps }) {
   const config = statusConfig[project.status];
-  const Icon = config.icon;
   const [thumbSrc, setThumbSrc] = useState(project.thumbnailUrl);
-  const [thumbFailed, setThumbFailed] = useState(false);
+  const refreshAttemptedRef = useRef(false);
   const refreshThumbnail = useAction(api.r2Actions.refreshProjectThumbnail);
 
   async function handleThumbError() {
-    if (thumbFailed || !project.id) return;
-    setThumbFailed(true);
+    if (refreshAttemptedRef.current || !project.id) return;
+    refreshAttemptedRef.current = true;
     try {
       const fresh = await refreshThumbnail({ projectId: project.id as Id<"projects"> });
-      if (fresh) { setThumbSrc(fresh); setThumbFailed(false); }
+      if (fresh) setThumbSrc(fresh);
     } catch { /* no key available — show placeholder */ }
   }
 
@@ -79,7 +77,7 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
       <div className="bg-white rounded-[1.5rem] border border-border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/30 flex flex-col h-full">
         {/* Thumbnail Area */}
         <div className="relative aspect-video bg-secondary flex items-center justify-center overflow-hidden">
-          {thumbSrc && !thumbFailed ? (
+          {thumbSrc ? (
             <img src={thumbSrc} alt={project.title} onError={handleThumbError} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
           ) : (
              <div className="w-full h-full bg-linear-to-tr from-secondary/80 to-secondary flex flex-col items-center justify-center text-muted-foreground transition-transform duration-500 group-hover:scale-105">
@@ -109,11 +107,11 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
             <ScanSearch size={12} />
             Review clips
           </div>
-            ) :  config.text === "Ready" ?(
-                 <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-700 text-white border-green-800")}>
-            <CheckCircle2 size={12} />
-            Ready
-          </div>
+            ) : config.text === "Ready" ? (
+              <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-green-700 text-white border-green-800">
+                <CheckCircle2 size={12} />
+                Ready
+              </div>
             ) : (
                  <div className={cn("absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-sm backdrop-blur-md bg-red-100 text-red-700 border-red-200")}>
             <AlertCircle size={12} />
@@ -132,7 +130,7 @@ export function ProjectCard({ project }: { project: ProjectCardProps }) {
                <span>{dateStr}</span>
              </div>
              {project.status === "complete" && project.clipsCount && (
-                <div className="bg-secondary px-2 py-1.5 rounded-md text-foreground/80 font-bold border border-border/80 shadow-sm">
+                <div className="bg-secondary px-2 py-1.5 rounded-md text-foreground/80 font-bold border border-border/80 shadow-sm text-xs">
                   {project.clipsCount} clips
                 </div>
              )}

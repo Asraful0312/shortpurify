@@ -9,7 +9,6 @@ import { ProjectCard } from "@/components/project-card";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { FeatureAnnouncement } from "@/components/dashboard/feature-announcement";
 import { useWorkspace } from "@/components/workspace-context";
-import { useUser } from "@clerk/clerk-react";
 
 const PAGE_SIZE = 12;
 
@@ -17,10 +16,6 @@ export default function DashboardPage() {
   const { activeOrgId, activeOrg, isLoading: workspaceLoading } = useWorkspace();
 
   const isPersonalView = !activeOrgId;
-
-    const user = useUser()
-
-  console.log("user", user)
 
   const {
     results: personalResults,
@@ -46,11 +41,24 @@ export default function DashboardPage() {
   const aggregateStats = useQuery(api.analytics.getDashboardStats, { workspaceId });
   const usageData = useQuery(api.usage.getUsage, { workspaceId: activeOrgId ?? undefined });
 
-  const projects = isPersonalView ? personalResults : workspaceResults;
+  const rawProjects = isPersonalView ? personalResults : workspaceResults;
   const status = isPersonalView ? personalStatus : workspaceStatus;
   const loadMore = isPersonalView ? loadMorePersonal : loadMoreWorkspace;
 
-  const isLoading = workspaceLoading || status === "LoadingFirstPage";
+  // Filter expired projects client-side (server records stay for usage counting)
+  // For old projects without expiresAt, fall back to createdAt + plan retention window
+  const now = Date.now();
+  const retentionMs = (
+    usageData?.tier === "pro" ? 90 : usageData?.tier === "agency" ? 365 : 7
+  ) * 24 * 60 * 60 * 1000;
+  const projects = rawProjects.filter((p) => {
+    const effectiveExpiry = p.expiresAt ?? (p.createdAt + retentionMs);
+    return effectiveExpiry > now;
+  });
+
+  // Only show skeleton when we have no data at all — prevents flickering when
+  // workspaceLoading briefly flips true after a Clerk org state update
+  const isLoading = (workspaceLoading || status === "LoadingFirstPage") && rawProjects.length === 0;
   const isLoadingMore = status === "LoadingMore";
   const canLoadMore = status === "CanLoadMore";
 

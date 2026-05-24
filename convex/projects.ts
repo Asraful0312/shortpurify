@@ -111,12 +111,13 @@ export const listUserProjects = query({
       .unique();
     if (!user) return [];
 
+    const now = Date.now();
     return (await ctx.db
       .query("projects")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect()
-    ).filter((p) => !p.deletedAt);
+    ).filter((p) => !p.deletedAt && (!p.expiresAt || p.expiresAt > now));
   },
 });
 
@@ -143,12 +144,13 @@ export const listWorkspaceProjects = query({
     if (!callerMembership) return [];
 
     // Only return projects explicitly tagged with this workspace
+    const now = Date.now();
     return (await ctx.db
       .query("projects")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", workspaceId))
       .order("desc")
       .collect()
-    ).filter((p) => !p.deletedAt);
+    ).filter((p) => !p.deletedAt && (!p.expiresAt || p.expiresAt > now));
   },
 });
 

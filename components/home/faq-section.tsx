@@ -14,16 +14,20 @@ const faqs = [
     a: "ShortPurify is an AI-powered clip generator. You upload a long-form video (podcast, interview, webinar, YouTube video) and the AI finds the most engaging moments, smart-crops them to 9:16, burns in captions, and exports ready-to-post vertical clips for TikTok, Instagram Reels, YouTube Shorts, and more — in minutes.",
   },
   {
+    q: "What happens if I stay on the free Starter plan?",
+    a: "You keep access to 2 projects per month with 3 clips each — enough to test the product. But you'll be capped at 10-minute videos and every export will include a ShortPurify watermark. Most creators find they hit the limit within their first week once they see results. Pro Creator ($24/mo) removes the watermark, unlocks 30 projects, 8 clips per video, and up to 5-hour videos — typically paying for itself with a single viral clip.",
+  },
+  {
+    q: "Can I cancel anytime?",
+    a: "Yes, absolutely. Cancel from your billing settings whenever you like — no questions asked, no penalties. Your plan stays active until the end of your current billing period and you keep access to all your clips until their retention window expires.",
+  },
+  {
     q: "Which social platforms does ShortPurify publish to?",
     a: "ShortPurify supports direct publishing to TikTok, Instagram Reels, YouTube Shorts, LinkedIn, Facebook, X (Twitter), Threads, and Bluesky. You can also download a ZIP of all clips and post manually.",
   },
   {
-    q: "Is there a free plan? What are the limits?",
-    a: "Yes, the Starter plan is completely free with no credit card required. You get 2 projects per month, 3 AI clips per project, and videos up to 10 minutes. Pro Creator ($24/mo) and Agency ($79/mo) plans unlock more projects, longer videos, and watermark-free exports.",
-  },
-  {
     q: "How long does it take to generate clips from a video?",
-    a: "Most videos finish processing within 2–5 minutes. Processing time scales with video length, a 10-minute video typically takes around 2 minutes; a 60-minute video may take 5–8 minutes. You'll see a progress indicator while the AI works.",
+    a: "Most videos finish processing within 2–5 minutes. Processing time scales with video length — a 10-minute video typically takes around 2 minutes; a 60-minute video may take 5–8 minutes. You'll see a progress indicator while the AI works.",
   },
   {
     q: "Are captions added automatically?",

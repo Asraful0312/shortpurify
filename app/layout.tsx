@@ -58,7 +58,11 @@ export const metadata: Metadata = {
     "youtube video to shorts",
     "podcast to shorts",
     "auto long video crop",
-    "video reframing"
+    "video reframing",
+    "long video to short clips",
+    "long video to TikTok",
+    "long video to Instagram Reels",
+    "long video to YouTube Shorts",
   ],
   applicationName: "ShortPurify",
   authors: [{ name: "ShortPurify" }],
@@ -120,34 +124,71 @@ export default function RootLayout({
               {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                "name": "ShortPurify",
-                "url": "https://shortpurify.com",
-                "potentialAction": {
+                name: "ShortPurify",
+                url: "https://shortpurify.com",
+                potentialAction: {
                   "@type": "SearchAction",
-                  "target": "https://shortpurify.com/tools?q={search_term_string}",
+                  target:
+                    "https://shortpurify.com/tools?q={search_term_string}",
                   "query-input": "required name=search_term_string",
                 },
-                "siteNavigationElement": [
-                  { "@type": "SiteNavigationElement", "name": "Get Started Free", "url": "https://shortpurify.com/sign-up" },
-                  { "@type": "SiteNavigationElement", "name": "Pricing", "url": "https://shortpurify.com/#pricing" },
-                  { "@type": "SiteNavigationElement", "name": "Affiliate Program", "url": "https://shortpurify.com/affiliates" },
-                  { "@type": "SiteNavigationElement", "name": "Free Tools", "url": "https://shortpurify.com/tools" },
-                  { "@type": "SiteNavigationElement", "name": "Contact", "url": "https://shortpurify.com/contact" },
+                siteNavigationElement: [
+                  {
+                    "@type": "SiteNavigationElement",
+                    name: "Get Started Free",
+                    url: "https://shortpurify.com/sign-up",
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    name: "Pricing",
+                    url: "https://shortpurify.com/#pricing",
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    name: "Affiliate Program",
+                    url: "https://shortpurify.com/affiliates",
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    name: "Free Tools",
+                    url: "https://shortpurify.com/tools",
+                  },
+                  {
+                    "@type": "SiteNavigationElement",
+                    name: "Contact",
+                    url: "https://shortpurify.com/contact",
+                  },
                 ],
               },
               {
                 "@context": "https://schema.org",
                 "@type": "SoftwareApplication",
-                "name": "ShortPurify",
-                "url": "https://shortpurify.com",
-                "applicationCategory": "VideoApplication",
-                "operatingSystem": "Web",
-                "description": "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
-                "offers": [
-                  { "@type": "Offer", "name": "Starter", "price": "0", "priceCurrency": "USD" },
-                  { "@type": "Offer", "name": "Pro Creator", "price": "24", "priceCurrency": "USD" },
-                  { "@type": "Offer", "name": "Agency", "price": "79", "priceCurrency": "USD" }
-                ]
+                name: "ShortPurify",
+                url: "https://shortpurify.com",
+                applicationCategory: "VideoApplication",
+                operatingSystem: "Web",
+                description:
+                  "AI short clip generator that turns long videos into viral Shorts. Auto-captions, smart crop for 9:16, publish to TikTok, Instagram & YouTube.",
+                offers: [
+                  {
+                    "@type": "Offer",
+                    name: "Starter",
+                    price: "0",
+                    priceCurrency: "USD",
+                  },
+                  {
+                    "@type": "Offer",
+                    name: "Pro Creator",
+                    price: "24",
+                    priceCurrency: "USD",
+                  },
+                  {
+                    "@type": "Offer",
+                    name: "Agency",
+                    price: "79",
+                    priceCurrency: "USD",
+                  },
+                ],
               },
             ]),
           }}

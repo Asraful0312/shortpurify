@@ -10,27 +10,32 @@ type PlanFeature = { text: string; included: boolean; tooltip?: string };
 
 const plans = [
   {
-    name: "Starter",
-    desc: "Try the AI magic for free — no credit card needed.",
-    monthlyPrice: "$0",
-    yearlyPrice: "$0",
+    name: "Agency",
+    badge: "Best for Agencies",
+    desc: "Scale content production across unlimited clients and teams.",
+    monthlyPrice: "$79",
+    yearlyPrice: "$63",
     features: [
-      { text: "2 projects / month", included: true },
-      { text: "Videos up to 10 min each", included: true },
-      { text: "YouTube Shorts & Bluesky", included: true },
-      { text: "3 AI clips per project", included: true },
-      { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
-      { text: "Smart crop & blur background", included: true },
-      { text: "7-day clip storage", included: true },
-      { text: "Watermark-free exports", included: false },
-      { text: "Zip download", included: false },
-      { text: "Scheduled publishing", included: false },
+      { text: "Unlimited projects", included: true },
+      { text: "1,500 min of input video / month", included: true },
+      { text: "YouTube, Bluesky + TikTok, Instagram, LinkedIn, Facebook, Threads & X", included: true },
+      { text: "Unlimited connected Pro platform accounts", included: true },
+      { text: "15 AI clips per project", included: true },
+      { text: "Unlimited subtitle re-renders", included: true, tooltip: "Change subtitle style, font, or position and re-export as many times as you want — no limits." },
+      { text: "365-day clip storage", included: true },
+      { text: "Zip download + metadata export", included: true },
+      { text: "Unlimited team seats + RBAC", included: true },
+      { text: "Multiple workspaces", included: true },
+      { text: "Scheduled publishing", included: true },
+      { text: "Priority support", included: true },
+      { text: "Custom branding (coming soon)", included: true },
     ] satisfies PlanFeature[],
-    cta: "Get Started Free",
+    cta: "Get Started",
     highlighted: false,
   },
   {
     name: "Pro Creator",
+    badge: "Most Popular",
     desc: "For serious creators who want to dominate every platform.",
     monthlyPrice: "$24",
     yearlyPrice: "$19",
@@ -52,26 +57,24 @@ const plans = [
     highlighted: true,
   },
   {
-    name: "Agency",
-    desc: "Scale content production across unlimited clients and teams.",
-    monthlyPrice: "$79",
-    yearlyPrice: "$63",
+    name: "Starter",
+    badge: null,
+    desc: "Try the AI magic for free — no credit card needed.",
+    monthlyPrice: "$0",
+    yearlyPrice: "$0",
     features: [
-      { text: "Unlimited projects", included: true },
-      { text: "1,500 min of input video / month", included: true },
-      { text: "YouTube, Bluesky + TikTok, Instagram, LinkedIn, Facebook, Threads & X", included: true },
-      { text: "Unlimited connected Pro platform accounts", included: true },
-      { text: "15 AI clips per project", included: true },
-      { text: "Unlimited subtitle re-renders", included: true, tooltip: "Change subtitle style, font, or position and re-export as many times as you want — no limits." },
-      { text: "365-day clip storage", included: true },
-      { text: "Zip download + metadata export", included: true },
-      { text: "Unlimited team seats + RBAC", included: true },
-      { text: "Multiple workspaces", included: true },
-      { text: "Scheduled publishing", included: true },
-      { text: "Priority support", included: true },
-      { text: "Custom branding (coming soon)", included: true },
+      { text: "2 projects / month", included: true },
+      { text: "Videos up to 10 min each", included: true },
+      { text: "YouTube Shorts & Bluesky", included: true },
+      { text: "3 AI clips per project", included: true },
+      { text: "3 subtitle re-renders per clip", included: true, tooltip: "Each time you change the subtitle style, font, or position on a clip and re-export it, that counts as 1 re-render." },
+      { text: "Smart crop & blur background", included: true },
+      { text: "7-day clip storage", included: true },
+      { text: "Watermark-free exports", included: false },
+      { text: "Zip download", included: false },
+      { text: "Scheduled publishing", included: false },
     ] satisfies PlanFeature[],
-    cta: "Get Started",
+    cta: "Get Started Free",
     highlighted: false,
   },
 ];
@@ -144,9 +147,9 @@ function PricingSection() {
                   <div className="absolute inset-0 bg-linear-to-tr from-white/5 to-transparent pointer-events-none" />
                 </div>
               )}
-              {plan.highlighted && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-bold shadow-md">
-                  Most Popular
+              {plan.badge && (
+                <div className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 rounded-full text-sm font-bold shadow-md ${plan.highlighted ? "bg-accent text-accent-foreground" : "bg-foreground text-background"}`}>
+                  {plan.badge}
                 </div>
               )}
               <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>

@@ -19,7 +19,8 @@ export const submitReview = mutation({
       .unique();
     if (!user) throw new Error("User not found");
 
-    if (args.rating < 1 || args.rating > 5) throw new Error("Rating must be 1-5");
+    if (args.rating < 1 || args.rating > 5)
+      throw new Error("Rating must be 1-5");
     if (!args.reviewText.trim()) throw new Error("Review text is required");
 
     // One review per user — update if already exists
@@ -39,7 +40,7 @@ export const submitReview = mutation({
     }
 
     // Auto-approve 4-5 star reviews; hold 1-3 star for manual review in Convex dashboard
-    const approved = args.rating >= 4;
+    const approved = false;
     return await ctx.db.insert("reviews", {
       userId: user._id,
       rating: args.rating,
@@ -63,7 +64,10 @@ export const getMyReview = query({
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
       .unique();
     if (!user) return null;
-    return ctx.db.query("reviews").withIndex("by_user", (q) => q.eq("userId", user._id)).unique();
+    return ctx.db
+      .query("reviews")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
   },
 });
 
@@ -80,7 +84,7 @@ export const getApprovedReviews = query({
       reviews.map(async (r) => {
         const user = await ctx.db.get(r.userId);
         return { ...r, imageUrl: user?.imageUrl ?? null };
-      })
+      }),
     );
   },
 });

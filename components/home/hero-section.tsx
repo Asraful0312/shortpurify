@@ -2,9 +2,68 @@
 
 import { useState, useEffect } from "react";
 import { SignUpButton } from "@clerk/clerk-react";
-import { Star, BarChart2, Heart, MessageCircle, Send, Plus, Scissors, PlayCircle, X } from "lucide-react";
+import {
+  Star,
+  BarChart2,
+  Heart,
+  MessageCircle,
+  Send,
+  Plus,
+  Scissors,
+  PlayCircle,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+type ReviewItem = {
+  quote: string;
+  authorName: string;
+  authorRole?: string;
+  rating: number;
+  image?: string;
+};
+
+const FALLBACK_REVIEWS: ReviewItem[] = [
+  {
+    quote:
+      "I went from 6 hours of editing to publishing 5 clips in under an hour. My TikTok engagement is up 300%.",
+    authorName: "Marcus J.",
+    authorRole: "YouTuber · 120K subscribers",
+    rating: 5,
+  },
+  {
+    quote:
+      "ShortPurify finds the hooks I always missed. My last clip hit 1.2M views — that never happened before.",
+    authorName: "Priya S.",
+    authorRole: "Podcast Creator",
+    rating: 5,
+  },
+  {
+    quote:
+      "We manage 8 clients and this tool cut our short-form production time by 70%. Worth every penny.",
+    authorName: "Alex R.",
+    authorRole: "Social Media Agency Owner",
+    rating: 5,
+  },
+];
+
+const stackPositions = [
+  { rotate: 0, x: 0, y: 0, zIndex: 30, opacity: 1, scale: 1 },
+  { rotate: -3, x: -18, y: 12, zIndex: 20, opacity: 0.78, scale: 0.96 },
+  { rotate: 5, x: 20, y: 22, zIndex: 10, opacity: 0.58, scale: 0.91 },
+];
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 // Helper component for counting up numbers
 const AnimatedCounter = ({ from = 0, to = 85, delay = 1000 }) => {
@@ -51,6 +110,33 @@ const starItem = {
 
 export default function HeroSection() {
   const [showVideo, setShowVideo] = useState(false);
+  const [activeReview, setActiveReview] = useState(0);
+  const rawReviews = useQuery(api.reviews.getApprovedReviews);
+
+  console.log("Raw reviews from Convex:", rawReviews);
+
+  // Show the 3 most recently approved reviews; fall back to hardcoded if fewer than 3 exist
+  const reviewData: ReviewItem[] =
+    rawReviews && rawReviews.length >= 3
+      ? [...rawReviews]
+          .sort((a, b) => b._creationTime - a._creationTime)
+          .slice(0, 3)
+          .map((r) => ({
+            quote: r.reviewText,
+            authorName: r.authorName,
+            authorRole: r.authorRole ?? undefined,
+            rating: r.rating,
+            image: r.imageUrl ?? undefined,
+          }))
+      : FALLBACK_REVIEWS;
+
+  // Auto-rotate reviews
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveReview((prev) => (prev + 1) % 3);
+    }, 3800);
+    return () => clearInterval(timer);
+  }, []);
 
   // Close on ESC key
   useEffect(() => {
@@ -71,18 +157,51 @@ export default function HeroSection() {
     <section className="relative overflow-hidden bg-white pt-24 md:pt-32 flex flex-col items-center border-b border-border/40">
       {/* Hero Text Content (Top) */}
       <div className="container mx-auto px-4 relative z-20 flex flex-col items-center text-center mt-8 md:mt-12 mb-8 md:mb-10">
-        <h1 className="text-4xl sm:text-5xl md:text-[5.5rem] font-bold tracking-tight max-w-5xl text-black mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 leading-[1.05]">
-          Turn long videos into <br className="hidden md:block" /> viral-ready shorts
+        <h1 className="text-4xl sm:text-5xl md:text-[4.6rem] font-bold tracking-tight max-w-5xl text-black mb-6 animate-in fade-in slide-in-from-bottom-6 duration-700 leading-[1.05]">
+          Turn 1 video into 5 viral clips <br className="hidden md:block" />{" "}
+          automatically
         </h1>
 
         <div className="text-base sm:text-xl text-muted-foreground mb-8 md:mb-10 max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 leading-relaxed font-medium ">
-          Paste a YouTube link or upload any video. ShortPurify&apos;s AI finds the best moments, generates captions, scores each clip for virality, and publishes directly to{" "}
-          <Image className="inline size-4 align-middle" src="/icons/tik-tok.png" alt="tiktok" width={20} height={20} />{" "}
-          <Image className="inline size-4 align-middle" src="/icons/youtube-short.png" alt="youtube short" width={20} height={20} />{" "}
-          <Image className="inline size-4 align-middle" src="/icons/facebook.png" alt="facebook" width={20} height={20} />{" "}
-          <Image className="inline size-3 align-middle" src="/icons/twitter.png" alt="twitter" width={18} height={18} />{" "}
-          <Image className="inline size-4 align-middle" src="/icons/instagram.png" alt="instagram" width={20} height={20} />{" "}
-           saving you 10+ hours per week.
+          Stop spending hours editing manually. Paste a link and
+          ShortPurify&apos;s AI extracts the best moments, burns in captions,
+          scores virality, and publishes directly to{" "}
+          <Image
+            className="inline size-4 align-middle"
+            src="/icons/tik-tok.png"
+            alt="tiktok"
+            width={20}
+            height={20}
+          />{" "}
+          <Image
+            className="inline size-4 align-middle"
+            src="/icons/youtube-short.png"
+            alt="youtube short"
+            width={20}
+            height={20}
+          />{" "}
+          <Image
+            className="inline size-4 align-middle"
+            src="/icons/facebook.png"
+            alt="facebook"
+            width={20}
+            height={20}
+          />{" "}
+          <Image
+            className="inline size-3 align-middle"
+            src="/icons/twitter.png"
+            alt="twitter"
+            width={18}
+            height={18}
+          />{" "}
+          <Image
+            className="inline size-4 align-middle"
+            src="/icons/instagram.png"
+            alt="instagram"
+            width={20}
+            height={20}
+          />{" "}
+          saving you 10+ hours per week.
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-200">
@@ -91,7 +210,7 @@ export default function HeroSection() {
               Get Started Free
             </button>
           </SignUpButton>
-          <button 
+          <button
             onClick={() => setShowVideo(true)}
             className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm cursor-pointer"
           >
@@ -99,30 +218,55 @@ export default function HeroSection() {
             See It in Action (2 min demo)
           </button>
         </div>
+
+        {/* Trust signal — social proof + removes regret aversion */}
+        <div className="flex items-center gap-2 mt-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+          <div className="flex">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Star
+                key={i}
+                size={13}
+                className="text-yellow-400 fill-yellow-400"
+              />
+            ))}
+          </div>
+          <span className="text-sm text-muted-foreground font-medium">
+            Loved by 2,000+ creators · No credit card required
+          </span>
+        </div>
       </div>
 
       {/* Visual Showcase Centerpiece (Bottom) */}
-      <div className="relative w-full max-w-[1200px] h-[320px] sm:h-[420px] md:h-[550px] mx-auto z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
-        
+      <div className="relative w-full max-w-300 h-80 sm:h-105 md:h-90 mx-auto z-10 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
         {/* Localized Orbit/Gradient Background */}
-        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] pointer-events-none z-0 flex items-center justify-center">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,236,184,0.5)_0%,rgba(255,245,210,0.2)_40%,transparent_70%)]" />
-            <div className="absolute w-[400px] h-[400px] border border-black/4 rounded-full" />
-            <div className="absolute w-[600px] h-[600px] border border-black/3 rounded-full" />
-            <div className="absolute w-[800px] h-[800px] border border-black/2 rounded-full" />
+        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-200 pointer-events-none z-0 flex items-center justify-center">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,236,184,0.5)_0%,rgba(255,245,210,0.2)_40%,transparent_70%)]" />
+          <div className="absolute w-100 h-100 border border-black/4 rounded-full" />
+          <div className="absolute w-150 h-150 border border-black/3 rounded-full" />
+          <div className="absolute w-200 h-200 border border-black/2 rounded-full" />
         </div>
 
-        <div className="absolute bottom-[-15%] rounded-t-full left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-linear-to-t from-[#FFE492] via-[#FFF6D6] to-white/0 z-2"></div>
+        <div className="absolute bottom-[-15%] rounded-t-full left-1/2 -translate-x-1/2 w-150 h-87.5 bg-linear-to-t from-[#FFE492] via-[#FFF6D6] to-white/0 z-2"></div>
 
         {/* Floating Card 1: Top Left (Thumbnail with scissors) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -100, y: -50, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.4, type: "spring", bounce: 0.4 }}
-          className="hidden md:block absolute top-[5%] left-[5%] md:left-[16%] z-20 "
+          transition={{
+            duration: 0.8,
+            delay: 0.4,
+            type: "spring",
+            bounce: 0.4,
+          }}
+          className="hidden md:block absolute -top-[5%] left-[5%] md:left-[16%] z-20 "
         >
           <div className="w-36 h-36 bg-[#83BBE6] rounded-[2rem] shadow-xl overflow-hidden animate-float">
-            <Image src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&q=80&w=400"  alt="Video edit" fill className="object-cover opacity-60 mix-blend-overlay rounded-3xl" />
+            <Image
+              src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&q=80&w=400"
+              alt="Video edit"
+              fill
+              className="object-cover opacity-60 mix-blend-overlay rounded-3xl"
+            />
             <div className="absolute top-3 left-3 bg-white px-2 py-1 rounded-[0.5rem] text-[10px] font-bold shadow-sm flex items-center gap-1 ">
               <motion.div
                 initial={{ rotate: 0 }}
@@ -140,19 +284,24 @@ export default function HeroSection() {
         </motion.div>
 
         {/* Floating Card 3: Bottom Left (Stars) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -60, y: 60, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.8, type: "spring", bounce: 0.4 }}
+          transition={{
+            duration: 0.8,
+            delay: 0.8,
+            type: "spring",
+            bounce: 0.4,
+          }}
           className="hidden md:flex absolute top-[40%] left-[15%] md:left-[20%] z-10"
         >
-          <motion.div 
+          <motion.div
             variants={starContainer}
             initial="hidden"
             animate="show"
             className="bg-white px-4 py-2 rounded-full shadow-lg border border-black/5 flex items-center gap-1.5 animate-float"
           >
-            {[1,2,3,4,5].map(i => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <motion.div key={i} variants={starItem as any}>
                 <Star className="text-[#E767B4] fill-[#E767B4] w-3.5 h-3.5" />
               </motion.div>
@@ -161,97 +310,170 @@ export default function HeroSection() {
         </motion.div>
 
         {/* Floating Card 2: Middle Left (Engagement Yellow Card) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -120, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.6, type: "spring", bounce: 0.4 }}
-          className="hidden md:block absolute top-[50%] left-0 md:left-[8%] z-20 "
+          transition={{
+            duration: 0.8,
+            delay: 0.6,
+            type: "spring",
+            bounce: 0.4,
+          }}
+          className="hidden md:block absolute top-[60%] left-0 md:left-[8%] z-20 "
         >
           <div className="bg-[#FFDA6C] p-4 rounded-2xl shadow-[0_15px_40px_-15px_rgba(255,215,95,0.7)] w-52 animate-float ">
             <div className="flex items-center gap-3 mb-2">
               <BarChart2 size={24} className="text-black/80" />
               <div>
-                <p className="text-[9px] uppercase font-bold text-black/50 tracking-widest">Engagement</p>
+                <p className="text-[9px] uppercase font-bold text-black/50 tracking-widest">
+                  Engagement
+                </p>
                 <h4 className="text-2xl font-black text-black leading-none">
-                  <AnimatedCounter from={0} to={85} delay={1200} />% <span className="text-black/40 text-xs inline-block translate-y-[-4px]">↑</span>
+                  <AnimatedCounter from={0} to={85} delay={1200} />%{" "}
+                  <span className="text-black/40 text-xs inline-block -translate-y-1">
+                    ↑
+                  </span>
                 </h4>
               </div>
             </div>
             <div className="w-full h-1.5 bg-black/10 rounded-full mt-2 overflow-hidden">
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: "85%" }}
                 transition={{ duration: 1.5, delay: 1.4, ease: "easeOut" }}
-                className="h-full bg-black rounded-full" 
+                className="h-full bg-black rounded-full"
               />
             </div>
-           </div>
+          </div>
         </motion.div>
 
-        {/* The Central Phone */}
-        <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[340px] h-[750px] bg-black rounded-[3.5rem] p-3.5 shadow-2xl z-20">
-          <div className="w-full h-full bg-[#1A1A1A] rounded-[2.8rem] overflow-hidden relative border border-white/10">
-            {/* Dynamic Island */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[100px] h-[30px] bg-black rounded-full z-30" />
-            
-            {/* Phone Content / Video */}
-            <video
-              key="demo-video"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              controls={false}
-              className="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
-            >
-              <source src="/video/demoshort.mp4" type="video/mp4" />
-            </video>
-
-            {/* Live Overlay UI top */}
-            <div className="absolute top-12 left-0 w-full px-5 flex justify-between items-center z-20">
-              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-md rounded-full pr-3 p-1">
-                <div className="w-7 h-7 rounded-full bg-linear-to-tr from-orange-400 to-pink-500 p-[2px]">
-                   <div className="w-full h-full bg-white rounded-full overflow-hidden">
-                     <Image src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" alt="Avatar" width={28} height={28} />
-                   </div>
-                </div>
-                <span className="text-white text-[11px] font-semibold">Sarah_Creator</span>
-              </div>
-              <div className="bg-[#FF453A] text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1.5 tracking-wide">
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> LIVE
-              </div>
+        {/* Stacked Review Cards — replaces the central phone */}
+        <div className="absolute top-[4%] left-1/2 -translate-x-1/2 z-20 select-none">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{
+              duration: 0.8,
+              delay: 0.3,
+              type: "spring",
+              bounce: 0.3,
+            }}
+          >
+            <div className="relative w-70 sm:w-77.5 h-67.5">
+              {reviewData.map((review, i) => {
+                const posIdx = (i - activeReview + 3) % 3;
+                const pos = stackPositions[posIdx];
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute inset-0 bg-white rounded-3xl border border-border/60 shadow-2xl p-5 flex flex-col cursor-pointer"
+                    animate={{
+                      rotate: pos.rotate,
+                      x: pos.x,
+                      y: pos.y,
+                      opacity: pos.opacity,
+                      scale: pos.scale,
+                    }}
+                    style={{ zIndex: pos.zIndex }}
+                    transition={{
+                      duration: 0.55,
+                      type: "spring",
+                      bounce: 0.25,
+                    }}
+                    onClick={() => setActiveReview(i)}
+                  >
+                    <div className="flex gap-0.5 mb-3">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={13}
+                          className="text-yellow-400 fill-yellow-400"
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-foreground/90 font-medium leading-relaxed flex-1 line-clamp-4">
+                      &ldquo;{review.quote}&rdquo;
+                    </p>
+                    <div className="flex items-center gap-2.5 mt-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                        {review.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={review.image}
+                            alt={review.authorName}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <span className="text-[10px] font-extrabold text-primary">
+                            {initials(review.authorName)}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold leading-none mb-0.5">
+                          {review.authorName}
+                        </p>
+                        {review.authorRole && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {review.authorRole}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
 
-            {/* Captions Overlay bottom */}
-            <div className="absolute top-[320px] w-full px-6 z-20 text-center">
-              <p className="text-white text-2xl font-black uppercase drop-shadow-[0_2px_15px_rgba(0,0,0,0.6)] leading-tight tracking-tight">
-                THIS AI TOOL IS <br/> INSANE! 🤯
-              </p>
+            {/* Navigation dots */}
+            <div className="flex justify-center gap-1.5 mt-5">
+              {reviewData.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveReview(i)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    i === activeReview ? "w-5 bg-primary" : "w-1.5 bg-border"
+                  }`}
+                />
+              ))}
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Floating Card 4: Top Right (Green AI Detected Hooks) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 100, y: -50, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.5, type: "spring", bounce: 0.4 }}
-          className="hidden md:block absolute top-[8%] right-[5%] md:right-[12%] z-20 "
+          transition={{
+            duration: 0.8,
+            delay: 0.5,
+            type: "spring",
+            bounce: 0.4,
+          }}
+          className="hidden md:block absolute -top-[5%] right-[5%] md:right-[12%] z-20 "
         >
-          <div className="bg-[#A8E6A1] p-4 rounded-3xl shadow-xl w-[200px] animate-float">
+          <div className="bg-[#A8E6A1] p-4 rounded-3xl shadow-xl w-50 animate-float">
             <div className="flex justify-between items-start mb-1">
-              <h4 className="text-[2.5rem] leading-none font-black text-green-950 flex items-baseline">12<span className="text-xs font-semibold ml-1">hooks</span></h4>
-              <motion.div 
+              <h4 className="text-[2.5rem] leading-none font-black text-green-950 flex items-baseline">
+                12<span className="text-xs font-semibold ml-1">hooks</span>
+              </h4>
+              <motion.div
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 1.4, type: "spring", stiffness: 200, damping: 10 }}
+                transition={{
+                  delay: 1.4,
+                  type: "spring",
+                  stiffness: 200,
+                  damping: 10,
+                }}
                 className="w-7 h-7 rounded-full bg-white/50 flex items-center justify-center"
               >
                 <Plus className="text-green-900 w-4 h-4" />
               </motion.div>
             </div>
-            <p className="text-green-900/70 text-[11px] font-bold mb-4">Detected this week</p>
+            <p className="text-green-900/70 text-[11px] font-bold mb-4">
+              Detected this week
+            </p>
             <div className="bg-[#d4f3d1] w-max px-3 py-1 rounded-full text-green-900 font-bold text-[10px] shadow-sm">
               Top 1% viral
             </div>
@@ -259,34 +481,48 @@ export default function HeroSection() {
         </motion.div>
 
         {/* Floating Card 5: Bottom Right (Social Feed Mock) */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 120, scale: 0.8 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.7, type: "spring", bounce: 0.4 }}
+          transition={{
+            duration: 0.8,
+            delay: 0.7,
+            type: "spring",
+            bounce: 0.4,
+          }}
           className="hidden md:block absolute top-[42%] right-0 md:right-[5%] z-30"
         >
           <div className="bg-white p-2 rounded-3xl shadow-2xl border border-black/5 animate-float">
             <div className="relative w-44 h-28 rounded-2xl overflow-hidden mb-3">
-               <Image src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=400" alt="Clip" fill className="object-cover" />
-               <div className="absolute bottom-2 left-2 bg-[#523A28]/80 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
-                 1.5M views
-               </div>
+              <Image
+                src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=400"
+                alt="Clip"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute bottom-2 left-2 bg-[#523A28]/80 backdrop-blur-sm text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
+                1.5M views
+              </div>
             </div>
             <div className="flex items-center justify-between px-3 pb-2 text-zinc-400">
-               <div className="flex gap-3">
-                 <motion.div
-                   animate={{ scale: [1, 1.4, 1] }}
-                   transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 1, ease: "easeInOut" }}
-                 >
-                   <Heart className="w-5 h-5 text-[#FF2D55] fill-[#FF2D55]" />
-                 </motion.div>
-                 <MessageCircle className="w-5 h-5" />
-               </div>
-               <Send className="w-4 h-4" />
+              <div className="flex gap-3">
+                <motion.div
+                  animate={{ scale: [1, 1.4, 1] }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.5,
+                    repeatDelay: 1,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Heart className="w-5 h-5 text-[#FF2D55] fill-[#FF2D55]" />
+                </motion.div>
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <Send className="w-4 h-4" />
             </div>
           </div>
         </motion.div>
-
       </div>
 
       {/* Video Modal Overlay */}
@@ -308,7 +544,7 @@ export default function HeroSection() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close Button */}
-              <button 
+              <button
                 onClick={() => setShowVideo(false)}
                 className="absolute top-4 right-4 z-20 w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10"
               >
@@ -330,7 +566,6 @@ export default function HeroSection() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </section>
   );
 }

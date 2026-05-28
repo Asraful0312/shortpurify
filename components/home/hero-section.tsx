@@ -206,13 +206,13 @@ export default function HeroSection() {
 
         <div className="flex flex-col sm:flex-row gap-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-200">
           <SignUpButton mode="modal">
-            <button className="flex items-center justify-center bg-primary text-white border border-black/20 px-8 py-3.5 rounded-full text-base font-semibold transition-all cursor-pointer">
+            <button className="flex items-center justify-center bg-primary text-white border border-black/20 px-8 py-3.5 rounded-full text-sm md:text-base font-semibold transition-all cursor-pointer">
               Get Started Free
             </button>
           </SignUpButton>
           <button
             onClick={() => setShowVideo(true)}
-            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm cursor-pointer"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white text-foreground border border-border px-8 py-4 rounded-full text-sm md:text-lg font-medium transition-all hover:bg-secondary hover:shadow-sm cursor-pointer"
           >
             <PlayCircle size={20} className="text-muted-foreground" />
             See It in Action (2 min demo)
@@ -220,7 +220,7 @@ export default function HeroSection() {
         </div>
 
         {/* Trust signal — social proof + removes regret aversion */}
-        <div className="flex items-center gap-2 mt-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
+        <div className="flex flex-wrap justify-center items-center gap-2 mt-4 animate-in fade-in slide-in-from-bottom-10 duration-700 delay-300">
           <div className="flex">
             {[1, 2, 3, 4, 5].map((i) => (
               <Star

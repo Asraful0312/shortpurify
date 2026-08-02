@@ -9,4 +9,11 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Free tools: 10 AI generations per minute per client, 30 per hour
   toolGenerate: { kind: "fixed window", rate: 10, period: 60 * 1000 },
   toolGenerateHourly: { kind: "fixed window", rate: 30, period: 60 * 60 * 1000 },
+  // Free subtitle generator: transcription costs real money (AssemblyAI), so this is
+  // stricter than the text-based tool limiters above, plus a shared global daily cap
+  // so a spoofed clientId can't drive unbounded spend.
+  subtitleUpload: { kind: "fixed window", rate: 5, period: 60 * 1000 },
+  subtitleGenerate: { kind: "fixed window", rate: 3, period: 60 * 1000 },
+  subtitleGenerateDaily: { kind: "fixed window", rate: 8, period: 24 * 60 * 60 * 1000 },
+  subtitleGenerateGlobalDaily: { kind: "fixed window", rate: 100, period: 24 * 60 * 60 * 1000 },
 });

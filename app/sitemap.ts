@@ -116,8 +116,62 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    /* Hidden pending AdSense review — downloader tools can trigger rejection.
+       Uncomment once the application is approved or rejected.
+    {
+      url: "https://shortpurify.com/tools/facebook-video-downloader",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    */
+    {
+      url: "https://shortpurify.com/tools/video-subtitle-generator",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/video-trimmer",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/video-to-gif-converter",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    /* Hidden pending AdSense review — downloader tools can trigger rejection.
+       Uncomment once the application is approved or rejected.
     {
       url: "https://shortpurify.com/tools/tiktok-video-downloader",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-video-downloader",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    */
+    {
+      url: "https://shortpurify.com/tools/instagram-bio-generator",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-story-size-calculator",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-story-idea-generator",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,

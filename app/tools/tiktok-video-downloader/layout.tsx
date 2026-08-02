@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+// Hidden pending AdSense review — downloader tools can trigger rejection.
+// Flip this back to true (and remove the notFound() guard below) once the
+// application is approved or rejected. Backend actions are untouched.
+const TOOL_LIVE = false;
 
 export const metadata: Metadata = {
+  ...(TOOL_LIVE ? {} : { robots: { index: false, follow: false } }),
   title: "Free TikTok Video Download Helper | Best-Effort Tool",
   description: "Try a free best-effort TikTok video download helper. Paste a public TikTok link and get fallback steps if public extraction services are unavailable.",
   keywords: [
@@ -33,6 +40,10 @@ export const metadata: Metadata = {
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  if (!TOOL_LIVE) {
+    notFound();
+  }
+
   return (
     <>
       <script

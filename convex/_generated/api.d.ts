@@ -32,6 +32,7 @@ import type * as redditConversions from "../redditConversions.js";
 import type * as reviews from "../reviews.js";
 import type * as scheduledPublish from "../scheduledPublish.js";
 import type * as socialTokens from "../socialTokens.js";
+import type * as subtitleGeneratorActions from "../subtitleGeneratorActions.js";
 import type * as tenants from "../tenants.js";
 import type * as threadsActions from "../threadsActions.js";
 import type * as tiktokActions from "../tiktokActions.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   reviews: typeof reviews;
   scheduledPublish: typeof scheduledPublish;
   socialTokens: typeof socialTokens;
+  subtitleGeneratorActions: typeof subtitleGeneratorActions;
   tenants: typeof tenants;
   threadsActions: typeof threadsActions;
   tiktokActions: typeof tiktokActions;

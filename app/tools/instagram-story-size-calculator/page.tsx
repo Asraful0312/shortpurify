@@ -1,0 +1,130 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import Image from "next/image";
+import { Check, Copy, Crop, Ruler, Smartphone } from "lucide-react";
+import ToolsBreadcrumb from "@/components/tools-breadcrumb";
+import ToolsCta from "@/components/tools-cta";
+
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+function simplifyRatio(width: number, height: number) {
+  const divisor = gcd(width, height);
+  return `${width / divisor}:${height / divisor}`;
+}
+
+export default function InstagramStorySizeCalculator() {
+  const [width, setWidth] = useState("1080");
+  const [height, setHeight] = useState("1920");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const parsedWidth = Number(width) || 0;
+  const parsedHeight = Number(height) || 0;
+  const ratio = parsedWidth > 0 && parsedHeight > 0 ? simplifyRatio(parsedWidth, parsedHeight) : "";
+  const isIdeal = ratio === "9:16" && parsedWidth >= 1080 && parsedHeight >= 1920;
+
+  const safeZone = useMemo(() => {
+    if (!parsedWidth || !parsedHeight) return null;
+    return {
+      top: Math.round(parsedHeight * 0.13),
+      bottom: Math.round(parsedHeight * 0.13),
+      side: Math.round(parsedWidth * 0.05),
+    };
+  }, [parsedWidth, parsedHeight]);
+
+  const copy = useCallback(async (text: string, key: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1500);
+  }, []);
+
+  const setPreset = (w: number, h: number) => {
+    setWidth(String(w));
+    setHeight(String(h));
+  };
+
+  return (
+    <main className="max-w-4xl mx-auto px-4 py-14">
+        <ToolsBreadcrumb toolName="Instagram Story Size Calculator" toolHref="/tools/instagram-story-size-calculator" />
+
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 bg-pink-50 text-pink-600 border border-pink-100 px-3 py-1 rounded-full text-xs font-semibold mb-4">
+            <Image src="/icons/instagram.png" alt="Instagram" width={14} height={14} /> Free Tool
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3">Instagram Story Size Calculator</h1>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Check your Story dimensions, aspect ratio, export size, and safe zone before posting.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-[1fr_0.8fr] gap-6 mb-8">
+          <div className="bg-white border border-border rounded-3xl p-6 shadow-sm">
+            <h2 className="font-extrabold mb-4 flex items-center gap-2"><Ruler size={18} className="text-pink-600" /> Enter image or video size</h2>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-muted-foreground mb-1.5">Width (px)</label>
+                <input value={width} onChange={(e) => setWidth(e.target.value)} type="number" className="w-full border border-border rounded-xl px-4 py-3 bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+              <span className="font-black text-muted-foreground mt-5">x</span>
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-muted-foreground mb-1.5">Height (px)</label>
+                <input value={height} onChange={(e) => setHeight(e.target.value)} type="number" className="w-full border border-border rounded-xl px-4 py-3 bg-secondary/30 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+            </div>
+
+            <div className={`rounded-2xl p-5 border ${isIdeal ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"}`}>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Result</p>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className={`text-3xl font-black ${isIdeal ? "text-emerald-700" : "text-amber-700"}`}>{ratio || "Enter size"}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isIdeal ? "Ideal full-screen Instagram Story format." : "Best Story format is 1080 x 1920 at 9:16."}
+                  </p>
+                </div>
+                {ratio && (
+                  <button onClick={() => void copy(`${parsedWidth}x${parsedHeight} (${ratio})`, "result")} className="p-2 rounded-lg hover:bg-white text-muted-foreground">
+                    {copied === "result" ? <Check size={17} className="text-emerald-600" /> : <Copy size={17} />}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-border rounded-3xl p-6 shadow-sm">
+            <h2 className="font-extrabold mb-4 flex items-center gap-2"><Smartphone size={18} className="text-pink-600" /> Presets</h2>
+            <div className="space-y-2">
+              {[
+                ["Story full screen", 1080, 1920, "9:16"],
+                ["Minimum sharp vertical", 600, 1067, "9:16"],
+                ["Highlight cover", 1080, 1920, "9:16"],
+                ["Square image on Story", 1080, 1080, "1:1"],
+              ].map(([label, w, h, presetRatio]) => (
+                <button key={String(label)} onClick={() => setPreset(Number(w), Number(h))} className="w-full text-left border border-border rounded-2xl px-4 py-3 hover:bg-pink-50 hover:border-pink-100 transition-colors">
+                  <span className="block text-sm font-bold">{label}</span>
+                  <span className="block text-xs text-muted-foreground">{w}x{h} · {presetRatio}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-border rounded-3xl p-6 shadow-sm mb-8">
+          <h2 className="font-extrabold mb-4 flex items-center gap-2"><Crop size={18} className="text-pink-600" /> Story safe zone</h2>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="bg-secondary/30 rounded-2xl p-4"><p className="text-xs font-bold text-muted-foreground">Top margin</p><p className="text-2xl font-black">{safeZone?.top ?? 0}px</p></div>
+            <div className="bg-secondary/30 rounded-2xl p-4"><p className="text-xs font-bold text-muted-foreground">Bottom margin</p><p className="text-2xl font-black">{safeZone?.bottom ?? 0}px</p></div>
+            <div className="bg-secondary/30 rounded-2xl p-4"><p className="text-xs font-bold text-muted-foreground">Side margins</p><p className="text-2xl font-black">{safeZone?.side ?? 0}px</p></div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-4">Keep text, logos, and key visuals out of the top (profile name, close button) and bottom (reply field, sticker tray) zones so Instagram&apos;s UI doesn&apos;t cover them.</p>
+        </div>
+
+        <ToolsCta
+          headerText="Need 9:16 Stories without manual resizing?"
+          subText="ShortPurify smart-crops long videos into vertical Instagram Stories and Reels, adds captions, and keeps the subject framed."
+        />
+
+      </main>
+  );
+}

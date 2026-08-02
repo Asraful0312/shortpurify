@@ -129,7 +129,8 @@ function Navbar() {
           {showTestimonials && (
             <Link href="#testimonials" className="hover:text-black transition-colors">Testimonials</Link>
           )}
-          <Link href="#pricing" className="hover:text-black transition-colors">Pricing</Link>
+            <Link href="#pricing" className="hover:text-black transition-colors">Pricing</Link>
+             <Link href="/tools" className="hover:text-black transition-colors">Tools</Link>
         </nav>
 
         {/* Desktop Actions */}
@@ -170,7 +171,8 @@ function Navbar() {
             {showTestimonials && (
               <Link href="#testimonials" onClick={() => setIsMobileMenuOpen(false)}>Testimonials</Link>
             )}
-            <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>Pricing</Link>
+              <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>Pricing</Link>
+                <Link href="/tools" onClick={() => setIsMobileMenuOpen(false)}>Tools</Link>
             <Link href="#workflows" onClick={() => setIsMobileMenuOpen(false)}>Workflows</Link>
           </nav>
           

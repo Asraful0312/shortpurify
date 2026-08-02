@@ -103,6 +103,51 @@ Rules:
 - Mix hashtag sizes: small niche (under 500K posts), medium (500K-5M), broad (5M+)
 - Make hashtags specific and relevant to the topic
 - Return ONLY the formatted output above, nothing else`,
+
+  "instagram-bio": (description: string) =>
+    `You are an expert Instagram brand strategist. Write 5 Instagram bio options for: "${description}"
+
+Return this exact format:
+AESTHETIC:
+[bio in a soft, aspirational, lifestyle tone]
+
+FUNNY:
+[bio with a witty, self-aware, or punny line]
+
+PROFESSIONAL:
+[bio in a clean, credible, business-appropriate tone]
+
+MINIMAL:
+[short, punchy bio with lots of white space, no fluff]
+
+BOLD:
+[confident, high-energy bio that states value clearly]
+
+Rules:
+- Each bio must be under 150 characters (Instagram's bio limit) including spaces and emojis
+- Use tasteful, relevant emojis where they fit — do not overdo it
+- Include a line break (use " | " as a separator) between short bio segments where natural
+- No hashtags inside bios
+- Return ONLY the formatted output above, nothing else`,
+
+  "instagram-story-idea": (description: string) =>
+    `You are an expert Instagram Stories content strategist. Generate 8 Instagram Story ideas for: "${description}"
+
+Return this exact format, exactly 8 numbered lines, one idea per line:
+1. [Idea title] — [one sentence on how to execute it, naming a specific interactive sticker like Poll, Quiz, Slider, Question box, Countdown, or "Add yours" where relevant]
+2. [Idea title] — [one sentence on how to execute it]
+3. [Idea title] — [one sentence on how to execute it]
+4. [Idea title] — [one sentence on how to execute it]
+5. [Idea title] — [one sentence on how to execute it]
+6. [Idea title] — [one sentence on how to execute it]
+7. [Idea title] — [one sentence on how to execute it]
+8. [Idea title] — [one sentence on how to execute it]
+
+Rules:
+- Mix formats: at least one poll/quiz sticker idea, one behind-the-scenes idea, one this-or-that idea, one countdown/announcement idea, one UGC or "Add yours" idea, one educational/tip idea
+- Each idea must be specific to the topic, not generic
+- Keep each line under 160 characters
+- Return ONLY the 8 numbered lines, nothing else`,
 };
 
 export const generateToolContent = action({
@@ -144,6 +189,121 @@ export const generateToolContent = action({
     return { result: text };
   },
 });
+type CobaltResult =
+  | { status: "success"; url: string }
+  | { status: "success"; type: "gallery"; images: string[] };
+
+async function extractViaCobalt(
+  trimmedUrl: string,
+  { logLabel, unavailableMessage, failureMessage }: { logLabel: string; unavailableMessage: string; failureMessage: string },
+): Promise<CobaltResult> {
+  const configuredCobaltUrl = process.env.COBALT_API_URL?.replace(/\/+$/, "");
+  const cobaltApiKey = process.env.COBALT_API_KEY;
+  const cobaltAuthScheme = process.env.COBALT_AUTH_SCHEME ?? "Api-Key";
+
+  const instances: Array<{
+    endpoint: string;
+    version: "current" | "legacy";
+    headers?: Record<string, string>;
+  }> = [];
+
+  if (configuredCobaltUrl) {
+    instances.push({
+      endpoint: configuredCobaltUrl,
+      version: "current",
+      headers: cobaltApiKey ? { Authorization: `${cobaltAuthScheme} ${cobaltApiKey}` } : undefined,
+    });
+  }
+
+  // Best-effort public fallbacks. These are not guaranteed and may rate-limit,
+  // go offline, or reject requests depending on the instance owner's policy.
+  instances.push(
+    { endpoint: "https://co.eepy.today/api/json", version: "legacy" },
+    { endpoint: "https://cobalt.hypert.xyz/api/json", version: "legacy" },
+  );
+
+  let error = "";
+  for (const instance of instances) {
+    try {
+      const isCurrentApi = instance.version === "current";
+      const res = await fetch(instance.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          ...instance.headers,
+        },
+        body: JSON.stringify(isCurrentApi
+          ? {
+            url: trimmedUrl,
+            videoQuality: "1080",
+            youtubeVideoCodec: "h264",
+            filenameStyle: "basic",
+          }
+          : {
+            url: trimmedUrl,
+            vQuality: "1080",
+            vCodec: "h264",
+            isNoWatermark: true,
+          }),
+      });
+
+      const data = await res.json() as {
+        status?: string;
+        url?: string;
+        text?: string;
+        error?: { code?: string };
+        picker?: { url: string; type: string }[];
+      };
+
+      if (!res.ok) {
+        error = data.text || data.error?.code || `${res.status} ${res.statusText}`;
+        console.error(`[${logLabel}] Instance ${instance.endpoint} failed:`, error);
+        continue;
+      }
+
+      if ((data.status === "stream" || data.status === "tunnel" || data.status === "redirect") && data.url) {
+        return {
+          url: data.url,
+          status: "success",
+        };
+      }
+
+      if (data.status === "picker" && data.picker?.length) {
+        const videos = data.picker.filter((p) => p.type === "video").map((p) => p.url);
+        const photos = data.picker.filter((p) => p.type === "photo").map((p) => p.url);
+        if (videos[0]) {
+          return {
+            url: videos[0],
+            status: "success",
+          };
+        }
+        if (photos.length) {
+          return {
+            images: photos,
+            status: "success",
+            type: "gallery",
+          };
+        }
+      }
+
+      error = data.text || data.error?.code || "Failed to extract video.";
+    } catch (e) {
+      console.error(`[${logLabel}] Instance ${instance.endpoint} failed:`, e);
+    }
+  }
+
+  // Translate gateway/connectivity failures into the friendly "temporarily unavailable"
+  // message regardless of whether we're using the configured instance or the public
+  // fallbacks — this also lets the client detect cold starts (e.g. a sleeping free-tier
+  // host) and show a countdown instead of a raw "502 Bad Gateway".
+  if (/api\.auth|v7 api has been shut down|502|503|504|fetch failed/i.test(error)) {
+    throw new ConvexError(unavailableMessage);
+  }
+
+  throw new ConvexError(error || failureMessage);
+}
+
 export const extractTikTokVideo = action({
   args: { url: v.string(), clientId: v.string() },
   handler: async (ctx, { url, clientId }) => {
@@ -156,107 +316,51 @@ export const extractTikTokVideo = action({
       throw new ConvexError("Please paste a valid TikTok video link.");
     }
 
-    const configuredCobaltUrl = process.env.COBALT_API_URL?.replace(/\/+$/, "");
-    const cobaltApiKey = process.env.COBALT_API_KEY;
-    const cobaltAuthScheme = process.env.COBALT_AUTH_SCHEME ?? "Api-Key";
+    return extractViaCobalt(trimmedUrl, {
+      logLabel: "extractTikTokVideo",
+      unavailableMessage: "TikTok downloader service is temporarily unavailable. The public extraction services are down or no longer support this API.",
+      failureMessage: "TikTok extraction failed. The link might be private, deleted, region-blocked, or unsupported by the downloader service.",
+    });
+  },
+});
 
-    const instances: Array<{
-      endpoint: string;
-      version: "current" | "legacy";
-      headers?: Record<string, string>;
-    }> = [];
+export const extractInstagramVideo = action({
+  args: { url: v.string(), clientId: v.string() },
+  handler: async (ctx, { url, clientId }) => {
+    const key = clientId.slice(0, 64);
+    const { ok } = await rateLimiter.limit(ctx, "toolGenerate", { key });
+    if (!ok) throw new ConvexError("Too many requests. Please wait a moment.");
 
-    if (configuredCobaltUrl) {
-      instances.push({
-        endpoint: configuredCobaltUrl,
-        version: "current",
-        headers: cobaltApiKey ? { Authorization: `${cobaltAuthScheme} ${cobaltApiKey}` } : undefined,
-      });
+    const trimmedUrl = url.trim();
+    if (!/^https?:\/\/(?:www\.)?instagram\.com\/(?:reel|reels|p|tv|stories)\//i.test(trimmedUrl)) {
+      throw new ConvexError("Please paste a valid Instagram Reel, post, or video link.");
     }
 
-    // Best-effort public fallbacks. These are not guaranteed and may rate-limit,
-    // go offline, or reject requests depending on the instance owner's policy.
-    instances.push(
-      { endpoint: "https://co.eepy.today/api/json", version: "legacy" },
-      { endpoint: "https://cobalt.hypert.xyz/api/json", version: "legacy" },
-    );
+    return extractViaCobalt(trimmedUrl, {
+      logLabel: "extractInstagramVideo",
+      unavailableMessage: "Instagram downloader service is temporarily unavailable. The public extraction services are down or no longer support this API.",
+      failureMessage: "Instagram extraction failed. The link might be private, deleted, or unsupported by the downloader service.",
+    });
+  },
+});
 
-    let error = "";
-    for (const instance of instances) {
-      try {
-        const isCurrentApi = instance.version === "current";
-        const res = await fetch(instance.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            ...instance.headers,
-          },
-          body: JSON.stringify(isCurrentApi
-            ? {
-              url: trimmedUrl,
-              videoQuality: "1080",
-              youtubeVideoCodec: "h264",
-              filenameStyle: "basic",
-            }
-            : {
-              url: trimmedUrl,
-              vQuality: "1080",
-              vCodec: "h264",
-              isNoWatermark: true,
-            }),
-        });
+export const extractFacebookVideo = action({
+  args: { url: v.string(), clientId: v.string() },
+  handler: async (ctx, { url, clientId }) => {
+    const key = clientId.slice(0, 64);
+    const { ok } = await rateLimiter.limit(ctx, "toolGenerate", { key });
+    if (!ok) throw new ConvexError("Too many requests. Please wait a moment.");
 
-        const data = await res.json() as {
-          status?: string;
-          url?: string;
-          text?: string;
-          error?: { code?: string };
-          picker?: { url: string; type: string }[];
-        };
-
-        if (!res.ok) {
-          error = data.text || data.error?.code || `${res.status} ${res.statusText}`;
-          console.error(`[extractTikTokVideo] Instance ${instance.endpoint} failed:`, error);
-          continue;
-        }
-
-        if ((data.status === "stream" || data.status === "tunnel" || data.status === "redirect") && data.url) {
-          return {
-            url: data.url,
-            status: "success",
-          };
-        }
-
-        if (data.status === "picker" && data.picker?.length) {
-          const videos = data.picker.filter((p) => p.type === "video").map((p) => p.url);
-          const photos = data.picker.filter((p) => p.type === "photo").map((p) => p.url);
-          if (videos[0]) {
-            return {
-              url: videos[0],
-              status: "success",
-            };
-          }
-          if (photos.length) {
-            return {
-              images: photos,
-              status: "success",
-              type: "gallery",
-            };
-          }
-        }
-
-        error = data.text || data.error?.code || "Failed to extract video.";
-      } catch (e) {
-        console.error(`[extractTikTokVideo] Instance ${instance.endpoint} failed:`, e);
-      }
+    const trimmedUrl = url.trim();
+    if (!/^https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.watch)\//i.test(trimmedUrl)) {
+      throw new ConvexError("Please paste a valid Facebook video, Reel, or Watch link.");
     }
 
-    if (!configuredCobaltUrl && /api\.auth|v7 api has been shut down|502|fetch failed/i.test(error)) {
-      throw new ConvexError("TikTok downloader service is temporarily unavailable. The public extraction services are down or no longer support this API.");
-    }
-
-    throw new ConvexError(error || "TikTok extraction failed. The link might be private, deleted, region-blocked, or unsupported by the downloader service.");
+    return extractViaCobalt(trimmedUrl, {
+      logLabel: "extractFacebookVideo",
+      unavailableMessage: "Facebook downloader service is temporarily unavailable. The public extraction services are down or no longer support this API.",
+      failureMessage: "Facebook extraction failed. The link might be private, deleted, or unsupported by the downloader service.",
+    });
   },
 });
 

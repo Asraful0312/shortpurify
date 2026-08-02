@@ -1,4 +1,4 @@
-import { Calculator, Clock, Hash } from "lucide-react";
+import { Calculator, Captions, Clock, Film, Hash, Scissors } from "lucide-react";
 import Image from "next/image";
 
 export const TOOLS = [
@@ -64,6 +64,49 @@ export const TOOLS = [
     title: "Hashtag Generator",
     description: "Generate the best hashtags for Instagram, TikTok, and YouTube Shorts. AI-powered, platform-specific hashtag sets in seconds.",
     cta: "Generate hashtags",
+  },
+  /* Hidden pending AdSense review — downloader tools can trigger rejection.
+     Uncomment once the application is approved or rejected.
+  {
+    category: "Instagram",
+    href: "/tools/instagram-video-downloader",
+    icon: <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
+    badge: "Instagram",
+    badgeColor: "bg-pink-50 text-pink-600 border-pink-100",
+    title: "Instagram Video Download Helper",
+    description: "Try a free best-effort Instagram download helper, with clear fallback steps when public extraction services are unavailable.",
+    cta: "Try helper",
+  },
+  */
+  {
+    category: "Instagram",
+    href: "/tools/instagram-bio-generator",
+    icon: <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
+    badge: "Instagram",
+    badgeColor: "bg-pink-50 text-pink-600 border-pink-100",
+    title: "Instagram Bio Generator",
+    description: "Generate 5 ready-to-use Instagram bio options aesthetic, funny, professional, minimal, and bold in seconds.",
+    cta: "Generate bios",
+  },
+  {
+    category: "Instagram",
+    href: "/tools/instagram-story-size-calculator",
+    icon: <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
+    badge: "Instagram",
+    badgeColor: "bg-pink-50 text-pink-600 border-pink-100",
+    title: "Instagram Story Size Calculator",
+    description: "Check Story dimensions, 9:16 aspect ratio, 1080x1920 export size, and safe zones before posting.",
+    cta: "Calculate size",
+  },
+  {
+    category: "Instagram",
+    href: "/tools/instagram-story-idea-generator",
+    icon: <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
+    badge: "Instagram",
+    badgeColor: "bg-pink-50 text-pink-600 border-pink-100",
+    title: "Instagram Story Idea Generator",
+    description: "Generate 8 engaging Story ideas with poll, quiz, and sticker suggestions tailored to your niche.",
+    cta: "Generate ideas",
   },
   {
     category: "Instagram",
@@ -225,6 +268,51 @@ export const TOOLS = [
     description: "Find the peak activity hours for your TikTok audience in 2025. Optimized for your specific timezone.",
     cta: "Find best times",
   },
+  /* Hidden pending AdSense review — downloader tools can trigger rejection.
+     Uncomment once the application is approved or rejected.
+  {
+    category: "Facebook",
+    href: "/tools/facebook-video-downloader",
+    icon: <Image src="/icons/facebook.png" alt="Facebook" width={22} height={22} className="object-contain" />,
+    badge: "Facebook",
+    badgeColor: "bg-blue-50 text-blue-600 border-blue-100",
+    title: "Facebook Video Download Helper",
+    description: "Try a free best-effort Facebook download helper, with clear fallback steps when public extraction services are unavailable.",
+    cta: "Try helper",
+  },
+  */
+  {
+    category: "All Platforms",
+    href: "/tools/video-subtitle-generator",
+    icon: <Captions size={22} className="text-slate-500" />,
+    badge: "All Platforms",
+    badgeColor: "bg-slate-50 text-slate-600 border-slate-200",
+    title: "Video Subtitle Generator",
+    description: "Get accurate AI captions for your video in seconds. Free SRT and VTT download for clips up to 2 minutes.",
+    cta: "Generate subtitles",
+  },
+  {
+    category: "All Platforms",
+    href: "/tools/video-trimmer",
+    icon: <Scissors size={22} className="text-slate-500" />,
+    badge: "All Platforms",
+    badgeColor: "bg-slate-50 text-slate-600 border-slate-200",
+    title: "Video Trimmer",
+    description: "Cut a video to the exact clip you need, right in your browser. No upload, no watermark, no sign-up.",
+    cta: "Trim video",
+  },
+  {
+    category: "All Platforms",
+    href: "/tools/video-to-gif-converter",
+    icon: <Film size={22} className="text-slate-500" />,
+    badge: "All Platforms",
+    badgeColor: "bg-slate-50 text-slate-600 border-slate-200",
+    title: "Video to GIF Converter",
+    description: "Turn any video clip into a shareable GIF, right in your browser. No upload, no watermark, no sign-up.",
+    cta: "Convert to GIF",
+  },
+  /* Hidden pending AdSense review — downloader tools can trigger rejection.
+     Uncomment once the application is approved or rejected.
   {
     category: "TikTok",
     href: "/tools/tiktok-video-downloader",
@@ -235,6 +323,7 @@ export const TOOLS = [
     description: "Try a free best-effort TikTok download helper, with clear fallback steps when public extraction services are unavailable.",
     cta: "Try helper",
   },
+  */
 ];
 
 export const TOOL_CATEGORIES = [
@@ -252,6 +341,11 @@ export const TOOL_CATEGORIES = [
     name: "YouTube",
     title: "YouTube Tools",
     description: "Shorts titles, scripts, thumbnails, duration planning, and monetization checks.",
+  },
+  {
+    name: "Facebook",
+    title: "Facebook Tools",
+    description: "Download helper for Facebook videos, Reels, and Watch posts.",
   },
   {
     name: "All Platforms",

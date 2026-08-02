@@ -6,7 +6,6 @@ import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import ToolsBreadcrumb from "@/components/tools-breadcrumb";
 import ToolsCta from "@/components/tools-cta";
-import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import { getToolError } from "@/lib/getToolError";
@@ -21,14 +20,14 @@ function getClientId() {
   return id;
 }
 
-export default function TikTokVideoDownloader() {
+export default function FacebookVideoDownloadHelper() {
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{ url?: string; images?: string[]; type?: string } | null>(null);
   const [error, setError] = useState("");
   const [downloadingIndex, setDownloadingIndex] = useState<number | "main" | null>(null);
 
-  const extractVideo = useAction(api.toolsActions.extractTikTokVideo);
+  const extractVideo = useAction(api.toolsActions.extractFacebookVideo);
   const preview = useVideoPreview(result?.type !== "gallery" ? result?.url : undefined);
 
   const runExtract = async () => {
@@ -76,18 +75,18 @@ export default function TikTokVideoDownloader() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-14">
-        <ToolsBreadcrumb toolName="TikTok Video Downloader" toolHref="/tools/tiktok-video-downloader" />
+        <ToolsBreadcrumb toolName="Facebook Video Download Helper" toolHref="/tools/facebook-video-downloader" />
 
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-pink-50 text-pink-600 border border-pink-100 px-3 py-1 rounded-full text-xs font-semibold mb-4">
-             <Image src="/icons/tik-tok.png" alt="TikTok" width={14} height={14} className="object-contain" /> Free Tool
+          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-100 px-3 py-1 rounded-full text-xs font-semibold mb-4">
+             <Image src="/icons/facebook.png" alt="Facebook" width={14} height={14} className="object-contain" /> Free Tool
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight mb-3 italic">
-            TikTok Video Download Helper
+            Facebook Video Download Helper
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Paste a public TikTok link and we&apos;ll try to fetch a downloadable file. This free helper depends on public extraction services, so some links may fail.
+            Paste a public Facebook video, Reel, or Watch link and we&apos;ll try to fetch a downloadable file. This free helper depends on public extraction services, so some links may fail.
           </p>
         </div>
 
@@ -98,14 +97,14 @@ export default function TikTokVideoDownloader() {
           <form onSubmit={handleExtract} className="relative flex flex-col gap-6">
             <div className="space-y-4">
               <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                <LinkIcon size={16} className="text-primary" /> Paste TikTok Link
+                <LinkIcon size={16} className="text-primary" /> Paste Facebook Link
               </label>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://www.tiktok.com/@user/video/..."
+                  placeholder="https://www.facebook.com/watch/?v=..."
                   className="flex-1 bg-secondary/30 border border-border rounded-2xl px-6 py-4 font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
                 <button
@@ -159,12 +158,12 @@ export default function TikTokVideoDownloader() {
 
                   <div className="space-y-2">
                     <h3 className="text-xl font-black">Download link found</h3>
-                    <p className="text-sm text-muted-foreground">A public extraction service returned a downloadable file for this TikTok link.</p>
+                    <p className="text-sm text-muted-foreground">A public extraction service returned a downloadable file for this Facebook link.</p>
                   </div>
 
                   {result.url && (
                     <button
-                      onClick={() => void handleDownload(result.url!, "tiktok-video.mp4", "main")}
+                      onClick={() => void handleDownload(result.url!, "facebook-video.mp4", "main")}
                       disabled={downloadingIndex === "main"}
                       className="w-full sm:w-auto bg-emerald-600 text-white px-10 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-60"
                     >
@@ -178,7 +177,7 @@ export default function TikTokVideoDownloader() {
                       {result.images.map((img, idx) => (
                         <button
                           key={idx}
-                          onClick={() => void handleDownload(img, `tiktok-image-${idx + 1}.jpg`, idx)}
+                          onClick={() => void handleDownload(img, `facebook-image-${idx + 1}.jpg`, idx)}
                           disabled={downloadingIndex === idx}
                           className="relative group overflow-hidden rounded-xl bg-white border border-border aspect-square"
                         >
@@ -199,7 +198,7 @@ export default function TikTokVideoDownloader() {
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-8 mb-16">
           <div className="bg-white border border-border rounded-3xl p-8 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-pink-50 flex items-center justify-center text-pink-600 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 mb-6">
               <CheckCircle2 size={24} />
             </div>
             <h3 className="font-extrabold text-lg mb-3">Best-Effort Download</h3>
@@ -213,7 +212,7 @@ export default function TikTokVideoDownloader() {
             </div>
             <h3 className="font-extrabold text-lg mb-3">Public Links Only</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Private, deleted, region-blocked, age-restricted, or unsupported videos may not work with any free downloader.
+              Private, deleted, or unsupported videos and Reels may not work with any free downloader.
             </p>
           </div>
           <div className="bg-white border border-border rounded-3xl p-8 shadow-sm">
@@ -222,7 +221,7 @@ export default function TikTokVideoDownloader() {
             </div>
             <h3 className="font-extrabold text-lg mb-3">Free With Limits</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              No account required, but free extraction can be unstable. For saving your own videos, TikTok&apos;s built-in save/share options are the safest fallback.
+              No account required, but free extraction can be unstable. For saving your own videos, Facebook&apos;s built-in save/share options are the safest fallback.
             </p>
           </div>
         </div>

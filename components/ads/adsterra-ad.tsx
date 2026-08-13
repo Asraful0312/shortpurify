@@ -112,6 +112,9 @@ export function AdsterraNativeBanner({ className = "" }: { className?: string })
 
     wrapper.innerHTML = "";
 
+    // Deliberately using the fixed zone id here, not the computed `containerId` —
+    // Adsterra's invoke.js for this format looks up this exact id, so it only
+    // supports a single instance of this specific native banner per page.
     const adContainer = document.createElement("div");
     adContainer.id = "container-d250d160b6a8857af036f17eda7ba756";
 
@@ -134,6 +137,22 @@ export function AdsterraNativeBanner({ className = "" }: { className?: string })
         <div ref={ref} />
       </div>
     </aside>
+  );
+}
+
+/** Fixed side-rail ads for wide desktop viewports — sits in the otherwise-empty
+ * margins beside the centered page content. Hidden below 2xl (1536px) since
+ * narrower viewports don't have room without overlapping content. */
+export function AdsterraSideRailAds() {
+  return (
+    <>
+      <div className="hidden 2xl:block fixed left-4 top-32 z-10">
+        <AdsterraRectangleAd />
+      </div>
+      <div className="hidden 2xl:block fixed right-4 top-32 z-10">
+        <AdsterraRectangleAd />
+      </div>
+    </>
   );
 }
 

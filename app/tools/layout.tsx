@@ -1,6 +1,10 @@
 import Footer from '@/components/shared/footer';
 import ToolsNavBar from '@/components/tools-nav-bar'
-import { AdsterraToolsBottomAd } from '@/components/ads/adsterra-ad';
+import { AdsterraToolsBottomAd, AdsterraSideRailAds } from '@/components/ads/adsterra-ad';
+// Switched back to Adsterra — Monetag's push/vignette/direct-link formats served
+// deceptive-looking creatives. Kept dormant, not deleted, in case it's worth
+// revisiting later.
+// import { MonetagInPagePush, MonetagVignetteBanner, MonetagPushNotification } from '@/components/ads/monetag-ad';
 import { TOOLS } from '@/lib/tools';
 import { Metadata } from 'next';
 import { ReactNode } from 'react'
@@ -22,6 +26,7 @@ const layout = ({ children }: { children: ReactNode }) => {
   return (
     <div>
         <ToolsNavBar/>
+        <AdsterraSideRailAds />
         {children}
 
          {/* Schema for tools index */}
@@ -44,6 +49,9 @@ const layout = ({ children }: { children: ReactNode }) => {
         />
 
         <AdsterraToolsBottomAd />
+        {/* <MonetagInPagePush /> */}
+        {/* <MonetagVignetteBanner /> */}
+        {/* <MonetagPushNotification /> */}
 
         <Footer/>
     </div>

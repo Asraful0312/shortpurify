@@ -3,6 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ClipPlayer from "./ClipPlayer";
+import { AdsterraResponsiveBanner } from "@/components/ads/adsterra-ad";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> | { id: string } }): Promise<Metadata> {
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -79,6 +80,7 @@ export default async function ClipPage({ params }: { params: Promise<{ id: strin
           <p className="text-zinc-400 text-sm">{data.content}</p>
         </div>
       </div>
+      <AdsterraResponsiveBanner className="mt-6 max-w-md w-full" />
     </div>
   );
 }

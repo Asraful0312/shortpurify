@@ -65,8 +65,6 @@ export const TOOLS = [
     description: "Generate the best hashtags for Instagram, TikTok, and YouTube Shorts. AI-powered, platform-specific hashtag sets in seconds.",
     cta: "Generate hashtags",
   },
-  /* Hidden pending AdSense review — downloader tools can trigger rejection.
-     Uncomment once the application is approved or rejected.
   {
     category: "Instagram",
     href: "/tools/instagram-video-downloader",
@@ -77,7 +75,6 @@ export const TOOLS = [
     description: "Try a free best-effort Instagram download helper, with clear fallback steps when public extraction services are unavailable.",
     cta: "Try helper",
   },
-  */
   {
     category: "Instagram",
     href: "/tools/instagram-bio-generator",
@@ -268,8 +265,6 @@ export const TOOLS = [
     description: "Find the peak activity hours for your TikTok audience in 2025. Optimized for your specific timezone.",
     cta: "Find best times",
   },
-  /* Hidden pending AdSense review — downloader tools can trigger rejection.
-     Uncomment once the application is approved or rejected.
   {
     category: "Facebook",
     href: "/tools/facebook-video-downloader",
@@ -280,7 +275,6 @@ export const TOOLS = [
     description: "Try a free best-effort Facebook download helper, with clear fallback steps when public extraction services are unavailable.",
     cta: "Try helper",
   },
-  */
   {
     category: "All Platforms",
     href: "/tools/video-subtitle-generator",
@@ -311,8 +305,6 @@ export const TOOLS = [
     description: "Turn any video clip into a shareable GIF, right in your browser. No upload, no watermark, no sign-up.",
     cta: "Convert to GIF",
   },
-  /* Hidden pending AdSense review — downloader tools can trigger rejection.
-     Uncomment once the application is approved or rejected.
   {
     category: "TikTok",
     href: "/tools/tiktok-video-downloader",
@@ -323,7 +315,6 @@ export const TOOLS = [
     description: "Try a free best-effort TikTok download helper, with clear fallback steps when public extraction services are unavailable.",
     cta: "Try helper",
   },
-  */
 ];
 
 export const TOOL_CATEGORIES = [

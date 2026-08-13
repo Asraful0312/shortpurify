@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 // Hidden pending AdSense review — downloader tools can trigger rejection.
 // Flip this back to true (and remove the notFound() guard below) once the
 // application is approved or rejected. Backend actions are untouched.
-const TOOL_LIVE = false;
+const TOOL_LIVE = true;
 
 export const metadata: Metadata = {
   ...(TOOL_LIVE ? {} : { robots: { index: false, follow: false } }),

@@ -3,7 +3,11 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import ClipPlayer from "./ClipPlayer";
-import { AdsterraResponsiveBanner } from "@/components/ads/adsterra-ad";
+import { AdsterraResponsiveBanner, AdsterraRectangleAd } from "@/components/ads/adsterra-ad";
+// Switched back to Adsterra — Monetag's push/vignette/direct-link formats served
+// deceptive-looking creatives. Kept dormant, not deleted, in case it's worth
+// revisiting later.
+// import { MonetagInPagePush, MonetagVignetteBanner, MonetagPushNotification, MonetagDirectLinkAd } from "@/components/ads/monetag-ad";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> | { id: string } }): Promise<Metadata> {
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -81,6 +85,7 @@ export default async function ClipPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
       <AdsterraResponsiveBanner className="mt-6 max-w-md w-full" />
+      <AdsterraRectangleAd className="mt-4" />
     </div>
   );
 }

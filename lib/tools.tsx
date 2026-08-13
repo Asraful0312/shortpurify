@@ -167,6 +167,16 @@ export const TOOLS = [
   },
   {
     category: "Instagram",
+    href: "/tools/instagram-audio-finder",
+    icon:  <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
+    badge: "Instagram",
+    badgeColor: "bg-pink-50 text-pink-600 border-pink-100",
+    title: "Instagram Audio Finder",
+    description: "Find the name of any song or sound used in an Instagram Reel with step-by-step methods for every situation.",
+    cta: "Find the audio",
+  },
+  {
+    category: "Instagram",
     href: "/tools/instagram-trending-songs-finder",
     icon:  <Image src="/icons/instagram.png" alt="Instagram" width={22} height={22} className="object-contain" />,
     badge: "Instagram",

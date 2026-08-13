@@ -207,6 +207,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: "https://shortpurify.com/tools/instagram-audio-finder",
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
       url: "https://shortpurify.com/tools/instagram-trending-songs-finder",
       lastModified: new Date(),
       changeFrequency: "weekly",

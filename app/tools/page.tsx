@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight } from "lucide-react";
 import { TOOL_CATEGORIES, TOOLS } from "@/lib/tools";
 import ToolsCta from "@/components/tools-cta";
-import { AdsterraNativeBanner } from "@/components/ads/adsterra-ad";
+import { AdsterraNativeBanner, AdsterraRectangleAd } from "@/components/ads/adsterra-ad";
 
 export const metadata: Metadata = {
   title: "Free Video Creator Tools",
@@ -86,9 +86,12 @@ export default function ToolsPage() {
                       </div>
                     </Link>
                   ))}
+                  <div className="bg-white border border-border rounded-3xl p-4 shadow-sm flex items-center justify-center">
+                    <AdsterraRectangleAd />
+                  </div>
                 </div>
               </section>
-              {index === 0 && <AdsterraNativeBanner />}
+              {index === 0 ? <AdsterraNativeBanner /> : <AdsterraRectangleAd />}
             </div>
           ))}
         </div>

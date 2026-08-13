@@ -4,7 +4,11 @@ import { ArrowRight, PlayCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react';
 import VideoModal from './VideoModal';
-import { AdsterraResponsiveBanner } from './ads/adsterra-ad';
+import { AdsterraResponsiveBanner, AdsterraRectangleAd } from './ads/adsterra-ad';
+// Switched back to Adsterra — Monetag's push/vignette/direct-link formats served
+// deceptive-looking creatives. Kept dormant, not deleted, in case it's worth
+// revisiting later.
+// import { MonetagDirectLinkAd } from './ads/monetag-ad';
 
 
 
@@ -28,7 +32,8 @@ const ToolsCta = ({headerText, subText}: {headerText: string, subText: string}) 
   
   return (
     <>
-     <AdsterraResponsiveBanner className="my-10" />
+     <AdsterraResponsiveBanner className="mt-10 mb-6" />
+     <AdsterraRectangleAd className="mb-10" />
 
      <div className="bg-primary rounded-3xl p-8 text-primary-foreground text-center">
           <h2 className="text-2xl font-extrabold mb-2">{headerText}</h2>

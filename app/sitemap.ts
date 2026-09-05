@@ -87,6 +87,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
+      url: "https://shortpurify.com/tools/youtube-keyword-tool",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: "https://shortpurify.com/tools/video-aspect-ratio-calculator",
       lastModified: new Date(),
       changeFrequency: "monthly",
@@ -97,6 +103,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/tiktok-analytics-tool",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       url: "https://shortpurify.com/tools/tiktok-caption-character-counter",
@@ -118,6 +130,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: "https://shortpurify.com/tools/facebook-video-downloader",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/facebook-branded-content-tool",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/facebook-lead-testing-tool",
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
@@ -223,6 +247,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-follower-export-tool",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: "https://shortpurify.com/tools/instagram-automation-tool",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
     },
     {
       url: "https://shortpurify.com/tools/instagram-trial-reels-guide",

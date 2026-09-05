@@ -148,6 +148,28 @@ Rules:
 - Each idea must be specific to the topic, not generic
 - Keep each line under 160 characters
 - Return ONLY the 8 numbered lines, nothing else`,
+
+  "youtube-keyword": (topic: string) =>
+    `You are a YouTube SEO strategist. Generate keyword research for a video about: "${topic}"
+
+Return this exact format:
+PRIMARY_KEYWORD:
+[the single best keyword phrase to target in the title, one line]
+
+TAGS:
+[15-20 comma-separated YouTube video tags, mixing broad and specific terms]
+
+SEARCH_QUERIES:
+[8-10 long-tail search phrases real viewers would type into YouTube search, one per line, no numbering]
+
+DESCRIPTION_KEYWORDS:
+[6-8 supporting keywords to naturally include in the video description, comma-separated]
+
+Rules:
+- Every keyword and phrase must be genuinely relevant to the topic, not generic filler
+- Favor phrases with realistic search intent over vague single words
+- Do not repeat the exact same phrase across sections
+- Return ONLY the formatted output above, nothing else`,
 };
 
 export const generateToolContent = action({
